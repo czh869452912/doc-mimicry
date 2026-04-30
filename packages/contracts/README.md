@@ -2,6 +2,10 @@
 
 Shared schemas and types for UI, API, tools, and agent adapters.
 
+Current minimal schema source:
+
+- `schemas.md`
+
 Expected contracts:
 
 - Task.
