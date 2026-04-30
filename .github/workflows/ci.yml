@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  repository-structure:
+    name: Repository structure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check required project docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f AGENTS.md
+          test -f README.md
+          test -f ARCHITECTURE.md
+          test -f PLANS.md
+          test -f docs/index.md
+          test -f docs/product/vision.md
+          test -f docs/product/ui-surfaces.md
+          test -f docs/architecture/workspace-contract.md
+          test -f docs/architecture/markdown-pipeline.md
+          test -f docs/decisions/index.md
+
+      - name: Check agent-friendly repo layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d apps/web
+          test -d services/api
+          test -d packages/contracts
+          test -d packages/workspace
+          test -d packages/doctypes
+          test -d packages/timeline
+          test -d agent/system-prompts
+          test -d tools/import
+          test -d tools/workspace
+          test -d docs/exec-plans/active
+          test -d docs/exec-plans/completed
+
+      - name: Check PRD seed pack layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f doc-types/prd/SKILL.md
+          test -d doc-types/prd/examples/original
+          test -d doc-types/prd/examples/markdown
+          test -d doc-types/prd/examples/assets
+          test -d doc-types/prd/examples/reports
+          test -d doc-types/prd/specs/original
+          test -d doc-types/prd/specs/markdown
+          test -d doc-types/prd/specs/assets
+          test -d doc-types/prd/specs/reports
+          test -f doc-types/prd/checklists/quality.yaml
+
