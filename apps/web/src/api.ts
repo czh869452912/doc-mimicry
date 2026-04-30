@@ -1,4 +1,13 @@
-import type { DocTypeSummary, SessionRecord, TaskRecord, TimelineEvent } from "./types";
+import type {
+  DocTypeSummary,
+  ImportedInput,
+  LoopActionResult,
+  SessionRecord,
+  TaskRecord,
+  TimelineEvent,
+  WorkspaceFileContent,
+  WorkspaceTree,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
@@ -16,13 +25,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   listDocTypes: () => request<DocTypeSummary[]>("/doc-types"),
   getDocType: (id: string) => request<DocTypeSummary>(`/doc-types/${id}`),
+  listTasks: () => request<TaskRecord[]>("/tasks"),
   createTask: (doc_type_id: string, brief: string) =>
     request<TaskRecord>("/tasks", {
       method: "POST",
       body: JSON.stringify({ doc_type_id, brief }),
     }),
+  listTaskSessions: (taskId: string) => request<SessionRecord[]>(`/tasks/${taskId}/sessions`),
   createSession: (taskId: string) =>
     request<SessionRecord>(`/tasks/${taskId}/sessions`, { method: "POST" }),
+  getWorkspace: (taskId: string) => request<WorkspaceTree>(`/tasks/${taskId}/workspace`),
+  getWorkspaceFile: (taskId: string, path: string) =>
+    request<WorkspaceFileContent>(`/tasks/${taskId}/workspace/files?path=${encodeURIComponent(path)}`),
+  importTextInput: (taskId: string, name: string, content: string) =>
+    request<ImportedInput>(`/tasks/${taskId}/inputs/text`, {
+      method: "POST",
+      body: JSON.stringify({ name, content }),
+    }),
+  startLoop: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/loop/start`, { method: "POST" }),
+  approveOutline: (sessionId: string, outline_markdown: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/outline/approve`, {
+      method: "POST",
+      body: JSON.stringify({ outline_markdown }),
+    }),
+  reviseSelection: (sessionId: string, selected_text: string, instruction: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/revision/selection`, {
+      method: "POST",
+      body: JSON.stringify({ selected_text, instruction }),
+    }),
+  runChecklist: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/checklist/run`, { method: "POST" }),
+  exportMarkdown: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown`, { method: "POST" }),
   sendMessage: (sessionId: string, message: string) =>
     request<{ event_count: number }>(`/sessions/${sessionId}/messages`, {
       method: "POST",
