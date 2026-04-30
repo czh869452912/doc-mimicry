@@ -21,3 +21,9 @@ Does not own:
 ## Format Boundary
 
 The API should expose converted Markdown resources to the agent runtime. Original binary files are retained for audit and re-conversion, but should not be the normal agent input.
+
+## Phase 1 Local Run
+
+```powershell
+uvicorn docagent_api.app:app --reload --app-dir services/api
+```
