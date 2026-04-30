@@ -2,16 +2,23 @@
 name = "docagent-workbench"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = [
   "packages/contracts",
   "packages/workspace",
   "packages/timeline",
-  "tools/import"
+  "tools/import",
+  "services/api",
+  "agent/runtime-adapters/mock"
 ]
 testpaths = [
   "packages",
-  "tools"
+  "tools",
+  "services/api/tests",
+  "agent/runtime-adapters/mock/tests"
 ]
