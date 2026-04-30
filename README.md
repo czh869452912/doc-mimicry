@@ -21,6 +21,16 @@ The project goal is a general document coding-agent experience, not a fixed work
 | `doc-types/` | Seed document type packs, starting with PRD. |
 | `tests/` | Cross-cutting tests once implementation begins. |
 
+## Local Startup
+
+On Windows, start the Phase 1 API and web app together with:
+
+```powershell
+.\start-dev.cmd
+```
+
+The script starts FastAPI on `http://127.0.0.1:8000`, Vite on `http://127.0.0.1:5173`, and writes logs under `.local/dev/`.
+
 ## Phase 0 Focus
 
 Phase 0 validates the document-version Claude Code loop:
