@@ -22,3 +22,12 @@ Does not own:
 
 - Management: document type resources, converted Markdown, `SKILL.md`, checklists, publish/version.
 - Authoring: three-column document type/project/session workspace, timeline, Markdown preview/editor, export.
+
+## Phase 1 Local Run
+
+```powershell
+npm install
+npm run dev
+```
+
+The app expects the API at `http://127.0.0.1:8000` unless `VITE_API_BASE` is set.
