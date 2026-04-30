@@ -33,6 +33,12 @@ button {
   border-radius: 6px;
 }
 
+button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 button.active,
 button:hover {
   color: #1b4f92;
@@ -105,6 +111,25 @@ h3 {
   text-transform: uppercase;
 }
 
+.stack {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.row h1,
+.row h3 {
+  margin-right: auto;
+  margin-bottom: 0;
+}
+
 .rail,
 .timeline,
 .preview {
@@ -114,10 +139,16 @@ h3 {
 }
 
 textarea,
+input,
 select {
   width: 100%;
   border: 1px solid #c9ced6;
   border-radius: 6px;
+}
+
+input {
+  min-height: 34px;
+  padding: 6px 10px;
 }
 
 textarea {
@@ -134,6 +165,14 @@ select {
 .preview textarea {
   min-height: 240px;
   font-family: "Cascadia Mono", Consolas, monospace;
+}
+
+.preview {
+  gap: 12px;
+}
+
+.preview header {
+  flex: 0 0 auto;
 }
 
 .timeline-list {
@@ -161,6 +200,68 @@ select {
   color: #6f7785;
 }
 
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-list button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.file-list small {
+  margin-left: auto;
+  color: #6f7785;
+}
+
+.workspace-files {
+  min-height: 90px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-line {
+  min-height: 22px;
+  margin-bottom: 0;
+  color: #4169a8;
+}
+
+.split-preview {
+  display: grid;
+  grid-template-rows: minmax(140px, 0.75fr) minmax(320px, 1.25fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.file-preview {
+  min-height: 140px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.draft-editor {
+  min-height: 180px;
+}
+
+.compact-textarea {
+  min-height: 100px;
+}
+
+.selected-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .composer,
 .preview header {
   display: flex;
@@ -170,10 +271,6 @@ select {
 
 .composer input {
   flex: 1;
-  min-height: 34px;
-  padding: 6px 10px;
-  border: 1px solid #c9ced6;
-  border-radius: 6px;
 }
 
 .resource-grid {
@@ -193,6 +290,7 @@ pre,
 
 .markdown-preview {
   flex: 1;
+  min-height: 140px;
   overflow: auto;
 }
 
