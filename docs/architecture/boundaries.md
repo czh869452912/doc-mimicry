@@ -6,6 +6,9 @@ The UI displays and controls work. It should not decide writing strategy.
 
 Owns:
 
+- Document type dashboards.
+- Resource upload and conversion review.
+- Skill Creator interaction surface.
 - Chat input and transcript.
 - Timeline rendering.
 - Draft preview and diff.
@@ -26,6 +29,7 @@ Owns:
 
 - Tasks.
 - Document type registration.
+- Uploaded resource storage and conversion orchestration.
 - Workspace initialization.
 - Session lifecycle.
 - Versions and artifacts.
@@ -37,6 +41,23 @@ Does not own:
 - Drafting decisions.
 - Per-document workflow logic.
 - Best-practice interpretation.
+
+## Import/Export Boundary
+
+Import/export code owns file format conversion.
+
+Owns:
+
+- Original uploaded files.
+- Markdown conversion outputs.
+- Conversion reports and warnings.
+- Markdown-to-DOCX/PDF export.
+
+Does not own:
+
+- Agent drafting strategy.
+- Document type workflow logic.
+- Hidden automatic rewriting of converted Markdown without user visibility.
 
 ## Agent Boundary
 
@@ -60,4 +81,3 @@ Does not own:
 ## Package Boundary
 
 Shared packages contain reusable schemas and helpers. They should not import from apps or services.
-

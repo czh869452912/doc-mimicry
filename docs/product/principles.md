@@ -16,6 +16,14 @@ Best-practice examples primarily teach structure, information density, narrative
 
 The workspace should hold durable context files that make long sessions recoverable and inspectable.
 
+## Markdown As The Internal Format
+
+All user inputs and document type resources should be converted to Markdown before agent use. DOCX, PDF, PPTX, images, and HTML exist at import/export boundaries, not inside the agent loop.
+
+## Separate Management From Authoring
+
+Document type management and live document authoring are different jobs. Use a dashboard-style management interface for skill pack construction, and a Claude Code/Codex-style authoring interface for task sessions.
+
 ## Product State Outside The Agent
 
 The backend owns versions, artifacts, audit, permissions, and semantic timeline enrichment. The agent owns reasoning, drafting, and revision.
@@ -23,4 +31,3 @@ The backend owns versions, artifacts, audit, permissions, and semantic timeline 
 ## Start Narrow
 
 Phase 0 should validate one document type and one core loop before adding RAG, multi-doc-type management, or high-fidelity export.
-

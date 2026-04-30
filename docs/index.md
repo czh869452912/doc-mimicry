@@ -7,6 +7,7 @@ This directory is the current project truth. The `reference/` directory contains
 - `product/vision.md`: product intent and positioning.
 - `product/principles.md`: design principles and anti-goals.
 - `product/phase-0-poc.md`: Phase 0 validation scope.
+- `product/ui-surfaces.md`: management and authoring interface design.
 
 ## Architecture
 
@@ -15,6 +16,7 @@ This directory is the current project truth. The `reference/` directory contains
 - `architecture/workspace-contract.md`: task workspace layout and required files.
 - `architecture/agent-runtime.md`: runtime requirements and adapter strategy.
 - `architecture/event-model.md`: event and semantic timeline model.
+- `architecture/markdown-pipeline.md`: Markdown-only internal format and import/export conversion strategy.
 
 ## Decisions
 
@@ -30,4 +32,3 @@ This directory is the current project truth. The `reference/` directory contains
 - `quality/testing.md`: test strategy.
 - `quality/validation.md`: manual and automated validation.
 - `quality/agent-readability.md`: rules for keeping the repo easy for agents to work in.
-

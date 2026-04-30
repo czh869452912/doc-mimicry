@@ -13,8 +13,10 @@ This is not a fixed workflow builder, template generator, or semantic RAG writin
 1. Read `README.md` for the repository map.
 2. Read `ARCHITECTURE.md` for system boundaries.
 3. Read `docs/product/vision.md` for product intent.
-4. Read `docs/architecture/workspace-contract.md` before touching agent workspace logic.
-5. Read `PLANS.md` before starting a multi-step change.
+4. Read `docs/product/ui-surfaces.md` before touching user-facing flows.
+5. Read `docs/architecture/workspace-contract.md` before touching agent workspace logic.
+6. Read `docs/architecture/markdown-pipeline.md` before touching import/export or document parsing.
+7. Read `PLANS.md` before starting a multi-step change.
 
 ## Working Rules
 
@@ -23,6 +25,8 @@ This is not a fixed workflow builder, template generator, or semantic RAG writin
 - Do not turn the product into a fixed DAG workflow or per-doc-type template system.
 - Keep RAG optional and secondary. Best-practice examples are mainly for structure, style, and organization.
 - Preserve the coding-agent feel: free conversation, user interrupts, iterative edits, context files, checkpoints, observable actions.
+- Keep Markdown as the only internal document format. Convert at import/export boundaries.
+- Keep management and authoring as separate UI surfaces.
 - Treat `reference/` as research/history and `docs/` as current project truth.
 
 ## Directory Boundaries
@@ -48,4 +52,3 @@ For documentation-only changes, run a quick structure check with:
 ```powershell
 Get-ChildItem -Recurse -File | Select-Object FullName
 ```
-

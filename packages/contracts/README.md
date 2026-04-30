@@ -12,4 +12,6 @@ Expected contracts:
 - Semantic timeline event.
 - Approval.
 - Artifact.
-
+- Imported resource.
+- Conversion report.
+- Markdown asset.

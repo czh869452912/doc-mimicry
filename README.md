@@ -41,5 +41,6 @@ Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or
 - `reference/spec_v0_1.md`: original broad platform vision.
 - `reference/spec_review_rapid_prototype_v3.md`: current rapid prototype direction.
 - `docs/product/vision.md`: curated current product intent.
+- `docs/product/ui-surfaces.md`: management and authoring UI design.
 - `docs/architecture/workspace-contract.md`: workspace contract every agent task must follow.
-
+- `docs/architecture/markdown-pipeline.md`: Markdown-only import/internal/export strategy.

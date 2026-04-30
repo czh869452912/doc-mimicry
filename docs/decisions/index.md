@@ -26,3 +26,5 @@ Each decision should include:
 ## Records
 
 - `2026-04-30-document-claude-code-not-workflow-rag.md`: product is document-version Claude Code, not workflow/RAG.
+- `2026-04-30-markdown-only-internal-format.md`: Markdown is the only internal document format.
+- `2026-04-30-two-ui-surfaces.md`: product has separate management and authoring interfaces.

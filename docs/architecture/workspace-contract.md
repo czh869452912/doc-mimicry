@@ -8,6 +8,10 @@ The workspace is the agent's durable working memory for one task.
 /workspace/{task_id}/
   brief.md
   inputs/
+    original/
+    markdown/
+    assets/
+    reports/
   context/
     user_intent.md
     doc_map.md
@@ -57,12 +61,22 @@ Document type assets are mounted read-only:
 /doc-types/{doc_type}/
   SKILL.md
   examples/
+    original/
+    markdown/
+    assets/
+    reports/
   specs/
+    original/
+    markdown/
+    assets/
+    reports/
   checklists/
   export-references/
 ```
 
 The agent may read these files but must not modify them.
+
+Agents should read converted Markdown resources, not original binary files. Original files are retained for audit and re-conversion.
 
 ## Writing Rules
 
@@ -71,4 +85,5 @@ The agent may read these files but must not modify them.
 - Checklist results go in `reviews/checklist_result.md`.
 - Exported files go in `artifacts/`.
 - Logs and agent notes go in `logs/`.
-
+- Converted uploaded inputs go in `inputs/markdown/`.
+- Conversion reports go in `inputs/reports/`.
