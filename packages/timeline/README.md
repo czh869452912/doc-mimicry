@@ -9,3 +9,9 @@ Examples:
 - run `checkpoint.py` -> create draft version
 - run `export_docx.py` -> export DOCX
 
+## Phase 0 Mapper
+
+`docagent_timeline.map_raw_event(...)` converts simple runtime signals into `SemanticTimelineEvent` objects.
+
+The mapper is intentionally path- and command-based for Phase 0. Runtime-specific payload handling belongs in the future runtime adapter.
+
