@@ -103,3 +103,12 @@ def test_draft_version_and_artifact_shape():
 
     assert version.version_path == "versions/v001.md"
     assert artifact.kind is ArtifactKind.DOCX
+
+
+def test_phase2_semantic_event_kinds_are_available() -> None:
+    assert SemanticEventKind.CONVERT_INPUT.value == "convert_input"
+    assert SemanticEventKind.BUILD_CONTEXT.value == "build_context"
+    assert SemanticEventKind.PROPOSE_OUTLINE.value == "propose_outline"
+    assert SemanticEventKind.APPROVE_OUTLINE.value == "approve_outline"
+    assert SemanticEventKind.REVISE_SELECTION.value == "revise_selection"
+    assert SemanticEventKind.EXPORT_MARKDOWN.value == "export_markdown"
