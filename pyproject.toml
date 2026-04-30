@@ -1,0 +1,17 @@
+[project]
+name = "docagent-workbench"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "packages/contracts",
+  "packages/workspace",
+  "packages/timeline",
+  "tools/import"
+]
+testpaths = [
+  "packages",
+  "tools"
+]
