@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.11, FastAPI, pytest, standard-library file-backed JSON state, React + Vite + TypeScript for the thin UI.
 
+**Execution readiness:** Phase 1 backend/runtime tests and frontend build pass locally.
+
 ---
 
 ## Files And Responsibilities

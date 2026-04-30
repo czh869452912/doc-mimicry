@@ -30,3 +30,21 @@ python -m pytest packages/contracts/tests packages/workspace/tests packages/time
 These tests cover contract models, workspace creation, workspace validation, checkpoints, Markdown import stubs, and semantic timeline mapping.
 
 GitHub Actions runs the same command in `.github/workflows/ci.yml` on push to `main` and pull requests.
+
+## Phase 1 Interactive Skeleton
+
+Run backend and runtime tests:
+
+```powershell
+& 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests -q
+```
+
+Run frontend checks:
+
+```powershell
+cd apps/web
+npm install
+npm run build
+```
+
+GitHub Actions runs the Python test command and a separate web build job.
