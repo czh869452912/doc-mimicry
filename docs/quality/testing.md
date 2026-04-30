@@ -18,3 +18,15 @@ Testing will be added as implementation begins.
 - Contract tests for API schemas.
 - Integration tests for workspace happy path.
 - Manual agent-loop smoke tests until runtime integration stabilizes.
+
+## Phase 0 Foundation
+
+Run foundation tests with:
+
+```powershell
+python -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests -q
+```
+
+These tests cover contract models, workspace creation, workspace validation, checkpoints, Markdown import stubs, and semantic timeline mapping.
+
+GitHub Actions runs the same command in `.github/workflows/ci.yml` on push to `main` and pull requests.
