@@ -48,3 +48,29 @@ npm run build
 ```
 
 GitHub Actions runs the Python test command and a separate web build job.
+
+## Phase 2 Authoring Loop
+
+Run backend/runtime tests:
+
+```powershell
+& 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests tests -q
+```
+
+Run frontend build:
+
+```powershell
+cd apps/web
+npm run build
+```
+
+Manual demo path:
+
+1. `.\start-dev.cmd`
+2. create a PRD task
+3. add text input
+4. start loop
+5. approve outline
+6. revise selected draft passage
+7. run checklist
+8. export Markdown artifact

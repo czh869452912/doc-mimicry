@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.11, FastAPI, pytest, local filesystem state, React + Vite + TypeScript.
 
+**Execution readiness:** Phase 2 automated tests and frontend build pass locally.
+
 ---
 
 ## Files And Responsibilities
