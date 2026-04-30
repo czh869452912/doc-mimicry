@@ -21,6 +21,16 @@ def test_reads_prd_doc_type_detail() -> None:
     assert "checklists" in detail["resource_groups"]
 
 
+def test_doc_type_detail_groups_markdown_and_reports() -> None:
+    detail = get_doc_type(Path("doc-types"), "prd")
+
+    assert detail is not None
+    assert "examples" in detail["resource_groups"]
+    assert "specs" in detail["resource_groups"]
+    assert "checklists" in detail["resource_groups"]
+    assert "export-references" in detail["resource_groups"]
+
+
 def test_draft_read_write_roundtrip(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
 

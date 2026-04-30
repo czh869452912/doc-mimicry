@@ -279,6 +279,20 @@ select {
   gap: 12px;
 }
 
+.resource-card {
+  min-width: 0;
+  padding: 10px;
+  background: #fbfcfd;
+  border: 1px solid #d8dde5;
+  border-radius: 6px;
+}
+
+.resource-path {
+  overflow-wrap: anywhere;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+}
+
 pre,
 .markdown-preview {
   padding: 12px;
