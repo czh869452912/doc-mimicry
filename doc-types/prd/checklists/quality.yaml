@@ -1,0 +1,24 @@
+id: prd_quality_v1
+name: PRD Quality Checklist
+items:
+  - id: goal_clear
+    label: Goals are clear
+    severity: critical
+    instruction: Check whether the document clearly states business goals, user goals, and success criteria.
+    pass_criteria: Goals must be specific and verifiable.
+  - id: non_goals_present
+    label: Non-goals are present
+    severity: high
+    instruction: Check whether the document says what is out of scope.
+    pass_criteria: The document should include explicit non-goals or scope boundaries.
+  - id: metrics_defined
+    label: Metrics are defined
+    severity: high
+    instruction: Check whether important metrics include definitions, measurement methods, and acceptance criteria.
+    pass_criteria: Metrics should be observable and testable.
+  - id: risks_listed
+    label: Risks and dependencies are listed
+    severity: medium
+    instruction: Check whether major risks and dependencies are identified.
+    pass_criteria: Risks should include mitigation or follow-up owner when possible.
+
