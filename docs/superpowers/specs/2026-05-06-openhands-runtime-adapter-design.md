@@ -59,13 +59,14 @@ OPENHANDS_MODEL=...
 The adapter interface should cover the product operations already exposed by Phase 2:
 
 ```text
-create_session(task_id, workspace_root, doc_type_id)
+create_session(task_id, workspace_root, doc_type_id, prompt_bundle)
 send_message(session_id, message)
 start_loop(session_id)
 approve_outline(session_id, outline_markdown)
 revise_selection(session_id, selected_text, instruction)
 run_checklist(session_id)
 export_markdown(session_id)
+cancel(session_id)
 get_state(session_id)
 ```
 
@@ -79,7 +80,60 @@ Each operation returns product-level results:
 
 OpenHands-specific request and response types must stay inside `agent/runtime-adapters/openhands/`.
 
-## Workspace And Prompt Strategy
+`send_message` is for free-form user turns only. The operation-specific methods are product control points that may internally send structured messages to OpenHands, but they stay separate in the interface so the backend can preserve explicit session states and HTTP endpoints.
+
+## Session State Machine
+
+The product backend owns DocAgent session state. Runtime-specific state can be stored as adapter metadata, but API consumers should see this stable state machine:
+
+```text
+idle
+  -> running_context
+  -> await_outline_approval
+  -> running_draft
+  -> draft_ready
+  -> running_revision
+  -> draft_ready
+  -> running_checklist
+  -> draft_ready
+  -> running_export
+  -> draft_ready
+```
+
+Terminal or interruption states:
+
+```text
+paused
+failed
+cancelled
+completed
+```
+
+Valid transitions:
+
+| Operation | Allowed From | Next State |
+|---|---|---|
+| `create_session` | task exists | `idle` |
+| `start_loop` | `idle`, `failed` after user retry | `running_context`, then `await_outline_approval` |
+| `approve_outline` | `await_outline_approval` | `running_draft`, then `draft_ready` |
+| `revise_selection` | `draft_ready` | `running_revision`, then `draft_ready` |
+| `run_checklist` | `draft_ready` | `running_checklist`, then `draft_ready` |
+| `export_markdown` | `draft_ready` | `running_export`, then `draft_ready` |
+| `send_message` | `idle`, `await_outline_approval`, `draft_ready`, `paused` | state depends on runtime result |
+| `cancel` | any `running_*` state | `cancelled` |
+| runtime recoverable pause | any `running_*` state | `paused` |
+| runtime fatal error | any non-terminal state | `failed` |
+
+Invalid operations should return stable API errors instead of being forwarded to OpenHands. Examples:
+
+- `approve_outline` before `start_loop`: `409 Conflict`
+- `revise_selection` before draft generation: `400 Bad Request`
+- `run_checklist` before `draft_ready`: `409 Conflict`
+- `cancel` after `completed` or `cancelled`: idempotent success with current state
+
+The implementation plan should add state-transition tests before wiring OpenHands.
+
+## Prompt Assembly And Workspace Strategy
 
 The OpenHands adapter must run against the task workspace created by the product backend.
 
@@ -117,7 +171,9 @@ The system prompt should combine:
 2. the selected doc type `SKILL.md`
 3. a short runtime instruction that explains the exact workspace paths and current task/session ids
 
-The adapter should avoid embedding document-type workflows in code. The prompt and doc type pack teach form; the runtime adapter supplies execution.
+Prompt assembly belongs to the product backend or a small backend helper, not to the OpenHands adapter. The adapter receives a `prompt_bundle` containing the assembled system prompt, task instruction, and path metadata. This keeps repository file layout knowledge in the product layer and keeps `OpenHandsRuntimeAdapter` focused on creating sessions, sending instructions, streaming events, and mapping runtime results.
+
+The adapter may validate that referenced paths exist, but it should not decide which project files constitute the prompt. The prompt and doc type pack teach form; the runtime adapter supplies execution.
 
 ## Timeline And Events
 
@@ -139,6 +195,44 @@ The product timeline stays semantic. OpenHands raw events should be stored or re
 - `error`
 
 The UI should continue to consume the same semantic event shape it consumes today. Raw event payloads are for debugging and audit, not normal UI coupling.
+
+Raw runtime events should be stored separately from the semantic timeline to avoid schema churn in the existing timeline JSON. Use a session-scoped raw event log such as:
+
+```text
+.local/docagent/raw-events/{session_id}.jsonl
+```
+
+Each line should be a raw event envelope:
+
+```json
+{
+  "id": "raw-...",
+  "session_id": "session-...",
+  "runtime": "openhands",
+  "runtime_session_id": "...",
+  "kind": "tool_call_started",
+  "payload": {},
+  "created_at": "2026-05-06T00:00:00Z"
+}
+```
+
+Semantic timeline events may reference `raw_event_id`, but should not embed the raw payload.
+
+## Streaming Protocol
+
+Phase 3 should not redesign the frontend around streaming. The first OpenHands integration should use backend-side event ingestion plus polling from the existing timeline endpoint:
+
+```text
+OpenHands stream
+  -> OpenHandsRuntimeAdapter consumes raw events
+  -> DocAgentState appends raw event JSONL
+  -> timeline mapper appends semantic events
+  -> UI polls GET /sessions/{session_id}/timeline and GET /sessions/{session_id}
+```
+
+This keeps frontend changes small and avoids committing to SSE or WebSocket semantics before the runtime event shape is proven. SSE or WebSocket can be added later as a UI performance upgrade without changing the adapter contract.
+
+Long-running operations should return after the product-visible phase completes or fails. The API should not hold connections forever. The implementation plan should include operation timeouts and state updates so a stuck OpenHands run becomes `failed` or `paused` with a semantic `error` event.
 
 ## Human-In-The-Loop Behavior
 
@@ -165,6 +259,15 @@ The OpenHands adapter should map runtime failures into stable product errors:
 
 Failures should create semantic `error` timeline events when they occur during a user-visible operation.
 
+Timeout and cancellation behavior:
+
+- every runtime operation should accept or use a configured timeout;
+- timeout during a running operation should cancel or pause the OpenHands run when the runtime supports it;
+- if cancellation succeeds, the product session becomes `cancelled`;
+- if timeout leaves the runtime recoverable, the product session becomes `paused`;
+- if timeout leaves the runtime unrecoverable, the product session becomes `failed`;
+- `cancel(session_id)` should be part of the adapter contract even if the first UI only uses it from tests or an internal recovery path.
+
 ## Testing Strategy
 
 Keep most tests runtime-agnostic and deterministic:
@@ -180,7 +283,17 @@ Add a manual or opt-in integration smoke test for real OpenHands:
 ```text
 DOCAGENT_RUNTIME=openhands
 OPENHANDS_BASE_URL=...
-run create task -> add input -> start loop -> approve outline -> revise -> checklist -> export
+POST /tasks
+POST /tasks/{task_id}/sessions
+POST /tasks/{task_id}/inputs/text
+POST /sessions/{session_id}/loop/start
+GET /tasks/{task_id}/workspace/files?path=draft/outline.md
+POST /sessions/{session_id}/outline/approve
+GET /tasks/{task_id}/draft
+POST /sessions/{session_id}/revision/selection
+POST /sessions/{session_id}/checklist/run
+POST /sessions/{session_id}/artifacts/export-markdown
+GET /sessions/{session_id}/timeline
 ```
 
 The real OpenHands test should assert workspace files, session states, event kinds, and artifact existence. It should not assert exact generated prose.
@@ -198,11 +311,14 @@ Phase 3 is complete when:
 7. Semantic timeline events remain stable for the UI.
 8. Runtime-specific payloads remain isolated under the OpenHands adapter package.
 9. Documentation explains local mock fallback and OpenHands setup.
+10. Raw OpenHands events are stored in a separate session-scoped raw event log.
+11. Session state transitions reject invalid operations before hitting OpenHands.
 
 ## Deferred Questions
 
 - Whether OpenHands should mount `doc-types/` read-only or receive a copied task-local snapshot.
-- Whether raw runtime events should be stored in existing timeline JSON or a separate raw event log.
 - Whether the first OpenHands integration should use local Agent Server only or also support remote server configuration immediately.
-- Whether `utc_now()` should move to a shared utility package before runtime adapter work expands.
 
+## Pre-Adapter Cleanup
+
+Move `utc_now()` into a shared utility module before adding OpenHands code. This avoids duplicating timestamp formatting in the product backend, workspace helpers, mock adapter, OpenHands adapter, and raw event storage.
