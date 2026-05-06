@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from docagent_contracts import (
     SemanticEventKind,
@@ -9,6 +11,10 @@ from docagent_contracts import (
     TimelineStatus,
 )
 from docagent_workspace import checkpoint_draft
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class MockRuntimeAdapter:
@@ -241,5 +247,5 @@ def _event(
         summary=summary,
         paths=paths,
         status=TimelineStatus.SUCCEEDED,
-        created_at="2026-04-30T00:00:00Z",
+        created_at=_utc_now(),
     )
