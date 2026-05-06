@@ -175,6 +175,8 @@ class MockRuntimeAdapter:
         instruction: str,
     ) -> list[SemanticTimelineEvent]:
         draft_path = workspace_root / "draft" / "draft.md"
+        if not draft_path.is_file():
+            raise FileNotFoundError("Cannot revise missing draft/draft.md")
         current = _read_text(draft_path)
         if selected_text not in current:
             raise ValueError("Selected text not found in draft")
