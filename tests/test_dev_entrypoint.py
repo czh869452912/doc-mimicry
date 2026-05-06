@@ -27,5 +27,10 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "agent\\runtime-adapters\\openhands" in dev_script
     assert "DOCAGENT_RUNTIME" in dev_script
     assert "OPENHANDS_BASE_URL" in dev_script
-    assert "OpenHands runtime requires" in dev_script
+    assert "docagent-openhands" in dev_script
+    assert "openhands.agent_server" in dev_script
+    assert "Import-LocalEnv" in dev_script
+    assert "LLM_API_KEY" in dev_script
+    assert "LLM_MODEL" in dev_script
+    assert "LLM_BASE_URL" in dev_script
     assert "--reload" not in dev_script

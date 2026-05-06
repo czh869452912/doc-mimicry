@@ -16,6 +16,7 @@ The startup script must:
 
 - start the FastAPI service from `services/api`;
 - start the Vite web app from `apps/web`;
+- start the OpenHands Agent Server when `-Runtime openhands` is selected and no server is already available;
 - keep API state, logs, and local runtime artifacts under `.local/`;
 - write startup logs under `.local/dev`;
 - install frontend dependencies with `npm ci` when `apps/web/node_modules` is missing;
@@ -37,10 +38,10 @@ The script must not:
 To start with the OpenHands adapter selected:
 
 ```powershell
-.\start-dev.cmd -Runtime openhands -OpenHandsBaseUrl http://127.0.0.1:8001
+.\start-dev.cmd -Runtime openhands
 ```
 
-The OpenHands Agent Server must already be installed and reachable. The script verifies the startup configuration and then passes `DOCAGENT_RUNTIME=openhands` and `OPENHANDS_BASE_URL` into the API process.
+The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional `OPENHANDS_BASE_URL` from the shell or `.env.local`. If `OPENHANDS_BASE_URL` is omitted, the script starts OpenHands Agent Server on `http://127.0.0.1:8001`.
 
 If the startup script fails, run the services separately:
 

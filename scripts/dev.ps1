@@ -2,6 +2,7 @@ param(
     [ValidateSet("mock", "openhands")]
     [string]$Runtime = $env:DOCAGENT_RUNTIME,
     [string]$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL,
+    [int]$OpenHandsPort = 8001,
     [switch]$NoBrowser
 )
 
@@ -13,6 +14,7 @@ $logRoot = Join-Path $repoRoot ".local\dev"
 $venvRoot = Join-Path $logRoot ".venv"
 $venvPython = Join-Path $venvRoot "Scripts\python.exe"
 $apiLog = Join-Path $logRoot "api.log"
+$openHandsLog = Join-Path $logRoot "openhands.log"
 $setupLog = Join-Path $logRoot "setup.log"
 $webLog = Join-Path $logRoot "web.log"
 
@@ -46,13 +48,51 @@ function Get-PythonCommand {
 }
 
 function Stop-DevJobs {
-    Get-Job -Name "docagent-api", "docagent-web" -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-Job -Name "docagent-api", "docagent-web", "docagent-openhands" -ErrorAction SilentlyContinue | ForEach-Object {
         Stop-Job $_ -ErrorAction SilentlyContinue
         Remove-Job $_ -Force -ErrorAction SilentlyContinue
     }
 }
 
+function Import-LocalEnv {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path $Path)) {
+        return
+    }
+    Get-Content $Path | ForEach-Object {
+        $line = $_.Trim()
+        if ($line.Length -eq 0 -or $line.StartsWith("#") -or -not $line.Contains("=")) {
+            return
+        }
+        $parts = $line.Split("=", 2)
+        $name = $parts[0].Trim()
+        $value = $parts[1].Trim().Trim('"').Trim("'")
+        if ($name -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, "Process"))) {
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+        }
+    }
+}
+
+function Test-HttpReady {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [int]$TimeoutSeconds = 30
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2 | Out-Null
+            return $true
+        }
+        catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+    return $false
+}
+
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+Import-LocalEnv (Join-Path $repoRoot ".env.local")
 
 if (-not (Test-Command "npm")) {
     throw "npm is required. Install Node.js 22+ before starting the dev stack."
@@ -63,9 +103,16 @@ if ([string]::IsNullOrWhiteSpace($Runtime)) {
     $Runtime = "mock"
 }
 
-if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
-    Write-Error "OpenHands runtime requires -OpenHandsBaseUrl or OPENHANDS_BASE_URL."
-    exit 1
+if ($Runtime -eq "openhands") {
+    if ([string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
+        $OpenHandsBaseUrl = "http://127.0.0.1:$OpenHandsPort"
+    }
+    foreach ($requiredName in @("LLM_API_KEY", "LLM_MODEL", "LLM_BASE_URL")) {
+        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($requiredName, "Process"))) {
+            Write-Error "OpenHands runtime requires $requiredName. Set it in the environment or .env.local."
+            exit 1
+        }
+    }
 }
 
 Push-Location $repoRoot
@@ -90,6 +137,26 @@ if (-not (Test-Path (Join-Path $webRoot "node_modules"))) {
 }
 
 Stop-DevJobs
+
+$openHandsJob = $null
+if ($Runtime -eq "openhands") {
+    try {
+        Invoke-WebRequest -Uri "$OpenHandsBaseUrl/docs" -UseBasicParsing -TimeoutSec 2 | Out-Null
+        Write-Host "OpenHands Agent Server already running at $OpenHandsBaseUrl"
+    }
+    catch {
+        $openHandsJob = Start-Job -Name "docagent-openhands" -ScriptBlock {
+            param($repoRoot, $openHandsLog, $venvPython, $openHandsPort)
+            Set-Location $repoRoot
+            $env:OPENHANDS_SUPPRESS_BANNER = "1"
+            & $venvPython -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
+        } -ArgumentList $repoRoot, $openHandsLog, $venvPython, $OpenHandsPort
+        if (-not (Test-HttpReady "$OpenHandsBaseUrl/docs" 45)) {
+            Receive-Job $openHandsJob -Keep | Write-Host
+            throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog."
+        }
+    }
+}
 
 $pythonPath = @(
     Join-Path $repoRoot "packages\contracts"
@@ -136,7 +203,10 @@ if (-not $NoBrowser) {
 try {
     while ($true) {
         Start-Sleep -Seconds 2
-        foreach ($job in @($apiJob, $webJob)) {
+        foreach ($job in @($openHandsJob, $apiJob, $webJob)) {
+            if ($null -eq $job) {
+                continue
+            }
             if ($job.State -in @("Failed", "Stopped", "Completed")) {
                 Receive-Job $job -Keep | Write-Host
                 throw "Dev job '$($job.Name)' exited with state $($job.State). Check logs in $logRoot."

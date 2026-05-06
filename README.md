@@ -34,10 +34,10 @@ The script starts FastAPI on `http://127.0.0.1:8000`, Vite on `http://127.0.0.1:
 To start the same stack with the OpenHands runtime adapter selected:
 
 ```powershell
-.\start-dev.cmd -Runtime openhands -OpenHandsBaseUrl http://127.0.0.1:8001
+.\start-dev.cmd -Runtime openhands
 ```
 
-The OpenHands Agent Server must already be running at that URL.
+The script starts the OpenHands Agent Server on `http://127.0.0.1:8001` unless one is already running. Set `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` in your shell or `.env.local`.
 
 ## Phase 0 Focus
 
