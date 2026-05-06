@@ -79,3 +79,53 @@ def test_phase2_prd_authoring_loop(tmp_path: Path) -> None:
     assert "revise_selection" in event_kinds
     assert "run_checklist" in event_kinds
     assert "export_markdown" in event_kinds
+
+
+def test_phase2_session_statuses_are_persisted(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    start_response = client.post(f"/sessions/{session['id']}/loop/start")
+    assert start_response.status_code == 200
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "await_outline_approval"
+
+    outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
+    approve_response = client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": outline["content"]},
+    )
+
+    assert approve_response.status_code == 200
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "draft_ready"
+
+
+def test_revise_selection_before_draft_returns_400(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/revision/selection",
+        json={"selected_text": "Build onboarding analytics", "instruction": "Make it sharper"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Draft does not exist. Approve the outline first."
+
+
+def test_revise_selection_missing_text_returns_422(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": outline["content"]})
+
+    response = client.post(
+        f"/sessions/{session['id']}/revision/selection",
+        json={"selected_text": "Not in draft", "instruction": "Make it sharper"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Selected text not found in draft."

@@ -13,6 +13,7 @@ from docagent_api.doctypes import get_doc_type, list_doc_types
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
 from docagent_api.state import DocAgentState
+from docagent_api.time import utc_now
 from docagent_api.workspace_files import list_workspace_files, read_workspace_text_file
 from docagent_contracts import SemanticEventKind, SemanticTimelineEvent, TimelineActor, TimelineStatus
 from docagent_mock_runtime.adapter import MockRuntimeAdapter
@@ -85,13 +86,14 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
         task_id = f"task-{uuid4().hex[:8]}"
         workspace_root = state.workspace_root(task_id)
         create_workspace(workspace_root, request.brief)
+        created_at = utc_now()
         record = {
             "id": task_id,
             "doc_type_id": request.doc_type_id,
             "brief": request.brief,
             "workspace_root": str(workspace_root),
-            "created_at": "2026-04-30T00:00:00Z",
-            "updated_at": "2026-04-30T00:00:00Z",
+            "created_at": created_at,
+            "updated_at": created_at,
         }
         state.save_task(record)
         return record
@@ -132,12 +134,13 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
     def create_session(task_id: str) -> dict[str, Any]:
         _require_task(state, task_id)
         session_id = f"session-{uuid4().hex[:8]}"
+        created_at = utc_now()
         record = {
             "id": session_id,
             "task_id": task_id,
             "status": "idle",
-            "created_at": "2026-04-30T00:00:00Z",
-            "updated_at": "2026-04-30T00:00:00Z",
+            "created_at": created_at,
+            "updated_at": created_at,
         }
         state.save_session(record)
         return record
@@ -154,7 +157,7 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
             Path(task["workspace_root"]),
             request.name,
             request.content,
-            "2026-04-30T00:00:00Z",
+            utc_now(),
         )
         sessions = [session for session in state.list_sessions() if session["task_id"] == task_id]
         if sessions:
@@ -208,13 +211,18 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
     def revise_selection(session_id: str, request: ReviseSelectionRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.revise_selection(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-            selected_text=request.selected_text,
-            instruction=request.instruction,
-        )
+        try:
+            events = adapter.revise_selection(
+                task_id=task["id"],
+                session_id=session_id,
+                workspace_root=Path(task["workspace_root"]),
+                selected_text=request.selected_text,
+                instruction=request.instruction,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
         _append_events(state, session_id, events)
         return {"session_id": session_id, "paths": _event_paths(events)}
 
@@ -302,7 +310,7 @@ def _manual_event(
         summary=summary,
         paths=paths,
         status=TimelineStatus.SUCCEEDED,
-        created_at="2026-04-30T00:00:00Z",
+        created_at=utc_now(),
     )
 
 

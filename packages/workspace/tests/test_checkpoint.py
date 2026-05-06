@@ -39,3 +39,14 @@ def test_checkpoint_requires_current_draft(tmp_path: Path):
         assert "draft/draft.md" in str(exc)
     else:
         raise AssertionError("Expected FileNotFoundError")
+
+
+def test_checkpoint_default_created_at_is_current_utc_timestamp(tmp_path: Path):
+    root = tmp_path / "task-001"
+    create_workspace(root, brief="Write a PRD.")
+    (root / "draft" / "draft.md").write_text("# Draft\n", encoding="utf-8")
+
+    version = checkpoint_draft(root, summary="Initial draft")
+
+    assert version.created_at.endswith("Z")
+    assert version.created_at != "1970-01-01T00:00:00Z"

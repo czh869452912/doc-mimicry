@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from docagent_mock_runtime.adapter import MockRuntimeAdapter
 
 
@@ -24,6 +26,19 @@ def test_build_context_and_propose_outline(tmp_path: Path) -> None:
         "propose_outline",
         "approval_requested",
     ]
+
+
+def test_repeated_outline_builds_emit_unique_event_ids(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "brief.md").write_text("Build a PRD for onboarding analytics\n", encoding="utf-8")
+
+    adapter = MockRuntimeAdapter()
+    first_events = adapter.build_context_and_outline("task-001", "session-001", workspace)
+    second_events = adapter.build_context_and_outline("task-001", "session-001", workspace)
+
+    event_ids = [event.id for event in first_events + second_events]
+    assert len(event_ids) == len(set(event_ids))
 
 
 def test_approve_outline_generates_draft(tmp_path: Path) -> None:
@@ -58,6 +73,23 @@ def test_revise_selection_checkpoints_and_replaces_text(tmp_path: Path) -> None:
     assert "Make it sharper" in draft
     assert (workspace / "versions" / "v001.md").exists()
     assert [event.kind.value for event in events] == ["create_checkpoint", "revise_selection"]
+
+
+def test_revise_selection_raises_when_selected_text_is_missing(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "draft").mkdir(parents=True)
+    (workspace / "draft" / "draft.md").write_text("# PRD Draft\n\nOld passage\n", encoding="utf-8")
+
+    adapter = MockRuntimeAdapter()
+
+    with pytest.raises(ValueError, match="Selected text not found in draft"):
+        adapter.revise_selection(
+            "task-001",
+            "session-001",
+            workspace,
+            selected_text="Missing passage",
+            instruction="Make it sharper",
+        )
 
 
 def test_run_checklist_and_export_markdown(tmp_path: Path) -> None:

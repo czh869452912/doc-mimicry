@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 from docagent_contracts import DraftVersion
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _next_version(root: Path) -> tuple[str, Path]:
@@ -15,7 +20,7 @@ def _next_version(root: Path) -> tuple[str, Path]:
     return version, versions_dir / f"{version}.md"
 
 
-def checkpoint_draft(root: Path, summary: str, created_at: str = "1970-01-01T00:00:00Z") -> DraftVersion:
+def checkpoint_draft(root: Path, summary: str, created_at: str | None = None) -> DraftVersion:
     source = root / "draft" / "draft.md"
     if not source.is_file():
         raise FileNotFoundError("Cannot checkpoint missing draft/draft.md")
@@ -30,5 +35,5 @@ def checkpoint_draft(root: Path, summary: str, created_at: str = "1970-01-01T00:
         version_path=f"versions/{version}.md",
         summary=summary,
         created_by="agent",
-        created_at=created_at,
+        created_at=created_at or _utc_now(),
     )

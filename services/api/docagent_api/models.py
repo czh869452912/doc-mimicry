@@ -15,6 +15,6 @@ class TaskRecord(TypedDict):
 class SessionRecord(TypedDict):
     id: str
     task_id: str
-    status: Literal["idle", "running", "paused", "completed", "failed"]
+    status: Literal["idle", "running", "paused", "await_outline_approval", "draft_ready", "completed", "failed"]
     created_at: str
     updated_at: str

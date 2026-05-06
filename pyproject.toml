@@ -7,6 +7,15 @@ dependencies = [
   "uvicorn>=0.30.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "httpx",
+]
+
+[tool.setuptools]
+packages = []
+
 [tool.pytest.ini_options]
 pythonpath = [
   "packages/contracts",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 from docagent_contracts import (
     SemanticEventKind,
@@ -9,6 +11,10 @@ from docagent_contracts import (
     TimelineStatus,
 )
 from docagent_workspace import checkpoint_draft
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class MockRuntimeAdapter:
@@ -74,7 +80,7 @@ class MockRuntimeAdapter:
         workspace_root: Path,
         message: str,
     ) -> list[SemanticTimelineEvent]:
-        checkpoint_draft(workspace_root, summary=f"Before revision: {message}")
+        checkpoint = checkpoint_draft(workspace_root, summary=f"Before revision: {message}")
         draft_path = workspace_root / "draft" / "draft.md"
         current = _read_text(draft_path)
         draft_path.write_text(
@@ -83,7 +89,7 @@ class MockRuntimeAdapter:
         )
         return [
             _event(task_id, session_id, "user-2", TimelineActor.USER, SemanticEventKind.USER_MESSAGE, message, []),
-            _event(task_id, session_id, "checkpoint-1", TimelineActor.SYSTEM, SemanticEventKind.CREATE_CHECKPOINT, "Create checkpoint", ["versions/v001.md"]),
+            _event(task_id, session_id, "checkpoint-1", TimelineActor.SYSTEM, SemanticEventKind.CREATE_CHECKPOINT, "Create checkpoint", [checkpoint.version_path]),
             _event(task_id, session_id, "draft-2", TimelineActor.AGENT, SemanticEventKind.UPDATE_DRAFT, "Update draft", ["draft/draft.md"]),
         ]
 
@@ -171,6 +177,8 @@ class MockRuntimeAdapter:
         checkpoint = checkpoint_draft(workspace_root, summary=f"Before selection revision: {instruction}")
         draft_path = workspace_root / "draft" / "draft.md"
         current = _read_text(draft_path)
+        if selected_text not in current:
+            raise ValueError("Selected text not found in draft")
         replacement = f"Revised passage: {instruction}"
         draft_path.write_text(current.replace(selected_text, replacement, 1), encoding="utf-8")
         return [
@@ -232,7 +240,7 @@ def _event(
     paths: list[str],
 ) -> SemanticTimelineEvent:
     return SemanticTimelineEvent(
-        id=f"{session_id}-{suffix}",
+        id=f"{session_id}-{suffix}-{uuid4().hex[:8]}",
         session_id=session_id,
         task_id=task_id,
         actor=actor,
@@ -241,5 +249,5 @@ def _event(
         summary=summary,
         paths=paths,
         status=TimelineStatus.SUCCEEDED,
-        created_at="2026-04-30T00:00:00Z",
+        created_at=_utc_now(),
     )
