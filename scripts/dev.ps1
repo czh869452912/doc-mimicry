@@ -13,6 +13,7 @@ $logRoot = Join-Path $repoRoot ".local\dev"
 $venvRoot = Join-Path $logRoot ".venv"
 $venvPython = Join-Path $venvRoot "Scripts\python.exe"
 $apiLog = Join-Path $logRoot "api.log"
+$setupLog = Join-Path $logRoot "setup.log"
 $webLog = Join-Path $logRoot "web.log"
 
 function Test-Command {
@@ -72,7 +73,7 @@ try {
     if (-not (Test-Path $venvPython)) {
         & $python -m venv $venvRoot
     }
-    & $venvPython -m pip install --upgrade fastapi uvicorn httpx | Tee-Object -FilePath $apiLog
+    & $venvPython -m pip install --upgrade fastapi uvicorn httpx | Tee-Object -FilePath $setupLog
 }
 finally {
     Pop-Location

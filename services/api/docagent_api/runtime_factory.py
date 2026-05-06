@@ -19,5 +19,5 @@ def create_runtime_adapter(runtime_name: str | None = None) -> RuntimeAdapter:
         from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter
         from docagent_openhands_runtime.client import OpenHandsAgentServerClient
 
-        return OpenHandsRuntimeAdapter(OpenHandsAgentServerClient())
+        return OpenHandsRuntimeAdapter(OpenHandsAgentServerClient(base_url=os.environ.get("OPENHANDS_BASE_URL")))
     raise RuntimeConfigurationError(f"Unsupported DOCAGENT_RUNTIME: {runtime}")

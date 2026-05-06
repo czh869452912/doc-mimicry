@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .local/
 .worktrees/
+workspace/
 node_modules/
 dist/
 .vite/

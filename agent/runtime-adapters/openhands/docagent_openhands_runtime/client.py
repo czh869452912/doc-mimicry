@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from typing import Any, Protocol
+from uuid import uuid4
 
 from docagent_contracts import PromptBundle
 
@@ -18,14 +20,90 @@ class OpenHandsClient(Protocol):
 
 class OpenHandsAgentServerClient:
     def __init__(self, base_url: str | None = None, timeout_seconds: int = 900) -> None:
-        self.base_url = base_url
+        self.base_url = base_url or os.environ.get("OPENHANDS_BASE_URL")
         self.timeout_seconds = timeout_seconds
+        self._conversations: dict[str, Any] = {}
 
     def create_session(self, prompt_bundle: PromptBundle) -> str:
-        raise NotImplementedError("Install/configure the OpenHands agent server client before using DOCAGENT_RUNTIME=openhands.")
+        if not self.base_url:
+            raise RuntimeError("OPENHANDS_BASE_URL is required when using DOCAGENT_RUNTIME=openhands.")
+        api_key = os.environ.get("LLM_API_KEY")
+        if not api_key:
+            raise RuntimeError("LLM_API_KEY is required when using DOCAGENT_RUNTIME=openhands.")
+
+        try:
+            from openhands.sdk import LLM, Conversation, Workspace
+            from openhands.tools.preset.default import get_default_agent
+        except ImportError as exc:
+            raise RuntimeError(
+                "OpenHands SDK packages are required. Install openhands-sdk, openhands-tools, "
+                "openhands-workspace, and openhands-agent-server."
+            ) from exc
+
+        llm = LLM(
+            usage_id="docagent",
+            model=os.environ.get("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
+            base_url=os.environ.get("LLM_BASE_URL"),
+            api_key=api_key,
+        )
+        agent = get_default_agent(llm=llm, cli_mode=True)
+        workspace = Workspace(host=self.base_url, working_dir=str(prompt_bundle.workspace_root))
+        conversation = Conversation(agent=agent, workspace=workspace)
+        runtime_session_id = str(getattr(conversation.state, "id", None) or uuid4().hex)
+        self._conversations[runtime_session_id] = conversation
+        return runtime_session_id
 
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
-        raise NotImplementedError("OpenHands agent server streaming is not configured yet.")
+        conversation = self._conversation(runtime_session_id)
+        before_count = len(getattr(conversation.state, "events", []))
+        conversation.send_message(message)
+        conversation.run()
+        events = getattr(conversation.state, "events", [])[before_count:]
+        return [_event_to_payload(event) for event in events]
 
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
-        raise NotImplementedError("OpenHands agent server cancellation is not configured yet.")
+        conversation = self._conversation(runtime_session_id)
+        close = getattr(conversation, "close", None)
+        if callable(close):
+            close()
+        self._conversations.pop(runtime_session_id, None)
+        return [{"kind": "cancelled"}]
+
+    def _conversation(self, runtime_session_id: str) -> Any:
+        try:
+            return self._conversations[runtime_session_id]
+        except KeyError as exc:
+            raise RuntimeError(f"Unknown OpenHands runtime session: {runtime_session_id}") from exc
+
+
+def _event_to_payload(event: Any) -> dict[str, Any]:
+    if hasattr(event, "model_dump"):
+        payload = event.model_dump(mode="json")
+    elif hasattr(event, "dict"):
+        payload = event.dict()
+    else:
+        payload = {"repr": repr(event)}
+    payload.setdefault("kind", type(event).__name__)
+    path = _extract_path(payload)
+    if path:
+        payload["path"] = path
+    return payload
+
+
+def _extract_path(payload: dict[str, Any]) -> str | None:
+    for key in ("path", "file_path", "filename"):
+        value = payload.get(key)
+        if isinstance(value, str):
+            return value
+    for value in payload.values():
+        if isinstance(value, dict):
+            nested = _extract_path(value)
+            if nested:
+                return nested
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    nested = _extract_path(item)
+                    if nested:
+                        return nested
+    return None
