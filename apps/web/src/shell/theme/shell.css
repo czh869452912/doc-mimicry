@@ -1,0 +1,115 @@
+.docagent-shell {
+  display: grid;
+  grid-template-rows: 36px minmax(0, 1fr);
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.topbar__brand {
+  flex: 0 0 auto;
+}
+
+.topbar__crumb {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__session {
+  color: var(--color-muted);
+}
+
+.topbar__spacer {
+  flex: 1 1 auto;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--color-muted);
+}
+
+.status-dot[data-status="running"] {
+  background: var(--color-success);
+}
+
+.status-dot[data-status="failed"] {
+  background: var(--color-error);
+}
+
+.icon-button,
+.command-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  color: var(--color-ink);
+  cursor: pointer;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+
+.command-chip {
+  font-family: var(--font-code);
+  font-size: 11px;
+}
+
+.icon-button:hover,
+.command-chip:hover {
+  border-color: var(--color-hairline-strong);
+}
+
+.docagent-shell__panels {
+  min-height: 0;
+}
+
+.shell-panel {
+  height: 100%;
+  min-width: 0;
+  padding: 12px;
+  overflow: auto;
+  background: var(--color-canvas-soft);
+}
+
+.shell-panel--center {
+  background: var(--color-canvas);
+}
+
+.shell-panel__placeholder {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--color-muted);
+  font-size: 13px;
+  border: 1px dashed var(--color-hairline-strong);
+  border-radius: var(--radius-lg);
+}
+
+.resize-handle {
+  width: 4px;
+  background: var(--color-hairline);
+}
+
+.resize-handle[data-resize-handle-active] {
+  background: var(--color-hairline-strong);
+}

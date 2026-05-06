@@ -1,0 +1,5 @@
+.aui-root,
+.aui-thread,
+.aui-composer {
+  font-family: var(--font-body);
+}
