@@ -28,6 +28,19 @@ def test_build_context_and_propose_outline(tmp_path: Path) -> None:
     ]
 
 
+def test_repeated_outline_builds_emit_unique_event_ids(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "brief.md").write_text("Build a PRD for onboarding analytics\n", encoding="utf-8")
+
+    adapter = MockRuntimeAdapter()
+    first_events = adapter.build_context_and_outline("task-001", "session-001", workspace)
+    second_events = adapter.build_context_and_outline("task-001", "session-001", workspace)
+
+    event_ids = [event.id for event in first_events + second_events]
+    assert len(event_ids) == len(set(event_ids))
+
+
 def test_approve_outline_generates_draft(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     (workspace / "draft").mkdir(parents=True)

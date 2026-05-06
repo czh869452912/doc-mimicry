@@ -51,3 +51,26 @@ def test_later_message_checkpoints_and_updates_draft(tmp_path: Path) -> None:
         "create_checkpoint",
         "update_draft",
     ]
+
+
+def test_later_message_checkpoint_event_uses_actual_version_path(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    (workspace / "draft").mkdir(parents=True)
+    (workspace / "draft" / "draft.md").write_text("# Existing\n", encoding="utf-8")
+
+    adapter = MockRuntimeAdapter()
+    adapter.send_message(
+        task_id="task-001",
+        session_id="session-001",
+        workspace_root=workspace,
+        message="First revision",
+    )
+    events = adapter.send_message(
+        task_id="task-001",
+        session_id="session-001",
+        workspace_root=workspace,
+        message="Second revision",
+    )
+
+    checkpoint_events = [event for event in events if event.kind.value == "create_checkpoint"]
+    assert checkpoint_events[0].paths == ["versions/v002.md"]
