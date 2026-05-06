@@ -11,12 +11,16 @@ export interface TaskRecord {
   doc_type_id: string;
   brief: string;
   workspace_root: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SessionRecord {
   id: string;
   task_id: string;
   status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TimelineEvent {

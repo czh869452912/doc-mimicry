@@ -53,14 +53,15 @@ export function WorkbenchPage() {
     if (loadedDocTypes[0]) {
       setSelectedDocTypeId(loadedDocTypes[0].id);
     }
-    if (loadedTasks[0]) {
-      await activateTask(loadedTasks[0]);
+    const latestTask = latestByUpdatedAt(loadedTasks);
+    if (latestTask) {
+      await activateTask(latestTask);
     }
   }
 
   async function activateTask(nextTask: TaskRecord) {
     const taskSessions = await api.listTaskSessions(nextTask.id);
-    const nextSession = taskSessions[0] ?? null;
+    const nextSession = latestByUpdatedAt(taskSessions);
     setTask(nextTask);
     setSessions(taskSessions);
     setSession(nextSession);
@@ -88,8 +89,8 @@ export function WorkbenchPage() {
   }
 
   async function ensureSession() {
-    if (session) return session;
     if (!task) return null;
+    if (session && isRunnableSession(session)) return session;
     const createdSession = await api.createSession(task.id);
     const taskSessions = await api.listTaskSessions(task.id);
     setSessions(taskSessions);
@@ -395,4 +396,14 @@ export function WorkbenchPage() {
       </aside>
     </section>
   );
+}
+
+function latestByUpdatedAt<T extends { updated_at: string }>(items: T[]): T | null {
+  return (
+    [...items].sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ?? null
+  );
+}
+
+function isRunnableSession(nextSession: SessionRecord): boolean {
+  return !["cancelled", "completed", "failed"].includes(nextSession.status);
 }

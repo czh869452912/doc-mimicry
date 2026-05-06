@@ -122,7 +122,12 @@ class OpenHandsRuntimeAdapter:
         )
 
     def _runtime_session_id(self, session_id: str) -> str:
-        return self._runtime_session_ids[session_id]
+        try:
+            return self._runtime_session_ids[session_id]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"OpenHands runtime session is not bound for {session_id}. Create a new session."
+            ) from exc
 
     def _raw_event(
         self,

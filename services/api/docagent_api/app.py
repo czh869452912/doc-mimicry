@@ -73,6 +73,7 @@ def create_app(
     )
     root = repo_root or Path.cwd()
     state = DocAgentState(state_root or root / ".local" / "docagent")
+    _recover_interrupted_sessions(state)
     adapter = create_runtime_adapter(runtime_name)
 
     @app.get("/health")
@@ -206,8 +207,12 @@ def create_app(
     def start_loop(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        _prepare_transition(state, session, RuntimeSessionState.RUNNING_CONTEXT)
-        result = adapter.start_loop(session_id)
+        result = _run_runtime_operation(
+            state,
+            session,
+            RuntimeSessionState.RUNNING_CONTEXT,
+            lambda: adapter.start_loop(session_id),
+        )
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
@@ -221,7 +226,11 @@ def create_app(
             request.outline_markdown if request.outline_markdown.endswith("\n") else f"{request.outline_markdown}\n",
             encoding="utf-8",
         )
-        result = adapter.approve_outline(session_id)
+        try:
+            result = adapter.approve_outline(session_id)
+        except Exception as exc:
+            _set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
@@ -234,12 +243,17 @@ def create_app(
         try:
             _prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
             result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
+        except HTTPException:
+            raise
         except FileNotFoundError as exc:
             _set_session_state(state, session, previous_state)
             raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
         except ValueError as exc:
             _set_session_state(state, session, previous_state)
             raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
+        except Exception as exc:
+            _set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "paths": result.changed_paths}
@@ -248,8 +262,12 @@ def create_app(
     def run_checklist(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        _prepare_transition(state, session, RuntimeSessionState.RUNNING_CHECKLIST)
-        result = adapter.run_checklist(session_id)
+        result = _run_runtime_operation(
+            state,
+            session,
+            RuntimeSessionState.RUNNING_CHECKLIST,
+            lambda: adapter.run_checklist(session_id),
+        )
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "paths": result.changed_paths}
@@ -258,8 +276,12 @@ def create_app(
     def export_markdown(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        _prepare_transition(state, session, RuntimeSessionState.RUNNING_EXPORT)
-        result = adapter.export_markdown(session_id)
+        result = _run_runtime_operation(
+            state,
+            session,
+            RuntimeSessionState.RUNNING_EXPORT,
+            lambda: adapter.export_markdown(session_id),
+        )
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
@@ -268,8 +290,12 @@ def create_app(
     def send_message(session_id: str, request: SendMessageRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        _prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
-        result = adapter.send_message(session_id, request.message)
+        result = _run_runtime_operation(
+            state,
+            session,
+            RuntimeSessionState.RUNNING_REVISION,
+            lambda: adapter.send_message(session_id, request.message),
+        )
         _append_runtime_result(state, task["id"], session_id, result)
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "event_count": len(result.events)}
@@ -334,6 +360,36 @@ def _prepare_transition(
     except InvalidSessionTransition as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     _set_session_state(state, session, next_state)
+
+
+def _recover_interrupted_sessions(state: DocAgentState) -> None:
+    running_states = {
+        RuntimeSessionState.RUNNING_CONTEXT.value,
+        RuntimeSessionState.RUNNING_DRAFT.value,
+        RuntimeSessionState.RUNNING_REVISION.value,
+        RuntimeSessionState.RUNNING_CHECKLIST.value,
+        RuntimeSessionState.RUNNING_EXPORT.value,
+    }
+    for session in state.list_sessions():
+        if session["status"] in running_states:
+            _set_session_state(state, session, RuntimeSessionState.FAILED)
+
+
+def _run_runtime_operation(
+    state: DocAgentState,
+    session: dict[str, Any],
+    running_state: RuntimeSessionState,
+    operation: Any,
+) -> RuntimeOperationResult:
+    previous_state = RuntimeSessionState(session["status"])
+    _prepare_transition(state, session, running_state)
+    try:
+        return operation()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _set_session_state(state, session, previous_state)
+        raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
 
 
 def _set_session_state(

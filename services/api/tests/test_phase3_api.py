@@ -1,8 +1,12 @@
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
+import docagent_api.app as app_module
 from docagent_api.app import create_app
+from docagent_api.state import DocAgentState
+from docagent_contracts import PromptBundle, RuntimeOperationResult, RuntimeSessionState
 
 
 def test_invalid_outline_approval_returns_409(tmp_path: Path) -> None:
@@ -30,3 +34,62 @@ def test_cancel_running_session_returns_cancelled(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.json()["next_state"] == "cancelled"
     assert client.get(f"/sessions/{session['id']}").json()["status"] == "cancelled"
+
+
+class FailingSendAdapter:
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+        raise RuntimeError("runtime session is not available")
+
+    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+
+    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.COMPLETED)
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    def get_state(self, session_id: str) -> RuntimeSessionState:
+        return RuntimeSessionState.IDLE
+
+
+def test_runtime_error_rolls_session_back_to_previous_state(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingSendAdapter())
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/messages", json={"message": "hello"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Runtime operation failed: runtime session is not available"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "idle"
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+
+
+def test_startup_recovers_persisted_running_sessions(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    state = DocAgentState(state_root)
+    session["status"] = "running_revision"
+    state.save_session(session)
+
+    recovered_client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+
+    assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "failed"
+    new_session = recovered_client.post(f"/tasks/{task['id']}/sessions").json()
+    assert recovered_client.post(f"/sessions/{new_session['id']}/loop/start").status_code == 200

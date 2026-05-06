@@ -44,6 +44,17 @@ def test_openhands_adapter_cancel_sets_cancelled(tmp_path: Path) -> None:
     assert adapter.get_state("session-001") == RuntimeSessionState.CANCELLED
 
 
+def test_openhands_adapter_reports_missing_runtime_session() -> None:
+    adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
+
+    try:
+        adapter.start_loop("session-001")
+    except RuntimeError as exc:
+        assert str(exc) == "OpenHands runtime session is not bound for session-001. Create a new session."
+    else:
+        raise AssertionError("Expected missing runtime session to fail clearly")
+
+
 def _prompt_bundle(workspace: Path) -> PromptBundle:
     return PromptBundle(
         system_prompt="system",
