@@ -174,11 +174,11 @@ class MockRuntimeAdapter:
         selected_text: str,
         instruction: str,
     ) -> list[SemanticTimelineEvent]:
-        checkpoint = checkpoint_draft(workspace_root, summary=f"Before selection revision: {instruction}")
         draft_path = workspace_root / "draft" / "draft.md"
         current = _read_text(draft_path)
         if selected_text not in current:
             raise ValueError("Selected text not found in draft")
+        checkpoint = checkpoint_draft(workspace_root, summary=f"Before selection revision: {instruction}")
         replacement = f"Revised passage: {instruction}"
         draft_path.write_text(current.replace(selected_text, replacement, 1), encoding="utf-8")
         return [

@@ -91,6 +91,8 @@ def test_revise_selection_raises_when_selected_text_is_missing(tmp_path: Path) -
             instruction="Make it sharper",
         )
 
+    assert not (workspace / "versions").exists() or not any((workspace / "versions").iterdir())
+
 
 def test_run_checklist_and_export_markdown(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
