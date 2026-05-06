@@ -5,7 +5,9 @@ import type { WorkspaceFileContent } from "../types";
 import { TopBar } from "./TopBar";
 import { titleFromPath, tabKindForPath, useTabs } from "./editor/useTabs";
 import { EditorPane } from "./panes/EditorPane";
+import { ConversationPane } from "./panes/ConversationPane";
 import { WorkspacePane } from "./panes/WorkspacePane";
+import { useTimeline } from "./state/useTimeline";
 import { useWorkspaces } from "./state/useWorkspaces";
 
 export function AppShell() {
@@ -14,6 +16,7 @@ export function AppShell() {
   const [draft, setDraft] = useState("");
   const workspaces = useWorkspaces();
   const editorTabs = useTabs();
+  const timeline = useTimeline(workspaces.activeSession?.id);
   const topBarStatus = workspaces.activeSession?.status?.startsWith("running")
     ? "running"
     : workspaces.activeSession?.status === "failed"
@@ -60,7 +63,20 @@ export function AppShell() {
         <Separator className="resize-handle" />
         <Panel minSize={32}>
           <section className="shell-panel shell-panel--center">
-            <div className="shell-panel__placeholder">Conversation</div>
+            <ConversationPane
+              activeSession={workspaces.activeSession}
+              activeTask={workspaces.activeTask}
+              ensureSession={workspaces.ensureSession}
+              error={timeline.error}
+              loading={timeline.loading}
+              presentations={timeline.presentations}
+              refreshTimeline={timeline.refreshTimeline}
+              refreshWorkspace={async () => {
+                await workspaces.refreshActiveWorkspace();
+                if (workspaces.activeTask) await loadDraft(workspaces.activeTask.id);
+              }}
+              onOpenPath={openWorkspaceFile}
+            />
           </section>
         </Panel>
         <Separator className="resize-handle" />
