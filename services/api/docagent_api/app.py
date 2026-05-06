@@ -208,13 +208,16 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
     def revise_selection(session_id: str, request: ReviseSelectionRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.revise_selection(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-            selected_text=request.selected_text,
-            instruction=request.instruction,
-        )
+        try:
+            events = adapter.revise_selection(
+                task_id=task["id"],
+                session_id=session_id,
+                workspace_root=Path(task["workspace_root"]),
+                selected_text=request.selected_text,
+                instruction=request.instruction,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
         _append_events(state, session_id, events)
         return {"session_id": session_id, "paths": _event_paths(events)}
 
