@@ -6,6 +6,7 @@ import { useAutoSave } from "../useAutoSave";
 
 interface DraftTabProps {
   activeSessionId: string | null;
+  autoSaveEnabled?: boolean;
   draft: string;
   taskId: string | null;
   onDraftChange: (draft: string) => void;
@@ -15,6 +16,7 @@ interface DraftTabProps {
 
 export function DraftTab({
   activeSessionId,
+  autoSaveEnabled = true,
   draft,
   onDraftChange,
   onReviseSelection,
@@ -23,7 +25,7 @@ export function DraftTab({
 }: DraftTabProps) {
   const [mode, setMode] = useState<"preview" | "source">("preview");
   const [selectedText, setSelectedText] = useState("");
-  const saveState = useAutoSave(taskId, draft);
+  const saveState = useAutoSave(taskId, draft, autoSaveEnabled);
 
   return (
     <section className="draft-tab">

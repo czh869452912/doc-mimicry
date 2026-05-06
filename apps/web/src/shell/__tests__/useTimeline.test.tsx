@@ -58,4 +58,30 @@ describe("useTimeline", () => {
     await waitFor(() => expect(latest.events).toEqual([]));
     expect(latest.loading).toBe(false);
   });
+
+  it("clears previous session events immediately while the next session loads", async () => {
+    let resolveSessionTwo!: (events: TimelineEvent[]) => void;
+    vi.mocked(api.getTimeline)
+      .mockResolvedValueOnce([eventOne])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSessionTwo = resolve;
+          }),
+      );
+
+    let latest!: ReturnType<typeof useTimeline>;
+    const { rerender } = render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+
+    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-1"]));
+    rerender(<Harness sessionId="session-2" onState={(state) => (latest = state)} />);
+
+    await waitFor(() => expect(latest.loading).toBe(true));
+    expect(latest.events).toEqual([]);
+
+    resolveSessionTwo([
+      { ...eventOne, id: "event-2", summary: "Session two event" },
+    ]);
+    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-2"]));
+  });
 });

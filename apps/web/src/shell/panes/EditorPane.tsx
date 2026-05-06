@@ -11,6 +11,7 @@ interface EditorPaneProps {
   activeSessionId: string | null;
   activeTabId: string;
   draft: string;
+  draftAutoSaveEnabled?: boolean;
   tabs: EditorTab[];
   taskId: string | null;
   onCloseTab: (tabId: string) => void;
@@ -24,6 +25,7 @@ export function EditorPane({
   activeSessionId,
   activeTabId,
   draft,
+  draftAutoSaveEnabled = true,
   onCloseTab,
   onDraftChange,
   onReviseSelection,
@@ -60,6 +62,7 @@ export function EditorPane({
           {renderTab(tab, {
             activeSessionId,
             draft,
+            draftAutoSaveEnabled,
             onDraftChange,
             onReviseSelection,
             onSendSelectionToChat,
@@ -75,13 +78,20 @@ function renderTab(
   tab: EditorTab,
   props: Pick<
     EditorPaneProps,
-    "activeSessionId" | "draft" | "onDraftChange" | "onReviseSelection" | "onSendSelectionToChat" | "taskId"
+    | "activeSessionId"
+    | "draft"
+    | "draftAutoSaveEnabled"
+    | "onDraftChange"
+    | "onReviseSelection"
+    | "onSendSelectionToChat"
+    | "taskId"
   >,
 ) {
   if (tab.kind === "draft") {
     return (
       <DraftTab
         activeSessionId={props.activeSessionId}
+        autoSaveEnabled={props.draftAutoSaveEnabled}
         draft={props.draft}
         taskId={props.taskId}
         onDraftChange={props.onDraftChange}

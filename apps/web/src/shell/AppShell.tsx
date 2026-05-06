@@ -17,6 +17,7 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [draftTaskId, setDraftTaskId] = useState<string | null>(null);
   const [draftReloadToken, setDraftReloadToken] = useState(0);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
   const workspaces = useWorkspaces();
@@ -35,16 +36,25 @@ export function AppShell() {
 
     if (!taskId) {
       setDraft("");
+      setDraftTaskId(null);
       return;
     }
     const activeTaskId = taskId;
+    setDraft("");
+    setDraftTaskId(null);
 
     async function loadActiveDraft() {
       try {
         const response = await api.getDraft(activeTaskId);
-        if (!cancelled) setDraft(response.markdown);
+        if (!cancelled) {
+          setDraft(response.markdown);
+          setDraftTaskId(activeTaskId);
+        }
       } catch {
-        if (!cancelled) setDraft("");
+        if (!cancelled) {
+          setDraft("");
+          setDraftTaskId(activeTaskId);
+        }
       }
     }
 
@@ -134,6 +144,7 @@ export function AppShell() {
               activeSessionId={workspaces.activeSession?.id ?? null}
               activeTabId={editorTabs.activeTabId}
               draft={draft}
+              draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null)}
               tabs={editorTabs.tabs}
               taskId={workspaces.activeTask?.id ?? null}
               onCloseTab={editorTabs.removeTab}

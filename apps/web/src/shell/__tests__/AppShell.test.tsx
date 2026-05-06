@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import { AppShell } from "../AppShell";
 
@@ -70,6 +70,10 @@ describe("AppShell", () => {
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("loads the active task draft after restored workspace state is available", async () => {
     render(<AppShell />);
 
@@ -85,5 +89,56 @@ describe("AppShell", () => {
     await userEvent.click(screen.getByText("/help"));
 
     expect(await screen.findByText("Slash commands")).toBeTruthy();
+  });
+
+  it("does not autosave the previous task draft into a newly selected task while that draft loads", async () => {
+    let resolveTaskTwoDraft!: (value: { markdown: string }) => void;
+
+    vi.mocked(api.listTasks).mockResolvedValue([
+      {
+        id: "task-1",
+        doc_type_id: "prd",
+        brief: "Task One",
+        workspace_root: "workspace/task-1",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+      {
+        id: "task-2",
+        doc_type_id: "prd",
+        brief: "Task Two",
+        workspace_root: "workspace/task-2",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:30:00Z",
+      },
+    ]);
+    vi.mocked(api.getDraft).mockImplementation((taskId) => {
+      if (taskId === "task-1") return Promise.resolve({ markdown: "# Task one draft" });
+      return new Promise((resolve) => {
+        resolveTaskTwoDraft = resolve;
+      });
+    });
+    window.localStorage.setItem("docagent:lastTaskId", "task-1");
+
+    render(<AppShell />);
+
+    expect(await screen.findByRole("heading", { name: "Task one draft" })).toBeTruthy();
+    vi.mocked(api.updateDraft).mockClear();
+    vi.useFakeTimers();
+
+    act(() => {
+      fireEvent.click(screen.getByText("Task Two"));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+
+    expect(api.updateDraft).not.toHaveBeenCalledWith("task-2", "# Task one draft");
+
+    await act(async () => {
+      resolveTaskTwoDraft({ markdown: "# Task two draft" });
+    });
+    vi.useRealTimers();
+    expect(await screen.findByRole("heading", { name: "Task two draft" })).toBeTruthy();
   });
 });

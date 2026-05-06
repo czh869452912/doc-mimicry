@@ -18,6 +18,7 @@ export function useTimeline(sessionId: string | null | undefined) {
     }
     setLoading(true);
     setError(null);
+    setEvents([]);
     try {
       const nextEvents = replaceWithIdDedup(await api.getTimeline(nextSessionId));
       if (shouldApply()) setEvents(nextEvents);
