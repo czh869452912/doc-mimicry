@@ -20,7 +20,8 @@ The startup script must:
 - write startup logs under `.local/dev`;
 - install frontend dependencies with `npm ci` when `apps/web/node_modules` is missing;
 - install API runtime dependencies into `.local/dev/.venv`;
-- set `PYTHONPATH` so API code can import shared packages and the mock runtime adapter;
+- set `PYTHONPATH` so API code can import shared packages, the mock runtime adapter, and the OpenHands runtime adapter;
+- run FastAPI without `--reload` so stopping the wrapper job does not leave a reloader child process on port 8000;
 - use `http://127.0.0.1:8000` for the API and `http://127.0.0.1:5173` for the web app;
 - keep existing package-level run commands usable for CI and debugging.
 
@@ -32,6 +33,14 @@ The script must not:
 - require Docker or a production database for the Phase 1 local loop.
 
 ## Manual Fallback
+
+To start with the OpenHands adapter selected:
+
+```powershell
+.\start-dev.cmd -Runtime openhands -OpenHandsBaseUrl http://127.0.0.1:8001
+```
+
+The OpenHands Agent Server must already be installed and reachable. The script verifies the startup configuration and then passes `DOCAGENT_RUNTIME=openhands` and `OPENHANDS_BASE_URL` into the API process.
 
 If the startup script fails, run the services separately:
 

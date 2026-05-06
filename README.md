@@ -31,6 +31,14 @@ On Windows, start the Phase 1 API and web app together with:
 
 The script starts FastAPI on `http://127.0.0.1:8000`, Vite on `http://127.0.0.1:5173`, and writes logs under `.local/dev/`.
 
+To start the same stack with the OpenHands runtime adapter selected:
+
+```powershell
+.\start-dev.cmd -Runtime openhands -OpenHandsBaseUrl http://127.0.0.1:8001
+```
+
+The OpenHands Agent Server must already be running at that URL.
+
 ## Phase 0 Focus
 
 Phase 0 validates the document-version Claude Code loop:

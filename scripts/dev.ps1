@@ -1,4 +1,7 @@
 param(
+    [ValidateSet("mock", "openhands")]
+    [string]$Runtime = $env:DOCAGENT_RUNTIME,
+    [string]$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL,
     [switch]$NoBrowser
 )
 
@@ -55,6 +58,14 @@ if (-not (Test-Command "npm")) {
 }
 
 $python = Get-PythonCommand
+if ([string]::IsNullOrWhiteSpace($Runtime)) {
+    $Runtime = "mock"
+}
+
+if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
+    Write-Error "OpenHands runtime requires -OpenHandsBaseUrl or OPENHANDS_BASE_URL."
+    exit 1
+}
 
 Push-Location $repoRoot
 try {
@@ -86,14 +97,19 @@ $pythonPath = @(
     Join-Path $repoRoot "tools\import"
     Join-Path $repoRoot "services\api"
     Join-Path $repoRoot "agent\runtime-adapters\mock"
+    Join-Path $repoRoot "agent\runtime-adapters\openhands"
 ) -join [IO.Path]::PathSeparator
 
 $apiJob = Start-Job -Name "docagent-api" -ScriptBlock {
-    param($repoRoot, $pythonPath, $apiLog, $venvPython)
+    param($repoRoot, $pythonPath, $apiLog, $venvPython, $runtime, $openHandsBaseUrl)
     Set-Location $repoRoot
     $env:PYTHONPATH = $pythonPath
-    & $venvPython -m uvicorn docagent_api.app:app --reload --host 127.0.0.1 --port 8000 *>> $apiLog
-} -ArgumentList $repoRoot, $pythonPath, $apiLog, $venvPython
+    $env:DOCAGENT_RUNTIME = $runtime
+    if (-not [string]::IsNullOrWhiteSpace($openHandsBaseUrl)) {
+        $env:OPENHANDS_BASE_URL = $openHandsBaseUrl
+    }
+    & $venvPython -m uvicorn docagent_api.app:app --host 127.0.0.1 --port 8000 *>> $apiLog
+} -ArgumentList $repoRoot, $pythonPath, $apiLog, $venvPython, $Runtime, $OpenHandsBaseUrl
 
 $webJob = Start-Job -Name "docagent-web" -ScriptBlock {
     param($webRoot, $webLog)
@@ -103,6 +119,10 @@ $webJob = Start-Job -Name "docagent-web" -ScriptBlock {
 } -ArgumentList $webRoot, $webLog
 
 Write-Host "DocAgent dev stack starting..."
+Write-Host "Runtime: $Runtime"
+if ($Runtime -eq "openhands") {
+    Write-Host "OpenHands: $OpenHandsBaseUrl"
+}
 Write-Host "API: http://127.0.0.1:8000"
 Write-Host "Web: http://127.0.0.1:5173"
 Write-Host "Logs: $logRoot"

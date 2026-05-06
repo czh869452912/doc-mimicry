@@ -16,3 +16,16 @@ def test_one_click_dev_entrypoint_is_documented() -> None:
     assert "start-dev.cmd" in readme
     assert "scripts/dev.ps1" in dev_docs
     assert ".local/dev" in dev_docs
+
+
+def test_dev_entrypoint_supports_openhands_runtime() -> None:
+    start_cmd = (ROOT / "start-dev.cmd").read_text(encoding="utf-8")
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+
+    assert "%*" in start_cmd
+    assert "endlocal & exit /b %exitCode%" in start_cmd
+    assert "agent\\runtime-adapters\\openhands" in dev_script
+    assert "DOCAGENT_RUNTIME" in dev_script
+    assert "OPENHANDS_BASE_URL" in dev_script
+    assert "OpenHands runtime requires" in dev_script
+    assert "--reload" not in dev_script

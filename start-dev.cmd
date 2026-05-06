@@ -1,6 +1,6 @@
 @echo off
 setlocal
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev.ps1"
-
-endlocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev.ps1" %*
+set "exitCode=%ERRORLEVEL%"
+endlocal & exit /b %exitCode%
