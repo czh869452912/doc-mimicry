@@ -86,15 +86,18 @@ The center is a single time-ordered stream rendered top-to-bottom inside a scrol
 
 The conversation has two layers — keep them separate:
 
-1. **Semantic event kinds** (closer to backend domain). The backend `TimelineEvent` model is the source of truth. Concrete kinds emitted by today's loop include (non-exhaustive):
+1. **Semantic event kinds** (closer to backend domain). The backend `TimelineEvent` model is the source of truth. The implementation must use the exact values from `packages/contracts/docagent_contracts/models.py::SemanticEventKind`:
    - `user_message`, `agent_message`
-   - `read_skill`, `read_brief`, `read_inputs` — agent reads
-   - `analyze_examples`, `scan_workspace` — agent surveys
-   - `build_context`, `propose_outline`, `outline_approved` — outline phase
-   - `update_draft`, `create_checkpoint`
-   - `run_checklist`, `checklist_passed`, `checklist_failed`
-   - `approval_requested`
-   - `export_artifact`
+   - `read_skill`, `analyze_examples`, `convert_input`
+   - `build_context`, `extract_style`, `extract_structure`
+   - `generate_outline`, `propose_outline`, `approve_outline`
+   - `update_draft`, `revise_selection`, `create_checkpoint`
+   - `run_checklist`
+   - `export_markdown`, `export_docx`, `export_pdf`
+   - `approval_requested`, `approval_resolved`
+   - `error`
+
+   Future event names such as checklist pass/fail detail events, workspace scan events, or artifact-specific events must be added to the shared contract before `timelinePresentation.ts` depends on them.
 
 2. **Presentation mapping**. `timelinePresentation.ts` is a pure mapper from a `TimelineEvent` to a UI presentation:
 
@@ -114,6 +117,20 @@ The conversation has two layers — keep them separate:
    - `done` (gold) — phase completion (outline approved, checklist passed, artifact exported)
 
    The mapper covers each known event kind explicitly. Unknown events fall back to `kind: 'pill'`, `category: 'thinking'` with the raw event name as summary, so an unmapped backend event is visible without being styled wrong.
+
+### Timeline To Thread Mapping
+
+`docagentRuntime.ts` bridges the existing REST/polling API into `assistant-ui`. It does not treat `GET /sessions/{id}/timeline` as an append-only UI list. It maintains an idempotent event store keyed by `TimelineEvent.id`, merges each refreshed timeline by id, then derives assistant-ui thread messages from the sorted event list.
+
+Mapping rules:
+
+- One `TimelineEvent.id` maps to exactly one assistant-ui message or message part.
+- `user_message` and `agent_message` become normal text messages using `event.summary` as the body.
+- Pill presentations become compact assistant/system message parts, preserving `event.id`, `event.kind`, `event.status`, `event.paths`, and `event.summary` in metadata.
+- Card presentations become custom data/tool message parts keyed by `cardType`; the DocAgent card components render from that payload and retain the source `event.id`.
+- Refresh after submit, slash command, approval, checklist, export, or draft action merges by event id rather than appending blindly, so repeated polling cannot duplicate messages.
+- Event order is stable by backend order from `GET /sessions/{id}/timeline`; if the backend later adds `created_at` to the frontend type, the mapper may use it as a secondary sort key.
+- Unknown events still render as fallback pills and keep their raw `event.kind` visible for debugging.
 
 ### Inline Cards (DocAgent surfaces)
 
@@ -211,10 +228,10 @@ Generic interaction primitives (chat thread, composer, resizable panels, tree, c
 
 | Surface | Library | Notes |
 |---|---|---|
-| Conversation thread + composer | `@assistant-ui/react` | Uses a custom `ChatModelAdapter` (not streaming). Inline cards are rendered as custom message renderers keyed off `timelinePresentation`. |
+| Conversation thread + composer | `@assistant-ui/react` | Uses a custom `ChatModelAdapter` (not streaming). `docagentRuntime.ts` maps refreshed timeline events idempotently into assistant-ui messages/message parts. Inline cards render from custom data/tool parts keyed off `timelinePresentation`. |
 | Three-column shell + collapse + splitter | `react-resizable-panels` | `Panel` with `collapsible`, `defaultSize`, `minSize`, plus persistence to `localStorage`. |
 | Workspace tree | `react-arborist` | Virtualized tree; we provide the data adapter that flattens `tasks → sessions/folders`. |
-| Draft / file / version source view | `CodeMirror 6` | `@codemirror/lang-markdown`, line wrapping, read-only flag for file/version views. |
+| Draft / file / version source view | `CodeMirror 6` via `@uiw/react-codemirror` | `@codemirror/lang-markdown`, line wrapping, read-only flag for file/version views. |
 | Markdown preview | `react-markdown` + `remark-gfm` + `rehype-sanitize` | Styled with `typography.body-md`. Sanitizer prevents XSS from agent-generated Markdown. |
 | Diff view | `diff` (jsdiff) for Phase 1 | Hand-rendered two-pane line diff. Monaco diff editor is a Phase 2 option if richer diff UX is needed. |
 | Command palette | `cmdk` | Same registry as the composer slash menu. |
@@ -225,7 +242,7 @@ Generic interaction primitives (chat thread, composer, resizable panels, tree, c
 
 We deliberately do NOT pull in shadcn/ui's pre-styled component set. shadcn ships a Tailwind theme that conflicts with the Cursor token system in `DESIGN.md`. Instead, we use Radix headless primitives (and `cmdk`, which is already headless) directly and style them with our tokens.
 
-`@assistant-ui/react` is adopted for its runtime adapter abstraction, not for streaming. Phase 1 keeps the existing FastAPI REST endpoints and refresh-after-action behavior. The adapter (`docagentRuntime.ts`) implements `ChatModelAdapter` over our existing API client and re-fetches `GET /sessions/{id}/timeline` after each user turn or action. If we later move to SSE/WebSocket (out of scope here), the same runtime contract can switch to streaming without changing UI components — and at that point the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) is a natural fit to evaluate.
+`@assistant-ui/react` is adopted for its runtime adapter abstraction, not for streaming. Phase 1 keeps the existing FastAPI REST endpoints and refresh-after-action behavior. The adapter (`docagentRuntime.ts`) implements `ChatModelAdapter` over our existing API client and re-fetches `GET /sessions/{id}/timeline` after each user turn or action. The adapter owns the event-id merge store and converts `timelinePresentation` outputs into assistant-ui text/data/tool parts. If we later move to SSE/WebSocket (out of scope here), the same runtime contract can switch to streaming without changing UI components — and at that point the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) is a natural fit to evaluate.
 
 ## Code Layout
 
@@ -286,7 +303,7 @@ Added to `apps/web/package.json`:
 - `@assistant-ui/react`
 - `react-resizable-panels`
 - `react-arborist`
-- `codemirror` `@codemirror/lang-markdown` `@codemirror/state` `@codemirror/view`
+- `@uiw/react-codemirror` `codemirror` `@codemirror/lang-markdown` `@codemirror/state` `@codemirror/view`
 - `react-markdown` `remark-gfm` `rehype-sanitize`
 - `cmdk`
 - `@radix-ui/react-dialog` `@radix-ui/react-tabs` `@radix-ui/react-tooltip`
