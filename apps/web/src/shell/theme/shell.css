@@ -113,3 +113,120 @@
 .resize-handle[data-resize-handle-active] {
   background: var(--color-hairline-strong);
 }
+
+.workspace-pane {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workspace-create {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+
+.workspace-create label {
+  display: grid;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.workspace-create input,
+.workspace-create select,
+.workspace-create textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+}
+
+.workspace-create textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.primary-button {
+  min-height: 30px;
+  color: var(--color-surface-card);
+  cursor: pointer;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.pane-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.pane-note--error {
+  color: var(--color-error);
+}
+
+.empty-card {
+  min-height: 84px;
+  color: var(--color-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px dashed var(--color-hairline-strong);
+  border-radius: var(--radius-lg);
+}
+
+.workspace-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 6px;
+  color: var(--color-body);
+  font-size: 12px;
+  border-radius: var(--radius-md);
+}
+
+.workspace-node:hover,
+[aria-selected="true"] .workspace-node {
+  color: var(--color-ink);
+  background: var(--color-surface-card);
+  outline: 1px solid var(--color-hairline-strong);
+}
+
+.workspace-node__chevron {
+  display: inline-flex;
+  width: 13px;
+  flex: 0 0 auto;
+}
+
+.workspace-node__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--color-muted);
+}
+
+.workspace-node__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-node__status {
+  margin-left: auto;
+  color: var(--color-muted);
+  font-family: var(--font-code);
+  font-size: 10px;
+}
