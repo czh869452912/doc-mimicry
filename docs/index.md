@@ -32,3 +32,8 @@ This directory is the current project truth. The `reference/` directory contains
 - `quality/testing.md`: test strategy.
 - `quality/validation.md`: manual and automated validation.
 - `quality/agent-readability.md`: rules for keeping the repo easy for agents to work in.
+
+## Reviews
+
+- `reviews/active/`: code reviews in progress or awaiting action.
+- `reviews/completed/`: archived reviews where all issues are resolved.
