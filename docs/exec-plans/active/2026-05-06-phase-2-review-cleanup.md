@@ -550,7 +550,7 @@ git commit -m "Record Phase 3 cleanup debt"
 - Move: `docs/exec-plans/active/2026-04-30-phase-2-authoring-loop.md` to `docs/exec-plans/completed/2026-04-30-phase-2-authoring-loop.md`
 - Modify: `docs/exec-plans/active/2026-05-06-phase-2-review-cleanup.md`
 
-- [ ] **Step 1: Run focused backend/runtime verification**
+- [x] **Step 1: Run focused backend/runtime verification**
 
 Run:
 
@@ -560,7 +560,7 @@ python -m pytest services/api/tests/test_phase2_api.py agent/runtime-adapters/mo
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full Python verification**
+- [x] **Step 2: Run full Python verification**
 
 Run:
 
@@ -570,7 +570,7 @@ python -m pytest packages/contracts/tests packages/workspace/tests packages/time
 
 Expected: PASS.
 
-- [ ] **Step 3: Archive the completed Phase 2 implementation plan**
+- [x] **Step 3: Archive the completed Phase 2 implementation plan**
 
 Run:
 
@@ -578,7 +578,7 @@ Run:
 Move-Item -LiteralPath docs/exec-plans/active/2026-04-30-phase-2-authoring-loop.md -Destination docs/exec-plans/completed/2026-04-30-phase-2-authoring-loop.md
 ```
 
-- [ ] **Step 4: Run documentation structure check**
+- [x] **Step 4: Run documentation structure check**
 
 Run:
 
@@ -588,7 +588,7 @@ Get-ChildItem -Recurse -File | Select-Object FullName
 
 Expected: output includes `docs/exec-plans/completed/2026-04-30-phase-2-authoring-loop.md` and `docs/exec-plans/active/2026-05-06-phase-2-review-cleanup.md`.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Run:
 

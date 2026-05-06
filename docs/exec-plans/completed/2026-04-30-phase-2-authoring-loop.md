@@ -1,6 +1,6 @@
 # Phase 2 Authoring Loop Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the V0.2 PRD authoring loop: import Markdown-facing inputs, inspect workspace files, approve outlines, generate drafts, revise selected passages with checkpoints, run checklist review, and export Markdown artifacts.
 
@@ -9,6 +9,8 @@
 **Tech Stack:** Python 3.11, FastAPI, pytest, local filesystem state, React + Vite + TypeScript.
 
 **Execution readiness:** Phase 2 automated tests and frontend build pass locally.
+
+**Post-review cleanup:** Before Phase 3 planning, complete `docs/exec-plans/active/2026-05-06-phase-2-review-cleanup.md`.
 
 ---
 
@@ -36,7 +38,7 @@
 - Modify: `packages/contracts/docagent_contracts/models.py`
 - Modify: `packages/contracts/tests/test_models.py`
 
-- [ ] **Step 1: Write failing contract test for Phase 2 event kinds**
+- [x] **Step 1: Write failing contract test for Phase 2 event kinds**
 
 Add this test to `packages/contracts/tests/test_models.py`:
 
@@ -53,7 +55,7 @@ def test_phase2_semantic_event_kinds_are_available() -> None:
     assert SemanticEventKind.EXPORT_MARKDOWN.value == "export_markdown"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -63,7 +65,7 @@ Run:
 
 Expected: FAIL with `AttributeError` for missing enum members.
 
-- [ ] **Step 3: Add enum values**
+- [x] **Step 3: Add enum values**
 
 Modify `SemanticEventKind` in `packages/contracts/docagent_contracts/models.py`:
 
@@ -92,7 +94,7 @@ class SemanticEventKind(str, Enum):
     ERROR = "error"
 ```
 
-- [ ] **Step 4: Run contract tests**
+- [x] **Step 4: Run contract tests**
 
 Run:
 
@@ -102,7 +104,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add packages/contracts/docagent_contracts/models.py packages/contracts/tests/test_models.py
@@ -115,7 +117,7 @@ git commit -m "Add Phase 2 timeline vocabulary"
 - Create: `services/api/docagent_api/workspace_files.py`
 - Test: `services/api/tests/test_workspace_files.py`
 
-- [ ] **Step 1: Write failing workspace file tests**
+- [x] **Step 1: Write failing workspace file tests**
 
 Create `services/api/tests/test_workspace_files.py`:
 
@@ -160,7 +162,7 @@ def test_rejects_path_traversal(tmp_path: Path) -> None:
         read_workspace_text_file(workspace, "../secret.md")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -170,7 +172,7 @@ Run:
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'docagent_api.workspace_files'`.
 
-- [ ] **Step 3: Implement workspace file helpers**
+- [x] **Step 3: Implement workspace file helpers**
 
 Create `services/api/docagent_api/workspace_files.py`:
 
@@ -232,7 +234,7 @@ def _kind_for(path: Path) -> str:
     return "binary"
 ```
 
-- [ ] **Step 4: Run workspace file tests**
+- [x] **Step 4: Run workspace file tests**
 
 Run:
 
@@ -242,7 +244,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add services/api/docagent_api/workspace_files.py services/api/tests/test_workspace_files.py
@@ -255,7 +257,7 @@ git commit -m "Add workspace file browser helpers"
 - Create: `services/api/docagent_api/imports.py`
 - Test: `services/api/tests/test_imports.py`
 
-- [ ] **Step 1: Write failing import tests**
+- [x] **Step 1: Write failing import tests**
 
 Create `services/api/tests/test_imports.py`:
 
@@ -283,7 +285,7 @@ def test_import_text_input_writes_original_markdown_and_report(tmp_path: Path) -
     assert (workspace / "inputs" / "reports" / "notes.json").exists()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -293,7 +295,7 @@ Run:
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'docagent_api.imports'`.
 
-- [ ] **Step 3: Implement text input import**
+- [x] **Step 3: Implement text input import**
 
 Create `services/api/docagent_api/imports.py`:
 
@@ -355,7 +357,7 @@ def _safe_stem(name: str) -> str:
     return stem or "input"
 ```
 
-- [ ] **Step 4: Run import tests**
+- [x] **Step 4: Run import tests**
 
 Run:
 
@@ -365,7 +367,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add services/api/docagent_api/imports.py services/api/tests/test_imports.py
@@ -378,7 +380,7 @@ git commit -m "Add task input import helper"
 - Modify: `agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py`
 - Test: `agent/runtime-adapters/mock/tests/test_authoring_loop.py`
 
-- [ ] **Step 1: Write failing authoring loop tests**
+- [x] **Step 1: Write failing authoring loop tests**
 
 Create `agent/runtime-adapters/mock/tests/test_authoring_loop.py`:
 
@@ -460,7 +462,7 @@ def test_run_checklist_and_export_markdown(tmp_path: Path) -> None:
     assert [event.kind.value for event in export_events] == ["export_markdown"]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -470,7 +472,7 @@ Run:
 
 Expected: FAIL with missing `build_context_and_outline` method.
 
-- [ ] **Step 3: Implement controlled loop methods**
+- [x] **Step 3: Implement controlled loop methods**
 
 Modify `MockRuntimeAdapter` in `agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py` by adding these methods:
 
@@ -607,7 +609,7 @@ def _read_markdown_inputs(workspace_root: Path) -> str:
     return "\n\n".join(chunks)
 ```
 
-- [ ] **Step 4: Run adapter tests**
+- [x] **Step 4: Run adapter tests**
 
 Run:
 
@@ -617,7 +619,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py agent/runtime-adapters/mock/tests/test_authoring_loop.py
@@ -630,7 +632,7 @@ git commit -m "Add controlled PRD authoring loop"
 - Modify: `services/api/docagent_api/app.py`
 - Test: `services/api/tests/test_phase2_api.py`
 
-- [ ] **Step 1: Write failing Phase 2 API test**
+- [x] **Step 1: Write failing Phase 2 API test**
 
 Create `services/api/tests/test_phase2_api.py`:
 
@@ -701,7 +703,7 @@ def test_phase2_prd_authoring_loop_api(tmp_path: Path) -> None:
     assert "export_markdown" in [event["kind"] for event in timeline]
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -711,7 +713,7 @@ Run:
 
 Expected: FAIL because `/tasks/{task_id}/inputs/text` is not implemented.
 
-- [ ] **Step 3: Add request models and endpoints**
+- [x] **Step 3: Add request models and endpoints**
 
 Modify `services/api/docagent_api/app.py`:
 
@@ -853,7 +855,7 @@ def _manual_event(
 
 The input conversion endpoint is task-scoped. When at least one task session exists, append the `convert_input` event to the first session for that task so the Phase 2 demo timeline remains complete. The UI must create a session before importing input material.
 
-- [ ] **Step 4: Run Phase 2 API test**
+- [x] **Step 4: Run Phase 2 API test**
 
 Run:
 
@@ -863,7 +865,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add services/api/docagent_api/app.py services/api/tests/test_phase2_api.py
@@ -876,7 +878,7 @@ git commit -m "Add Phase 2 authoring API"
 - Modify: `apps/web/src/types.ts`
 - Modify: `apps/web/src/api.ts`
 
-- [ ] **Step 1: Update TypeScript types**
+- [x] **Step 1: Update TypeScript types**
 
 Modify `apps/web/src/types.ts`:
 
@@ -916,7 +918,7 @@ export interface LoopActionResult {
 }
 ```
 
-- [ ] **Step 2: Update API client**
+- [x] **Step 2: Update API client**
 
 Modify `apps/web/src/api.ts` by importing the new types and adding:
 
@@ -949,7 +951,7 @@ Modify `apps/web/src/api.ts` by importing the new types and adding:
     request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown`, { method: "POST" }),
 ```
 
-- [ ] **Step 3: Run frontend type check**
+- [x] **Step 3: Run frontend type check**
 
 Run:
 
@@ -960,7 +962,7 @@ npm run test
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add apps/web/src/types.ts apps/web/src/api.ts
@@ -973,7 +975,7 @@ git commit -m "Add Phase 2 web API client"
 - Modify: `apps/web/src/pages/WorkbenchPage.tsx`
 - Modify: `apps/web/src/styles.css`
 
-- [ ] **Step 1: Replace Phase 1 workbench shell with real loop UI**
+- [x] **Step 1: Replace Phase 1 workbench shell with real loop UI**
 
 Modify `apps/web/src/pages/WorkbenchPage.tsx` so it supports:
 
@@ -1031,7 +1033,7 @@ The rendered layout should keep the three-column shape:
 
 Do not add controls that do not call real API methods.
 
-- [ ] **Step 2: Update CSS for Phase 2 workbench**
+- [x] **Step 2: Update CSS for Phase 2 workbench**
 
 Modify `apps/web/src/styles.css` to add classes:
 
@@ -1045,7 +1047,7 @@ Modify `apps/web/src/styles.css` to add classes:
 .split-preview { display: grid; grid-template-rows: minmax(160px, 1fr) minmax(160px, 1fr); gap: 10px; min-height: 0; }
 ```
 
-- [ ] **Step 3: Run frontend build**
+- [x] **Step 3: Run frontend build**
 
 Run:
 
@@ -1056,7 +1058,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add apps/web/src/pages/WorkbenchPage.tsx apps/web/src/styles.css
@@ -1070,7 +1072,7 @@ git commit -m "Build Phase 2 authoring workbench"
 - Modify: `services/api/tests/test_doctypes_and_drafts.py`
 - Modify: `apps/web/src/pages/ManagementPage.tsx`
 
-- [ ] **Step 1: Add report-aware doctype test**
+- [x] **Step 1: Add report-aware doctype test**
 
 Add to `services/api/tests/test_doctypes_and_drafts.py`:
 
@@ -1085,7 +1087,7 @@ def test_doc_type_detail_groups_markdown_and_reports() -> None:
     assert "export-references" in detail["resource_groups"]
 ```
 
-- [ ] **Step 2: Run doctype tests**
+- [x] **Step 2: Run doctype tests**
 
 Run:
 
@@ -1095,7 +1097,7 @@ Run:
 
 Expected: PASS or fail if current grouping does not expose expected groups.
 
-- [ ] **Step 3: Update management page to show resource groups as real data**
+- [x] **Step 3: Update management page to show resource groups as real data**
 
 Modify `apps/web/src/pages/ManagementPage.tsx`:
 
@@ -1104,7 +1106,7 @@ Modify `apps/web/src/pages/ManagementPage.tsx`:
 - keep `SKILL.md` preview;
 - show a non-interactive note that Skill Creator is out of scope for Phase 2 rather than pretending it is usable.
 
-- [ ] **Step 4: Run frontend build**
+- [x] **Step 4: Run frontend build**
 
 Run:
 
@@ -1115,7 +1117,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add services/api/docagent_api/doctypes.py services/api/tests/test_doctypes_and_drafts.py apps/web/src/pages/ManagementPage.tsx
@@ -1129,7 +1131,7 @@ git commit -m "Make PRD management resources truthful"
 - Modify: `docs/quality/testing.md`
 - Modify: `docs/exec-plans/active/2026-04-30-phase-2-authoring-loop.md`
 
-- [ ] **Step 1: Update CI Python test command**
+- [x] **Step 1: Update CI Python test command**
 
 Modify `.github/workflows/ci.yml` so the Python job runs:
 
@@ -1137,7 +1139,7 @@ Modify `.github/workflows/ci.yml` so the Python job runs:
 python -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests tests -q
 ```
 
-- [ ] **Step 2: Update testing docs**
+- [x] **Step 2: Update testing docs**
 
 Add to `docs/quality/testing.md`:
 
@@ -1169,7 +1171,7 @@ Manual demo path:
 8. export Markdown artifact
 ```
 
-- [ ] **Step 3: Mark plan execution readiness**
+- [x] **Step 3: Mark plan execution readiness**
 
 Add near the top of this plan after Tech Stack:
 
@@ -1177,7 +1179,7 @@ Add near the top of this plan after Tech Stack:
 **Execution readiness:** Phase 2 automated tests and frontend build pass locally.
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -1189,7 +1191,7 @@ npm run build
 
 Expected: all tests pass and web build succeeds.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add .github/workflows/ci.yml docs/quality/testing.md docs/exec-plans/active/2026-04-30-phase-2-authoring-loop.md
