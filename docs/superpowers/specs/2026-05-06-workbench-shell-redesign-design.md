@@ -20,7 +20,7 @@ A user can:
 - Backend changes. API, workspace contract, and timeline mapping stay as-is.
 - Real-time streaming. Phase 1 refresh-after-action behavior is preserved; SSE/WebSocket is out of scope.
 - Dark mode. Token system is structured to allow it later, but only light theme ships now.
-- New runtime adapter. Existing mock and OpenHands adapters keep working unchanged.
+- New backend runtime adapter. Existing mock and OpenHands execution adapters keep working unchanged. (The new `docagentRuntime.ts` discussed later is a frontend bridge to `assistant-ui`, not a backend execution adapter.)
 - Mobile. Desktop-first; narrow-viewport behavior is best-effort, not validated.
 
 ## Information Architecture
@@ -80,36 +80,62 @@ Workspace  (= existing Task; 1:1 mapping; treated as a versioned repo)
 
 ## Center Panel — Conversation
 
-The center is a single time-ordered stream rendered top-to-bottom inside a scrollable container, with a fixed Composer at the bottom.
+The center is a single time-ordered stream rendered top-to-bottom inside a scrollable container, with a fixed Composer at the bottom. Implemented on top of `assistant-ui`'s `Thread` + `Composer` primitives, fed by `docagentRuntime` (see Component Architecture).
 
-### Stream Items
+### Two-Layer Event Model
 
-Each timeline event rendered by the API maps to one of:
+The conversation has two layers — keep them separate:
 
-- **User message**: 14px ink, no avatar prefix, soft-left alignment.
-- **Agent message**: 14px body, with a small `🤖` glyph.
-- **Event pill row**: a single line containing a colored timeline pill plus a one-line summary. Pill color by event kind:
-  - `THINKING` `colors.timeline-thinking` — agent reasoning / waiting on LLM
-  - `GREP` `colors.timeline-grep` — listing or searching workspace
-  - `READ` `colors.timeline-read` — reading brief, examples, SKILL.md, inputs
-  - `EDIT` `colors.timeline-edit` — writing outline, draft, context, checkpoint
-  - `DONE` `colors.timeline-done` — stage completion (outline approved, draft generated, checklist passed, exported)
-- **Inline cards** (white surface, `rounded.lg`, `hairline`):
-  - **Outline card**: title `Outline · waiting for review`, embedded editable Markdown preview, three actions `[Approve] [Edit] [Reject]`. Approve maps to `POST /sessions/{id}/outline/approve` with the (possibly edited) outline.
-  - **Checklist card**: title `Checklist · {pass}/{total}` with each item ✓/✗; failed items expand to show the reason.
-  - **Artifact card**: title `Artifact · {filename}` with `[Open]` and `[Download]` actions, where Open routes to a new Editor tab.
-  - **Approval card** (general purpose): used when the agent asks for explicit confirmation before a destructive or irreversible action.
+1. **Semantic event kinds** (closer to backend domain). The backend `TimelineEvent` model is the source of truth. Concrete kinds emitted by today's loop include (non-exhaustive):
+   - `user_message`, `agent_message`
+   - `read_skill`, `read_brief`, `read_inputs` — agent reads
+   - `analyze_examples`, `scan_workspace` — agent surveys
+   - `build_context`, `propose_outline`, `outline_approved` — outline phase
+   - `update_draft`, `create_checkpoint`
+   - `run_checklist`, `checklist_passed`, `checklist_failed`
+   - `approval_requested`
+   - `export_artifact`
+
+2. **Presentation mapping**. `timelinePresentation.ts` is a pure mapper from a `TimelineEvent` to a UI presentation:
+
+   ```ts
+   type Presentation =
+     | { kind: 'message'; role: 'user' | 'agent'; body: string }
+     | { kind: 'pill'; category: 'thinking' | 'grep' | 'read' | 'edit' | 'done'; summary: string; meta?: string }
+     | { kind: 'card'; cardType: 'outline' | 'checklist' | 'approval' | 'artifact'; payload: unknown };
+   ```
+
+   The five pill categories map to the `colors.timeline-*` tokens in `DESIGN.md`:
+
+   - `thinking` (peach) — agent reasoning / waiting on LLM
+   - `grep` (mint) — listing or scanning workspace, examples, inputs
+   - `read` (blue) — reading specific files (brief, examples, SKILL.md)
+   - `edit` (lavender) — writing outline, draft, context, checkpoints
+   - `done` (gold) — phase completion (outline approved, checklist passed, artifact exported)
+
+   The mapper covers each known event kind explicitly. Unknown events fall back to `kind: 'pill'`, `category: 'thinking'` with the raw event name as summary, so an unmapped backend event is visible without being styled wrong.
+
+### Inline Cards (DocAgent surfaces)
+
+Cards are rendered as custom message renderers when `timelinePresentation` returns `kind: 'card'`. Visual frame: white surface, `rounded.lg`, `hairline`.
+
+- **Outline card**: title `Outline · waiting for review`, embedded editable Markdown preview, three actions `[Approve] [Edit] [Reject]`. Approve calls `POST /sessions/{id}/outline/approve` with the (possibly edited) outline.
+- **Checklist card**: title `Checklist · {pass}/{total}` with each item ✓/✗; failed items expand to show the reason.
+- **Artifact card**: title `Artifact · {filename}` with `[Open]` and `[Download]` actions; Open routes to a new Editor tab.
+- **Approval card**: used when the agent emits `approval_requested` before a destructive or irreversible action.
 
 ### Composer
 
+`assistant-ui`'s composer styled with our tokens.
+
 - Single-line text input that auto-grows up to ~6 lines. Background `colors.surface-card`, `rounded.md`, `hairline-strong` border.
-- Right-side send button uses `button-download` style (ink background, canvas text). Cursor Orange is reserved for the Approve actions and other primary CTAs.
+- Right-side send button uses `button-download` style (ink background, canvas text). Cursor Orange is reserved for Approve actions and other primary CTAs.
 - Enter sends. Shift+Enter inserts a newline.
-- Typing `/` at the start opens an inline command picker; the same picker is reachable via ⌘K from anywhere.
+- Typing `/` at the start opens an inline command picker; the same picker is reachable via ⌘K (`cmdk`) from anywhere.
 
 ### Slash Commands
 
-The composer and command palette share the same registry. Commands map to existing API calls so no new endpoints are needed.
+The composer picker and command palette share one registry exported from `slashCommands.ts`. Commands map to existing API calls so no new endpoints are needed.
 
 | Command | Action |
 |---|---|
@@ -123,22 +149,24 @@ The composer and command palette share the same registry. Commands map to existi
 | `/diff <vA> <vB>` | Open a two-version diff tab in the right panel. |
 | `/help` | Inline help card listing all commands. |
 
+A line that starts with `/` and matches a known command in the registry is parsed at submit time and routed to the corresponding action instead of being sent as a chat message. Unknown `/foo` is sent as plain text. The picker (opened on `/`) is convenience, not the only entry point.
+
 ## Right Panel — Tabbed Editor
 
-- Tab bar across the top. The first tab `📌 Draft` is pinned and not closable. Other tabs are opened by clicking files / versions / artifacts in the left tree, or by slash commands like `/diff` and `/files`.
+- Tab bar across the top, implemented with `@radix-ui/react-tabs`. The first tab `📌 Draft` is pinned and not closable. Other tabs are opened by clicking files / versions / artifacts in the left tree, or by slash commands like `/diff` and `/files`.
 - Tab content:
   - **Draft tab**:
     - Toolbar: `[Preview] [Source]` mode toggle on the left; `+ Checkpoint` (Cursor Orange) and `last save · Xs ago` on the right.
-    - Source mode renders the draft as JetBrains Mono 13px in a textarea.
-    - Preview mode renders Markdown with CursorGothic body type.
+    - Source mode renders the draft via **CodeMirror 6** with `@codemirror/lang-markdown`, JetBrains Mono 13px, line wrapping on.
+    - Preview mode renders Markdown via **react-markdown + remark-gfm + rehype-sanitize** with CursorGothic body type.
     - **Auto-save**: `PUT /tasks/{id}/draft` is debounced 800ms after the last edit. A small spinner / saved state appears in the toolbar.
     - **Selected text affordance**: when the user selects text inside the draft, a floating mini-bar appears with `[💬 Send to chat] [✨ Revise]`.
       - Send to chat injects the selection as a Markdown blockquote into the composer.
       - Revise calls `POST /sessions/{id}/revision/selection` directly.
-  - **File tab**: read-only file content. Path shown in the tab title.
-  - **Version tab**: full text of one version, no editing.
-  - **Diff tab**: two-pane diff (left = older version, right = newer or current draft) using a line-level diff. Initial implementation can use a small dependency or hand-rolled line diff.
-  - **Artifact tab**: rendered preview of an exported Markdown artifact, plus a `[Reveal in folder]` action.
+  - **File tab**: read-only file content rendered with CodeMirror in read-only mode (or `MarkdownPreview` if the file is `.md`). Path shown in the tab title.
+  - **Version tab**: full text of one version in read-only CodeMirror, no editing.
+  - **Diff tab**: two-pane line diff (left = older version, right = newer or current draft). Phase 1 implementation uses `jsdiff` (`diff` npm package) to compute line diffs and renders them with our own minimal two-pane component. Monaco diff editor is reserved as a Phase 2 option if the diff UX needs richer features.
+  - **Artifact tab**: rendered preview of an exported Markdown artifact (via `MarkdownPreview`), plus a `[Reveal in folder]` action.
 - Collapsed icon rail shows: `📌` (Draft), `📁` (File list), `🕘` (Versions).
 
 ## Settings / Management Drawer
@@ -177,51 +205,94 @@ All colors and typography follow `DESIGN.md` (Cursor warm-cream editorial). Toke
 
 Fonts: Inter 400 with letter-spacing -1.5% as the CursorGothic fallback (CursorGothic is licensed). JetBrains Mono on every code surface.
 
+## Component Architecture
+
+Generic interaction primitives (chat thread, composer, resizable panels, tree, code editor, command palette, drawer, tabs) come from mature React libraries. DocAgent owns only the pieces that are specific to it: semantic event mapping, the inline cards (Outline, Checklist, Approval, Artifact), the slash command registry, and the runtime adapter that bridges our REST/polling API to the chosen libraries.
+
+| Surface | Library | Notes |
+|---|---|---|
+| Conversation thread + composer | `@assistant-ui/react` | Uses a custom `ChatModelAdapter` (not streaming). Inline cards are rendered as custom message renderers keyed off `timelinePresentation`. |
+| Three-column shell + collapse + splitter | `react-resizable-panels` | `Panel` with `collapsible`, `defaultSize`, `minSize`, plus persistence to `localStorage`. |
+| Workspace tree | `react-arborist` | Virtualized tree; we provide the data adapter that flattens `tasks → sessions/folders`. |
+| Draft / file / version source view | `CodeMirror 6` | `@codemirror/lang-markdown`, line wrapping, read-only flag for file/version views. |
+| Markdown preview | `react-markdown` + `remark-gfm` + `rehype-sanitize` | Styled with `typography.body-md`. Sanitizer prevents XSS from agent-generated Markdown. |
+| Diff view | `diff` (jsdiff) for Phase 1 | Hand-rendered two-pane line diff. Monaco diff editor is a Phase 2 option if richer diff UX is needed. |
+| Command palette | `cmdk` | Same registry as the composer slash menu. |
+| Settings drawer | `@radix-ui/react-dialog` (Sheet pattern) | Non-modal slide-in from right. |
+| Tabs (right panel) | `@radix-ui/react-tabs` | Pinned `📌 Draft` is the first tab and not closable. |
+| Tooltips, dropdowns, focus management | Radix primitives | As needed. |
+| Icons | `lucide-react` | Already in the project. |
+
+We deliberately do NOT pull in shadcn/ui's pre-styled component set. shadcn ships a Tailwind theme that conflicts with the Cursor token system in `DESIGN.md`. Instead, we use Radix headless primitives (and `cmdk`, which is already headless) directly and style them with our tokens.
+
+`@assistant-ui/react` is adopted for its runtime adapter abstraction, not for streaming. Phase 1 keeps the existing FastAPI REST endpoints and refresh-after-action behavior. The adapter (`docagentRuntime.ts`) implements `ChatModelAdapter` over our existing API client and re-fetches `GET /sessions/{id}/timeline` after each user turn or action. If we later move to SSE/WebSocket (out of scope here), the same runtime contract can switch to streaming without changing UI components — and at that point the [AG-UI protocol](https://github.com/ag-ui-protocol/ag-ui) is a natural fit to evaluate.
+
 ## Code Layout
 
 The new shell replaces `pages/` entirely.
 
 ```text
 apps/web/src/
-  App.tsx               # mounts <AppShell/>
-  api.ts                # unchanged
-  types.ts              # unchanged
+  App.tsx                     # mounts <AppShell/>, wires runtime + theme
+  api.ts                      # unchanged
+  types.ts                    # unchanged
   shell/
-    AppShell.tsx        # 3-col grid + collapse + splitter
+    AppShell.tsx              # react-resizable-panels composition
     TopBar.tsx
-    SettingsDrawer.tsx
-    CommandPalette.tsx
+    SettingsDrawer.tsx        # Radix Dialog (Sheet pattern)
+    CommandPalette.tsx        # cmdk
     panes/
-      WorkspacePane.tsx
-      ConversationPane.tsx
-      EditorPane.tsx
+      WorkspacePane.tsx       # react-arborist adapter
+      ConversationPane.tsx    # assistant-ui Thread adapter
+      EditorPane.tsx          # Radix Tabs + per-tab content
     conversation/
-      EventPill.tsx
-      OutlineCard.tsx
-      ChecklistCard.tsx
-      ArtifactCard.tsx
-      ApprovalCard.tsx
-      Composer.tsx
-      slashCommands.ts
+      docagentRuntime.ts      # bridges REST/polling API to assistant-ui ChatModelAdapter
+      timelinePresentation.ts # TimelineEvent → UI presentation (message | pill | card)
+      slashCommands.ts        # shared registry for composer picker + cmdk
+      cards/
+        OutlineCard.tsx
+        ChecklistCard.tsx
+        ArtifactCard.tsx
+        ApprovalCard.tsx
     editor/
-      DraftTab.tsx
-      FileTab.tsx
-      VersionTab.tsx
-      DiffTab.tsx
-      ArtifactTab.tsx
+      DraftEditor.tsx         # CodeMirror 6 + Markdown lang
+      MarkdownPreview.tsx     # react-markdown + remark-gfm + rehype-sanitize
+      DiffViewer.tsx          # jsdiff-backed two-pane line diff (Phase 1)
+      tabs/
+        DraftTab.tsx
+        FileTab.tsx
+        VersionTab.tsx
+        DiffTab.tsx
+        ArtifactTab.tsx
       useTabs.ts
       useAutoSave.ts
     state/
       useWorkspaces.ts
       useTimeline.ts
-      useCollapse.ts
+      useCollapse.ts          # persistence wrapper around react-resizable-panels
     theme/
-      tokens.css        # all DESIGN.md tokens as CSS variables
+      tokens.css              # all DESIGN.md tokens as CSS variables
       reset.css
       typography.css
+      assistant-ui.css        # overrides assistant-ui defaults to Cursor tokens
 ```
 
 `pages/ManagementPage.tsx` and `pages/WorkbenchPage.tsx` are deleted.
+
+### New runtime dependencies
+
+Added to `apps/web/package.json`:
+
+- `@assistant-ui/react`
+- `react-resizable-panels`
+- `react-arborist`
+- `codemirror` `@codemirror/lang-markdown` `@codemirror/state` `@codemirror/view`
+- `react-markdown` `remark-gfm` `rehype-sanitize`
+- `cmdk`
+- `@radix-ui/react-dialog` `@radix-ui/react-tabs` `@radix-ui/react-tooltip`
+- `diff` (jsdiff)
+
+Exact versions and React 19 compatibility are confirmed during planning before installation.
 
 ## Migration Strategy — In-Place Rewrite
 
@@ -234,6 +305,7 @@ apps/web/src/
 - **Auto-save vs explicit save**: The "Save" button is removed. The draft saves on debounce. Manual snapshots are taken via `+ Checkpoint` (which lands a row in `versions/`).
 - **Revise selection** still uses `api.reviseSelection` and produces a checkpoint, matching current Phase 2 behavior.
 - **Outline editing inside the card** is local state until `Approve` is clicked; on approve, the edited outline is sent as `outline_markdown`.
+- **Runtime adapter**: `docagentRuntime.ts` implements `assistant-ui`'s `ChatModelAdapter` over our existing REST client. On user submit, it `POST`s the message and re-fetches `GET /sessions/{id}/timeline`; the new events flow through `timelinePresentation` and into the `Thread`. This keeps the UI on a single, library-level data contract while the backend stays REST/polling.
 - **Approval polling**: when an action returns, the conversation refreshes with `GET /sessions/{id}/timeline`. There is no SSE in this redesign; if perceived latency is bad, surface a small "Agent working…" indicator instead of changing data flow.
 - **Slash command execution**: a line that starts with `/` and matches a known command in the registry is parsed at submit time and routed to the corresponding action instead of being sent as a chat message. Unknown `/foo` is sent as plain text. The picker (opened on `/`) is convenience, not the only entry point.
 - **Session vs draft scope**: the draft lives at the workspace level. Switching sessions inside the same workspace does not change the draft. Switching workspaces does.
@@ -277,7 +349,9 @@ Add a small Vitest or Playwright smoke check covering at least: shell mounts, tr
 ## Open Questions
 
 - **Checkpoint endpoint**: Phase 2 created checkpoints implicitly during revise. The new `+ Checkpoint` button needs an explicit endpoint or must reuse an existing flow. Decide during planning.
-- **Diff library**: hand-rolled line diff vs a small dependency (e.g. `diff`, `jsdiff`). Decide during planning.
+- **Diff library**: Phase 1 assumes `jsdiff` (`diff` npm package) for a lightweight two-pane line diff. Confirm during planning that `jsdiff` covers our needs (line + word-level highlighting) and that we don't need Monaco's full diff editor yet.
+- **assistant-ui custom-renderer surface**: confirm during planning that `@assistant-ui/react` exposes a stable extension point for "render this message as a custom React component when its kind is X" (custom message parts / content types) without forcing a specific MIME or schema. If the API is too constrained, fall back to using assistant-ui only for the composer + scroll container and rendering the stream ourselves.
+- **CodeMirror bundle size**: CM6 plus the Markdown language adds a non-trivial chunk to the web bundle. If size becomes a problem, fall back to a plain `<textarea>` for source mode and keep `react-markdown` for preview. Decide during planning if we want a size budget assertion.
 - **Drag-and-drop file upload**: Phase 1 only has text input upload. File drop into the conversation can be a follow-up; the spec captures `/import <path>` only.
 - **Webfont**: ship Inter via a self-hosted font file or a CDN; CursorGothic is intentionally not licensed for this project.
 
