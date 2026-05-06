@@ -1,12 +1,15 @@
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { WorkspaceFileContent } from "../types";
+import { CommandPalette } from "./CommandPalette";
+import { SettingsDrawer } from "./SettingsDrawer";
 import { TopBar } from "./TopBar";
 import { titleFromPath, tabKindForPath, useTabs } from "./editor/useTabs";
 import { EditorPane } from "./panes/EditorPane";
 import { ConversationPane } from "./panes/ConversationPane";
 import { WorkspacePane } from "./panes/WorkspacePane";
+import { useCollapse } from "./state/useCollapse";
 import { useTimeline } from "./state/useTimeline";
 import { useWorkspaces } from "./state/useWorkspaces";
 
@@ -16,12 +19,24 @@ export function AppShell() {
   const [draft, setDraft] = useState("");
   const workspaces = useWorkspaces();
   const editorTabs = useTabs();
+  const collapse = useCollapse();
   const timeline = useTimeline(workspaces.activeSession?.id);
   const topBarStatus = workspaces.activeSession?.status?.startsWith("running")
     ? "running"
     : workspaces.activeSession?.status === "failed"
       ? "failed"
       : "idle";
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <main className="docagent-shell">
@@ -32,8 +47,13 @@ export function AppShell() {
         onOpenCommandPalette={() => setCommandOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
-      <Group orientation="horizontal" className="docagent-shell__panels">
-        <Panel defaultSize={20} minSize={12} collapsible>
+      <Group
+        orientation="horizontal"
+        className="docagent-shell__panels"
+        defaultLayout={{ left: collapse.leftPanelSize, center: 100 - collapse.leftPanelSize - collapse.rightPanelSize, right: collapse.rightPanelSize }}
+        onLayoutChanged={collapse.rememberLayout}
+      >
+        <Panel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <WorkspacePane
               activeSession={workspaces.activeSession}
@@ -61,7 +81,7 @@ export function AppShell() {
           </aside>
         </Panel>
         <Separator className="resize-handle" />
-        <Panel minSize={32}>
+        <Panel id="center" minSize={32}>
           <section className="shell-panel shell-panel--center">
             <ConversationPane
               activeSession={workspaces.activeSession}
@@ -80,7 +100,7 @@ export function AppShell() {
           </section>
         </Panel>
         <Separator className="resize-handle" />
-        <Panel defaultSize={32} minSize={18} collapsible>
+        <Panel id="right" defaultSize={collapse.rightPanelSize} minSize={18} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <EditorPane
               activeSessionId={workspaces.activeSession?.id ?? null}
@@ -97,8 +117,13 @@ export function AppShell() {
           </aside>
         </Panel>
       </Group>
-      {settingsOpen && <div hidden>settings-open</div>}
-      {commandOpen && <div hidden>command-open</div>}
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onRunCommand={() => undefined} />
+      <SettingsDrawer
+        docTypes={workspaces.docTypes}
+        open={settingsOpen}
+        runtimeLabel={import.meta.env.VITE_DOCAGENT_RUNTIME ?? "mock"}
+        onOpenChange={setSettingsOpen}
+      />
     </main>
   );
 

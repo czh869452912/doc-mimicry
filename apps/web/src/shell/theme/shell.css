@@ -595,3 +595,132 @@
   background: var(--color-ink);
   border-color: var(--color-ink);
 }
+
+.command-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: start center;
+  padding-top: 80px;
+  background: rgb(38 37 30 / 10%);
+}
+
+.command-menu {
+  width: min(560px, calc(100vw - 32px));
+  overflow: hidden;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 70px rgb(38 37 30 / 20%);
+}
+
+.command-menu [cmdk-input] {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.command-menu [cmdk-list] {
+  max-height: 360px;
+  overflow: auto;
+  padding: 6px;
+}
+
+.command-menu [cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+
+.command-menu [cmdk-item][data-selected="true"] {
+  background: var(--color-canvas-soft);
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: transparent;
+}
+
+.settings-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  display: grid;
+  grid-template-rows: 44px minmax(0, auto);
+  width: min(520px, 100vw);
+  overflow: auto;
+  background: var(--color-canvas);
+  border-left: 1px solid var(--color-hairline);
+  box-shadow: -20px 0 60px rgb(38 37 30 / 10%);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.drawer-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.drawer-section h2,
+.drawer-section h3 {
+  margin: 0;
+}
+
+.doctype-list {
+  display: grid;
+  gap: 4px;
+}
+
+.doctype-list button {
+  min-height: 30px;
+  cursor: pointer;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+
+.doctype-list button.active {
+  border-color: var(--color-hairline-strong);
+}
+
+.doctype-detail {
+  display: grid;
+  gap: 10px;
+}
+
+.resource-path {
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+.settings-drawer pre {
+  max-height: 240px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  font-family: var(--font-code);
+  font-size: 12px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
