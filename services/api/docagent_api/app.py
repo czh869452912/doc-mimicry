@@ -221,6 +221,8 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
             )
         except FileNotFoundError as exc:
             raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
         _append_events(state, session_id, events)
         return {"session_id": session_id, "paths": _event_paths(events)}
 

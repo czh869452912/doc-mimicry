@@ -112,3 +112,20 @@ def test_revise_selection_before_draft_returns_400(tmp_path: Path) -> None:
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Draft does not exist. Approve the outline first."
+
+
+def test_revise_selection_missing_text_returns_422(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": outline["content"]})
+
+    response = client.post(
+        f"/sessions/{session['id']}/revision/selection",
+        json={"selected_text": "Not in draft", "instruction": "Make it sharper"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Selected text not found in draft."
