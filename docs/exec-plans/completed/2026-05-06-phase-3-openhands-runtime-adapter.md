@@ -1,6 +1,6 @@
 # Phase 3 OpenHands Runtime Adapter Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the product's direct mock-runtime dependency with a formal runtime adapter boundary and add OpenHands as the first real runtime implementation.
 
@@ -135,7 +135,7 @@ ok
 - Modify: `pyproject.toml`
 - Test: `packages/contracts/tests/test_runtime_contracts.py`
 
-- [ ] **Step 1: Write failing runtime contract tests**
+- [x] **Step 1: Write failing runtime contract tests**
 
 Create `packages/contracts/tests/test_runtime_contracts.py`:
 
@@ -205,7 +205,7 @@ def test_runtime_adapter_protocol_importable() -> None:
     assert RuntimeAdapter.__name__ == "RuntimeAdapter"
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run:
 
@@ -215,7 +215,7 @@ Run:
 
 Expected: FAIL with missing imports such as `PromptBundle`.
 
-- [ ] **Step 3: Implement shared time helper**
+- [x] **Step 3: Implement shared time helper**
 
 Create `packages/contracts/docagent_contracts/time.py`:
 
@@ -229,7 +229,7 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 ```
 
-- [ ] **Step 4: Implement runtime contracts**
+- [x] **Step 4: Implement runtime contracts**
 
 Create `packages/contracts/docagent_contracts/runtime.py`:
 
@@ -342,7 +342,7 @@ class RuntimeAdapter(Protocol):
         ...
 ```
 
-- [ ] **Step 5: Export runtime contracts and shared time**
+- [x] **Step 5: Export runtime contracts and shared time**
 
 Modify `packages/contracts/docagent_contracts/__init__.py` to import and export:
 
@@ -370,7 +370,7 @@ Add these names to `__all__`:
     "utc_now",
 ```
 
-- [ ] **Step 6: Add OpenHands adapter path to pytest config**
+- [x] **Step 6: Add OpenHands adapter path to pytest config**
 
 Modify `pyproject.toml` so `pythonpath` includes:
 
@@ -384,7 +384,7 @@ and `testpaths` includes:
   "agent/runtime-adapters/openhands/tests",
 ```
 
-- [ ] **Step 7: Run contract tests**
+- [x] **Step 7: Run contract tests**
 
 Run:
 
@@ -394,7 +394,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Task 1**
+- [x] **Step 8: Commit Task 1**
 
 Run:
 
@@ -411,7 +411,7 @@ git commit -m "Add runtime adapter contracts"
 - Test: `services/api/tests/test_session_state.py`
 - Test: `services/api/tests/test_state.py`
 
-- [ ] **Step 1: Write failing session state tests**
+- [x] **Step 1: Write failing session state tests**
 
 Create `services/api/tests/test_session_state.py`:
 
@@ -440,7 +440,7 @@ def test_cancel_is_idempotent_after_cancelled() -> None:
     assert require_transition("cancel", RuntimeSessionState.CANCELLED) is RuntimeSessionState.CANCELLED
 ```
 
-- [ ] **Step 2: Add failing raw event state test**
+- [x] **Step 2: Add failing raw event state test**
 
 Append to `services/api/tests/test_state.py`:
 
@@ -464,7 +464,7 @@ def test_state_persists_raw_runtime_events_as_jsonl(tmp_path: Path) -> None:
     assert (tmp_path / "raw-events" / "session-001.jsonl").exists()
 ```
 
-- [ ] **Step 3: Run tests and verify failure**
+- [x] **Step 3: Run tests and verify failure**
 
 Run:
 
@@ -474,7 +474,7 @@ Run:
 
 Expected: FAIL because `docagent_api.session_state` and raw event methods do not exist.
 
-- [ ] **Step 4: Implement state machine helper**
+- [x] **Step 4: Implement state machine helper**
 
 Create `services/api/docagent_api/session_state.py`:
 
@@ -524,7 +524,7 @@ def require_transition(operation: str, current: RuntimeSessionState) -> RuntimeS
     raise InvalidSessionTransition(operation, requirements.get(operation, "a valid state"), current)
 ```
 
-- [ ] **Step 5: Add raw event JSONL methods**
+- [x] **Step 5: Add raw event JSONL methods**
 
 Modify `services/api/docagent_api/state.py`:
 
@@ -550,7 +550,7 @@ Add methods:
         return self.root / "raw-events" / f"{session_id}.jsonl"
 ```
 
-- [ ] **Step 6: Run state tests**
+- [x] **Step 6: Run state tests**
 
 Run:
 
@@ -560,7 +560,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 Run:
 
@@ -575,7 +575,7 @@ git commit -m "Add runtime session state and raw event storage"
 - Create: `services/api/docagent_api/prompts.py`
 - Test: `services/api/tests/test_prompts.py`
 
-- [ ] **Step 1: Write failing prompt tests**
+- [x] **Step 1: Write failing prompt tests**
 
 Create `services/api/tests/test_prompts.py`:
 
@@ -608,7 +608,7 @@ def test_build_prompt_bundle_reads_core_prompt_and_skill(tmp_path: Path) -> None
     assert bundle.metadata["session_id"] == "session-001"
 ```
 
-- [ ] **Step 2: Run test and verify failure**
+- [x] **Step 2: Run test and verify failure**
 
 Run:
 
@@ -618,7 +618,7 @@ Run:
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'docagent_api.prompts'`.
 
-- [ ] **Step 3: Implement prompt helper**
+- [x] **Step 3: Implement prompt helper**
 
 Create `services/api/docagent_api/prompts.py`:
 
@@ -662,7 +662,7 @@ def _read_required(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 4: Run prompt tests**
+- [x] **Step 4: Run prompt tests**
 
 Run:
 
@@ -672,7 +672,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 Run:
 
@@ -688,7 +688,7 @@ git commit -m "Add runtime prompt assembly"
 - Test: `agent/runtime-adapters/mock/tests/test_adapter.py`
 - Test: `agent/runtime-adapters/mock/tests/test_authoring_loop.py`
 
-- [ ] **Step 1: Add failing formal result test**
+- [x] **Step 1: Add failing formal result test**
 
 Append to `agent/runtime-adapters/mock/tests/test_authoring_loop.py`:
 
@@ -738,7 +738,7 @@ def test_mock_create_session_is_noop_result(tmp_path: Path) -> None:
     assert result.events == []
 ```
 
-- [ ] **Step 2: Run mock tests and verify failure**
+- [x] **Step 2: Run mock tests and verify failure**
 
 Run:
 
@@ -748,7 +748,7 @@ Run:
 
 Expected: FAIL because mock methods do not return `RuntimeOperationResult`.
 
-- [ ] **Step 3: Rename event-producing methods to private helpers**
+- [x] **Step 3: Rename event-producing methods to private helpers**
 
 Modify `agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py` so public adapter methods can use the formal result type. Rename the current event-list methods:
 
@@ -778,7 +778,7 @@ For example, the first method becomes:
 
 The authoring-loop helpers keep their existing bodies and return `list[SemanticTimelineEvent]`; only their names change.
 
-- [ ] **Step 4: Add result helper and formal public methods**
+- [x] **Step 4: Add result helper and formal public methods**
 
 Modify `agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py` imports:
 
@@ -882,7 +882,7 @@ def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:
     return [path for event in events for path in event.paths]
 ```
 
-- [ ] **Step 5: Update mock tests to assert result events**
+- [x] **Step 5: Update mock tests to assert result events**
 
 Update existing mock adapter tests that currently expect a raw event list:
 
@@ -905,7 +905,7 @@ result = adapter.send_message(...)
 events = result.events
 ```
 
-- [ ] **Step 6: Run mock tests**
+- [x] **Step 6: Run mock tests**
 
 Run:
 
@@ -915,7 +915,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 4**
+- [x] **Step 7: Commit Task 4**
 
 Run:
 
@@ -930,7 +930,7 @@ git commit -m "Move mock runtime behind adapter contract"
 - Create: `services/api/docagent_api/runtime_factory.py`
 - Test: `services/api/tests/test_runtime_factory.py`
 
-- [ ] **Step 1: Write failing factory tests**
+- [x] **Step 1: Write failing factory tests**
 
 Create `services/api/tests/test_runtime_factory.py`:
 
@@ -956,7 +956,7 @@ def test_factory_rejects_unknown_runtime(monkeypatch: pytest.MonkeyPatch) -> Non
         create_runtime_adapter()
 ```
 
-- [ ] **Step 2: Run factory tests and verify failure**
+- [x] **Step 2: Run factory tests and verify failure**
 
 Run:
 
@@ -966,7 +966,7 @@ Run:
 
 Expected: FAIL because `docagent_api.runtime_factory` does not exist.
 
-- [ ] **Step 3: Implement factory**
+- [x] **Step 3: Implement factory**
 
 Create `services/api/docagent_api/runtime_factory.py`:
 
@@ -995,7 +995,7 @@ def create_runtime_adapter(runtime_name: str | None = None) -> RuntimeAdapter:
     raise RuntimeConfigurationError(f"Unsupported DOCAGENT_RUNTIME: {selected}")
 ```
 
-- [ ] **Step 4: Run factory tests**
+- [x] **Step 4: Run factory tests**
 
 Run:
 
@@ -1005,7 +1005,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 5**
+- [x] **Step 5: Commit Task 5**
 
 Run:
 
@@ -1022,7 +1022,7 @@ git commit -m "Add runtime adapter factory"
 - Create: `agent/runtime-adapters/openhands/docagent_openhands_runtime/adapter.py`
 - Test: `agent/runtime-adapters/openhands/tests/test_adapter.py`
 
-- [ ] **Step 1: Write failing OpenHands fake-client tests**
+- [x] **Step 1: Write failing OpenHands fake-client tests**
 
 Create `agent/runtime-adapters/openhands/tests/test_adapter.py`:
 
@@ -1086,7 +1086,7 @@ def test_openhands_cancel_requires_known_session(tmp_path: Path) -> None:
         adapter.cancel("task-001", "session-404", tmp_path)
 ```
 
-- [ ] **Step 2: Run OpenHands tests and verify failure**
+- [x] **Step 2: Run OpenHands tests and verify failure**
 
 Run:
 
@@ -1096,7 +1096,7 @@ Run:
 
 Expected: FAIL because `docagent_openhands_runtime` does not exist.
 
-- [ ] **Step 3: Implement OpenHands client wrapper**
+- [x] **Step 3: Implement OpenHands client wrapper**
 
 Create `agent/runtime-adapters/openhands/docagent_openhands_runtime/client.py`:
 
@@ -1165,7 +1165,7 @@ class OpenHandsAgentServerClient:
 
 Keep normal tests fake-client based. The real SDK import and method names are isolated in this file so any later OpenHands SDK adjustment is limited to `client.py`.
 
-- [ ] **Step 4: Implement OpenHands adapter**
+- [x] **Step 4: Implement OpenHands adapter**
 
 Create `agent/runtime-adapters/openhands/docagent_openhands_runtime/adapter.py`:
 
@@ -1330,7 +1330,7 @@ from .adapter import OpenHandsRuntimeAdapter
 __all__ = ["OpenHandsRuntimeAdapter"]
 ```
 
-- [ ] **Step 5: Run OpenHands fake-client tests**
+- [x] **Step 5: Run OpenHands fake-client tests**
 
 Run:
 
@@ -1340,7 +1340,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 6**
+- [x] **Step 6: Commit Task 6**
 
 Run:
 
@@ -1356,7 +1356,7 @@ git commit -m "Add OpenHands runtime adapter first slice"
 - Modify: `packages/timeline/docagent_timeline/__init__.py`
 - Test: `packages/timeline/tests/test_openhands_mapper.py`
 
-- [ ] **Step 1: Write failing mapper tests**
+- [x] **Step 1: Write failing mapper tests**
 
 Create `packages/timeline/tests/test_openhands_mapper.py`:
 
@@ -1396,7 +1396,7 @@ def test_maps_runtime_error() -> None:
     assert event.status.value == "failed"
 ```
 
-- [ ] **Step 2: Run mapper tests and verify failure**
+- [x] **Step 2: Run mapper tests and verify failure**
 
 Run:
 
@@ -1406,7 +1406,7 @@ Run:
 
 Expected: FAIL because `map_openhands_raw_event` does not exist.
 
-- [ ] **Step 3: Implement mapper**
+- [x] **Step 3: Implement mapper**
 
 Create `packages/timeline/docagent_timeline/openhands_mapper.py`:
 
@@ -1485,7 +1485,7 @@ from .openhands_mapper import map_openhands_raw_event
 
 Add `"map_openhands_raw_event"` to `__all__`.
 
-- [ ] **Step 4: Run timeline tests**
+- [x] **Step 4: Run timeline tests**
 
 Run:
 
@@ -1495,7 +1495,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 7**
+- [x] **Step 5: Commit Task 7**
 
 Run:
 
@@ -1512,7 +1512,7 @@ git commit -m "Map OpenHands raw events to semantic timeline"
 - Test: `services/api/tests/test_phase2_api.py`
 - Test: `services/api/tests/test_api.py`
 
-- [ ] **Step 1: Write failing Phase 3 API tests**
+- [x] **Step 1: Write failing Phase 3 API tests**
 
 Create `services/api/tests/test_phase3_api.py`:
 
@@ -1554,7 +1554,7 @@ def test_cancel_running_session_returns_cancelled(tmp_path: Path) -> None:
     assert response.json()["next_state"] == "cancelled"
 ```
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run:
 
@@ -1564,7 +1564,7 @@ Run:
 
 Expected: FAIL because `create_app` does not accept `runtime_name` and cancel endpoint does not exist.
 
-- [ ] **Step 3: Modify app imports and adapter creation**
+- [x] **Step 3: Modify app imports and adapter creation**
 
 In `services/api/docagent_api/app.py`, remove:
 
@@ -1598,7 +1598,7 @@ Replace adapter construction:
     adapter = create_runtime_adapter(runtime_name)
 ```
 
-- [ ] **Step 4: Add append result and transition helpers**
+- [x] **Step 4: Add append result and transition helpers**
 
 Add helpers in `app.py`:
 
@@ -1634,7 +1634,7 @@ Add error mapper in each stateful endpoint:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 ```
 
-- [ ] **Step 5: Rewire create_session endpoint**
+- [x] **Step 5: Rewire create_session endpoint**
 
 In `create_session`, replace the initial task lookup:
 
@@ -1673,7 +1673,7 @@ Save the session record, then call:
         _append_runtime_result(state, task_id, result)
 ```
 
-- [ ] **Step 6: Rewire stateful endpoints to formal adapter methods**
+- [x] **Step 6: Rewire stateful endpoints to formal adapter methods**
 
 For `start_loop`:
 
@@ -1706,7 +1706,7 @@ Use only the formal adapter methods introduced in Task 4:
 
 All of these methods return `RuntimeOperationResult`.
 
-- [ ] **Step 7: Add cancel endpoint**
+- [x] **Step 7: Add cancel endpoint**
 
 Add endpoint:
 
@@ -1726,7 +1726,7 @@ Add endpoint:
         return {"session_id": session_id, "next_state": session["status"]}
 ```
 
-- [ ] **Step 8: Run API tests**
+- [x] **Step 8: Run API tests**
 
 Run:
 
@@ -1736,7 +1736,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Task 8**
+- [x] **Step 9: Commit Task 8**
 
 Run:
 
@@ -1753,7 +1753,7 @@ git commit -m "Route API through runtime adapter factory"
 - Modify: `services/api/README.md`
 - Modify: `docs/quality/testing.md`
 
-- [ ] **Step 1: Create smoke script**
+- [x] **Step 1: Create smoke script**
 
 Create `tools/runtime/openhands_smoke.py`:
 
@@ -1801,7 +1801,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 2: Update runtime adapter README**
+- [x] **Step 2: Update runtime adapter README**
 
 Append to `agent/runtime-adapters/README.md`:
 
@@ -1816,7 +1816,7 @@ Append to `agent/runtime-adapters/README.md`:
 Runtime-specific payloads must stay inside their adapter package. The product backend consumes `RuntimeOperationResult`, semantic timeline events, raw event references, and stable session states.
 ```
 
-- [ ] **Step 3: Update API README**
+- [x] **Step 3: Update API README**
 
 Append to `services/api/README.md`:
 
@@ -1840,7 +1840,7 @@ Normal CI and local development should keep `mock` unless OpenHands Agent Server
 ```
 ```
 
-- [ ] **Step 4: Update testing docs**
+- [x] **Step 4: Update testing docs**
 
 Append to `docs/quality/testing.md`:
 
@@ -1862,7 +1862,7 @@ $env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
 ```
 ```
 
-- [ ] **Step 5: Run documentation structure check**
+- [x] **Step 5: Run documentation structure check**
 
 Run:
 
@@ -1872,7 +1872,7 @@ Get-ChildItem -Recurse -File | Select-Object FullName
 
 Expected: output includes `tools/runtime/openhands_smoke.py` and this plan file.
 
-- [ ] **Step 6: Commit Task 9**
+- [x] **Step 6: Commit Task 9**
 
 Run:
 
@@ -1886,7 +1886,7 @@ git commit -m "Document Phase 3 runtime adapter setup"
 **Files:**
 - Modify: `docs/exec-plans/active/2026-05-06-phase-3-openhands-runtime-adapter.md`
 
-- [ ] **Step 1: Run full Python verification**
+- [x] **Step 1: Run full Python verification**
 
 Run:
 
@@ -1896,7 +1896,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 2: Run frontend build**
+- [x] **Step 2: Run frontend build**
 
 Run:
 
@@ -1907,7 +1907,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Confirm API no longer imports mock directly**
+- [x] **Step 3: Confirm API no longer imports mock directly**
 
 Run:
 
@@ -1917,7 +1917,7 @@ Select-String -Path services/api/docagent_api/app.py -Pattern "docagent_mock_run
 
 Expected: no output.
 
-- [ ] **Step 4: Confirm raw events path is available**
+- [x] **Step 4: Confirm raw events path is available**
 
 Run:
 
@@ -1927,7 +1927,7 @@ Select-String -Path services/api/docagent_api/state.py -Pattern "raw-events|appe
 
 Expected: output includes both strings.
 
-- [ ] **Step 5: Mark execution readiness**
+- [x] **Step 5: Mark execution readiness**
 
 Add near the top of this plan:
 
@@ -1935,7 +1935,7 @@ Add near the top of this plan:
 **Execution readiness:** Phase 3 runtime adapter tests, full Python verification, and frontend build pass locally.
 ```
 
-- [ ] **Step 6: Commit final plan update**
+- [x] **Step 6: Commit final plan update**
 
 Run:
 
