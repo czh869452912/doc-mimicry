@@ -89,18 +89,20 @@ export function useWorkspaces() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshActiveWorkspace = useCallback(
-    async (taskOverride: TaskRecord | null = activeTask, sessionOverride: SessionRecord | null = activeSession) => {
-      if (!taskOverride) {
+  const refreshWorkspaceForTask = useCallback(
+    async (task: TaskRecord | null, sessionOverride: SessionRecord | null = null) => {
+      if (!task) {
         setWorkspaceTree(null);
         setSessions([]);
         setActiveSession(null);
+        window.localStorage.removeItem(LAST_TASK_KEY);
+        window.localStorage.removeItem(LAST_SESSION_KEY);
         return;
       }
 
       const [nextSessions, nextWorkspace] = await Promise.all([
-        api.listTaskSessions(taskOverride.id),
-        api.getWorkspace(taskOverride.id),
+        api.listTaskSessions(task.id),
+        api.getWorkspace(task.id),
       ]);
       const preferredSession =
         (sessionOverride && nextSessions.find((session) => session.id === sessionOverride.id)) ??
@@ -109,20 +111,29 @@ export function useWorkspaces() {
       setSessions(nextSessions);
       setWorkspaceTree(nextWorkspace);
       setActiveSession(preferredSession);
-      window.localStorage.setItem(LAST_TASK_KEY, taskOverride.id);
+      window.localStorage.setItem(LAST_TASK_KEY, task.id);
       if (preferredSession) {
         window.localStorage.setItem(LAST_SESSION_KEY, preferredSession.id);
+      } else {
+        window.localStorage.removeItem(LAST_SESSION_KEY);
       }
     },
-    [activeSession, activeTask],
+    [],
+  );
+
+  const refreshActiveWorkspace = useCallback(
+    async () => {
+      await refreshWorkspaceForTask(activeTask, activeSession);
+    },
+    [activeSession, activeTask, refreshWorkspaceForTask],
   );
 
   const selectTask = useCallback(
     async (task: TaskRecord) => {
       setActiveTask(task);
-      await refreshActiveWorkspace(task, null);
+      await refreshWorkspaceForTask(task, null);
     },
-    [refreshActiveWorkspace],
+    [refreshWorkspaceForTask],
   );
 
   const selectSession = useCallback(
@@ -149,14 +160,17 @@ export function useWorkspaces() {
         const rememberedSessionId = window.localStorage.getItem(LAST_SESSION_KEY);
         const nextSession =
           nextSessions.find((session) => session.id === rememberedSessionId) ?? latestByUpdatedAt(nextSessions);
-        await refreshActiveWorkspace(nextTask, nextSession);
+        await refreshWorkspaceForTask(nextTask, nextSession);
+      } else {
+        setActiveTask(null);
+        await refreshWorkspaceForTask(null);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load workspaces");
     } finally {
       setLoading(false);
     }
-  }, [refreshActiveWorkspace]);
+  }, [refreshWorkspaceForTask]);
 
   useEffect(() => {
     void loadInitialState();
@@ -170,19 +184,19 @@ export function useWorkspaces() {
       setTasks(nextTasks);
       setActiveTask(task);
       setActiveSession(session);
-      await refreshActiveWorkspace(task, session);
+      await refreshWorkspaceForTask(task, session);
       return { task, session };
     },
-    [refreshActiveWorkspace],
+    [refreshWorkspaceForTask],
   );
 
   const ensureSession = useCallback(async () => {
     if (!activeTask) return null;
     if (activeSession && isRunnableSession(activeSession)) return activeSession;
     const session = await api.createSession(activeTask.id);
-    await refreshActiveWorkspace(activeTask, session);
+    await refreshWorkspaceForTask(activeTask, session);
     return session;
-  }, [activeSession, activeTask, refreshActiveWorkspace]);
+  }, [activeSession, activeTask, refreshWorkspaceForTask]);
 
   const treeData = useMemo(
     () =>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import type { TimelineEvent } from "../../types";
 import { replaceWithIdDedup } from "../conversation/docagentRuntime";
@@ -9,24 +9,37 @@ export function useTimeline(sessionId: string | null | undefined) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const refreshTimeline = useCallback(async () => {
-    if (!sessionId) {
+  const loadTimeline = useCallback(async (nextSessionId: string | null | undefined, shouldApply: () => boolean = () => true) => {
+    if (!nextSessionId) {
       setEvents([]);
+      setError(null);
+      setLoading(false);
       return [];
     }
     setLoading(true);
     setError(null);
     try {
-      const nextEvents = replaceWithIdDedup(await api.getTimeline(sessionId));
-      setEvents(nextEvents);
+      const nextEvents = replaceWithIdDedup(await api.getTimeline(nextSessionId));
+      if (shouldApply()) setEvents(nextEvents);
       return nextEvents;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
+      if (shouldApply()) setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
       return [];
     } finally {
-      setLoading(false);
+      if (shouldApply()) setLoading(false);
     }
-  }, [sessionId]);
+  }, []);
+
+  const refreshTimeline = useCallback(async () => loadTimeline(sessionId), [loadTimeline, sessionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadTimeline(sessionId, () => !cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadTimeline, sessionId]);
 
   const resetTimeline = useCallback(() => {
     setEvents([]);

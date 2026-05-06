@@ -17,6 +17,8 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [draftReloadToken, setDraftReloadToken] = useState(0);
+  const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
   const workspaces = useWorkspaces();
   const editorTabs = useTabs();
   const collapse = useCollapse();
@@ -26,6 +28,31 @@ export function AppShell() {
     : workspaces.activeSession?.status === "failed"
       ? "failed"
       : "idle";
+
+  useEffect(() => {
+    let cancelled = false;
+    const taskId = workspaces.activeTask?.id;
+
+    if (!taskId) {
+      setDraft("");
+      return;
+    }
+    const activeTaskId = taskId;
+
+    async function loadActiveDraft() {
+      try {
+        const response = await api.getDraft(activeTaskId);
+        if (!cancelled) setDraft(response.markdown);
+      } catch {
+        if (!cancelled) setDraft("");
+      }
+    }
+
+    void loadActiveDraft();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftReloadToken, workspaces.activeTask?.id]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -63,8 +90,7 @@ export function AppShell() {
               loading={workspaces.loading}
               nodes={workspaces.treeData}
               onCreateWorkspace={async (docTypeId, brief) => {
-                const { task } = await workspaces.createWorkspace(docTypeId, brief);
-                await loadDraft(task.id);
+                await workspaces.createWorkspace(docTypeId, brief);
               }}
               onOpenFile={(path) => {
                 void openWorkspaceFile(path);
@@ -89,13 +115,15 @@ export function AppShell() {
               ensureSession={workspaces.ensureSession}
               error={timeline.error}
               loading={timeline.loading}
+              onOpenPath={openWorkspaceFile}
+              onQueuedCommandHandled={() => setQueuedCommand(null)}
               presentations={timeline.presentations}
+              queuedCommand={queuedCommand}
               refreshTimeline={timeline.refreshTimeline}
               refreshWorkspace={async () => {
                 await workspaces.refreshActiveWorkspace();
-                if (workspaces.activeTask) await loadDraft(workspaces.activeTask.id);
+                setDraftReloadToken((token) => token + 1);
               }}
-              onOpenPath={openWorkspaceFile}
             />
           </section>
         </Panel>
@@ -117,7 +145,7 @@ export function AppShell() {
           </aside>
         </Panel>
       </Group>
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onRunCommand={() => undefined} />
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onRunCommand={setQueuedCommand} />
       <SettingsDrawer
         docTypes={workspaces.docTypes}
         open={settingsOpen}
@@ -126,11 +154,6 @@ export function AppShell() {
       />
     </main>
   );
-
-  async function loadDraft(taskId: string) {
-    const response = await api.getDraft(taskId);
-    setDraft(response.markdown);
-  }
 
   async function openWorkspaceFile(path: string) {
     if (!workspaces.activeTask) return;

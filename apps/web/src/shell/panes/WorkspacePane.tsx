@@ -97,7 +97,7 @@ export function WorkspacePane({
             const data = node.data;
             if (data.kind === "task" && data.taskId) onSelectTask(data.taskId);
             if (data.kind === "session" && data.sessionId) onSelectSession(data.sessionId);
-            if (data.kind === "folder" && data.path) onOpenFile(data.path);
+            if (data.kind === "folder") node.toggle();
             if (data.kind === "file" && data.path) onOpenFile(data.path);
           }}
         >

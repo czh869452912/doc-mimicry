@@ -1,5 +1,5 @@
 import { Send } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../../api";
 import type { SessionRecord, TaskRecord } from "../../types";
 import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashCommands";
@@ -16,7 +16,9 @@ interface ConversationPaneProps {
   error: string | null;
   loading: boolean;
   onOpenPath: (path: string) => Promise<void>;
+  onQueuedCommandHandled?: () => void;
   presentations: Presentation[];
+  queuedCommand?: string | null;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
 }
@@ -27,8 +29,10 @@ export function ConversationPane({
   ensureSession,
   error,
   loading,
+  onQueuedCommandHandled,
   onOpenPath,
   presentations,
+  queuedCommand,
   refreshTimeline,
   refreshWorkspace,
 }: ConversationPaneProps) {
@@ -36,10 +40,16 @@ export function ConversationPane({
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
 
-  async function submitComposer() {
-    const input = composer.trimEnd();
+  useEffect(() => {
+    if (!queuedCommand) return;
+    void submitInput(queuedCommand).finally(() => {
+      onQueuedCommandHandled?.();
+    });
+  }, [queuedCommand]);
+
+  async function submitInput(rawInput: string) {
+    const input = rawInput.trimEnd();
     if (!input) return;
-    setComposer("");
     setStatus("Working...");
 
     try {
@@ -65,6 +75,12 @@ export function ConversationPane({
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
     }
+  }
+
+  async function submitComposer() {
+    const input = composer;
+    setComposer("");
+    await submitInput(input);
   }
 
   return (
