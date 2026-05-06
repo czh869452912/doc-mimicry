@@ -8,11 +8,13 @@
 
 **Tech Stack:** Python 3.11, FastAPI, pytest, TypedDict contracts, local filesystem state, mock runtime adapter.
 
+**Status:** Completed and archived on 2026-05-06. The Phase 2 review was moved to `docs/reviews/completed/code-review-phase2.md`, and this cleanup plan is now the authoritative record of resolved review blockers plus known Phase 3 debt.
+
 ---
 
 ## Scope
 
-- Fix review findings C1, C2, and I1-I5 from `docs/reviews/active/code-review-phase2.md`.
+- Fix review findings C1, C2, and I1-I5 from `docs/reviews/completed/code-review-phase2.md`.
 - Add focused regression tests for the broken paths.
 - Record minor review findings as Phase 3 known debt instead of expanding this cleanup into UI or concurrency work.
 - Move the completed Phase 2 implementation plan out of `active/` after this cleanup verifies.
@@ -36,8 +38,8 @@
 - `packages/workspace/docagent_workspace/checkpoint.py`: real default checkpoint timestamps.
 - `packages/workspace/tests/test_checkpoint.py`: checkpoint timestamp regression.
 - `pyproject.toml`: development test dependencies.
-- `docs/exec-plans/active/2026-04-30-phase-2-authoring-loop.md`: already marked complete; move to `completed/` in Task 7.
-- `docs/exec-plans/active/2026-05-06-phase-2-review-cleanup.md`: track this cleanup and known Phase 3 debt.
+- `docs/exec-plans/completed/2026-04-30-phase-2-authoring-loop.md`: completed Phase 2 implementation plan.
+- `docs/exec-plans/completed/2026-05-06-phase-2-review-cleanup.md`: completed cleanup and known Phase 3 debt.
 
 ## Task 1: Session Status Contract And Missing Draft Error
 

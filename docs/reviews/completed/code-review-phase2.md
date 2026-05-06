@@ -13,6 +13,18 @@ The implementation substantially follows the 3-phase plan. Architecture boundari
 
 Two critical issues must be fixed before Phase 3 planning begins. Five important issues should be resolved in the first Phase 3 cleanup pass before new feature work starts.
 
+## Resolution Status
+
+Resolved and archived on 2026-05-06 by `docs/exec-plans/completed/2026-05-06-phase-2-review-cleanup.md`.
+
+- C1 and C2 were fixed before Phase 3 planning.
+- I1-I5 were fixed in the Phase 2 review cleanup.
+- M1, M2, M4, M5, and M6 remain known Phase 3 debt in the cleanup plan.
+- M3 was resolved by the timestamp cleanup.
+- Verification after cleanup: `48 passed` for the full Python suite, and `npm run build` passed for the web app.
+
+This file is preserved as the original Phase 2 review record plus its final disposition. It is no longer an active review.
+
 ---
 
 ## Confirmed Correct

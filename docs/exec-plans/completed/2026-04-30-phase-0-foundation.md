@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.11+, pytest, standard-library dataclasses/enums, Markdown files, JSON conversion reports.
 
+**Status:** Completed and archived. Later Phase 1 and Phase 2 plans built on this foundation.
+
 ---
 
 ## Scope

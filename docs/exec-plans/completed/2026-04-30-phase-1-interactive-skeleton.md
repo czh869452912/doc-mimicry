@@ -10,6 +10,8 @@
 
 **Execution readiness:** Phase 1 backend/runtime tests and frontend build pass locally.
 
+**Status:** Completed and archived. Phase 2 superseded the initial mock skeleton with the controlled authoring loop.
+
 ---
 
 ## Files And Responsibilities

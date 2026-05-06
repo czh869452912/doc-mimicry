@@ -10,7 +10,7 @@
 
 **Execution readiness:** Phase 2 automated tests and frontend build pass locally.
 
-**Post-review cleanup:** Before Phase 3 planning, complete `docs/exec-plans/active/2026-05-06-phase-2-review-cleanup.md`.
+**Post-review cleanup:** Completed in `docs/exec-plans/completed/2026-05-06-phase-2-review-cleanup.md` before Phase 3 planning.
 
 ---
 
