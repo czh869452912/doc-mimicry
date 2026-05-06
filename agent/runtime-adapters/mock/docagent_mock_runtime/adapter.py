@@ -5,6 +5,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from docagent_contracts import (
+    PromptBundle,
+    RuntimeOperationResult,
+    RuntimeSessionState,
     SemanticEventKind,
     SemanticTimelineEvent,
     TimelineActor,
@@ -18,16 +21,139 @@ def _utc_now() -> str:
 
 
 class MockRuntimeAdapter:
+    def __init__(self) -> None:
+        self._sessions: dict[str, dict[str, object]] = {}
+
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        self._sessions[session_id] = {
+            "task_id": str(prompt_bundle.metadata["task_id"]),
+            "workspace_root": prompt_bundle.workspace_root,
+            "state": RuntimeSessionState.IDLE,
+        }
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
     def send_message(
         self,
-        task_id: str,
         session_id: str,
-        workspace_root: Path,
         message: str,
-    ) -> list[SemanticTimelineEvent]:
+    ) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        task_id = str(session["task_id"])
+        workspace_root = Path(session["workspace_root"])
         if (workspace_root / "draft" / "draft.md").exists():
-            return self._revise(task_id, session_id, workspace_root, message)
-        return self._first_draft(task_id, session_id, workspace_root, message)
+            events = self._revise(task_id, session_id, workspace_root, message)
+            next_state = RuntimeSessionState.DRAFT_READY
+        else:
+            events = self._first_draft(task_id, session_id, workspace_root, message)
+            next_state = RuntimeSessionState.DRAFT_READY
+        self._set_state(session_id, next_state)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=next_state,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        events = self._build_context_and_outline_events(
+            str(session["task_id"]),
+            session_id,
+            Path(session["workspace_root"]),
+        )
+        self._set_state(session_id, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        workspace_root = Path(session["workspace_root"])
+        outline_markdown = _read_text(workspace_root / "draft" / "outline.md")
+        events = self._approve_outline_and_draft_events(
+            str(session["task_id"]),
+            session_id,
+            workspace_root,
+            outline_markdown,
+        )
+        self._set_state(session_id, RuntimeSessionState.DRAFT_READY)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.DRAFT_READY,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def revise_selection(
+        self,
+        session_id: str,
+        selection: str,
+        instruction: str,
+    ) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        events = self._revise_selection_events(
+            str(session["task_id"]),
+            session_id,
+            Path(session["workspace_root"]),
+            selected_text=selection,
+            instruction=instruction,
+        )
+        self._set_state(session_id, RuntimeSessionState.DRAFT_READY)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.DRAFT_READY,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        events = self._run_checklist_events(
+            str(session["task_id"]),
+            session_id,
+            Path(session["workspace_root"]),
+        )
+        self._set_state(session_id, RuntimeSessionState.DRAFT_READY)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.DRAFT_READY,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        events = self._export_markdown_events(
+            str(session["task_id"]),
+            session_id,
+            Path(session["workspace_root"]),
+        )
+        self._set_state(session_id, RuntimeSessionState.COMPLETED)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.COMPLETED,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        self._session(session_id)
+        self._set_state(session_id, RuntimeSessionState.CANCELLED)
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    def get_state(self, session_id: str) -> RuntimeSessionState:
+        return self._session(session_id)["state"]  # type: ignore[return-value]
+
+    def _session(self, session_id: str) -> dict[str, object]:
+        if session_id not in self._sessions:
+            raise KeyError(f"Unknown runtime session: {session_id}")
+        return self._sessions[session_id]
+
+    def _set_state(self, session_id: str, state: RuntimeSessionState) -> None:
+        self._session(session_id)["state"] = state
 
     def _first_draft(
         self,
@@ -93,7 +219,7 @@ class MockRuntimeAdapter:
             _event(task_id, session_id, "draft-2", TimelineActor.AGENT, SemanticEventKind.UPDATE_DRAFT, "Update draft", ["draft/draft.md"]),
         ]
 
-    def build_context_and_outline(
+    def _build_context_and_outline_events(
         self,
         task_id: str,
         session_id: str,
@@ -140,7 +266,7 @@ class MockRuntimeAdapter:
             _event(task_id, session_id, "approval", TimelineActor.SYSTEM, SemanticEventKind.APPROVAL_REQUESTED, "Await outline approval", ["draft/outline.md"]),
         ]
 
-    def approve_outline_and_draft(
+    def _approve_outline_and_draft_events(
         self,
         task_id: str,
         session_id: str,
@@ -166,7 +292,7 @@ class MockRuntimeAdapter:
             _event(task_id, session_id, "draft", TimelineActor.AGENT, SemanticEventKind.UPDATE_DRAFT, "Generate draft", ["draft/draft.md"]),
         ]
 
-    def revise_selection(
+    def _revise_selection_events(
         self,
         task_id: str,
         session_id: str,
@@ -188,7 +314,7 @@ class MockRuntimeAdapter:
             _event(task_id, session_id, "selection", TimelineActor.AGENT, SemanticEventKind.REVISE_SELECTION, "Revise selected passage", ["draft/draft.md"]),
         ]
 
-    def run_checklist(
+    def _run_checklist_events(
         self,
         task_id: str,
         session_id: str,
@@ -204,7 +330,7 @@ class MockRuntimeAdapter:
         (workspace_root / "reviews" / "checklist_result.md").write_text(result, encoding="utf-8")
         return [_event(task_id, session_id, "checklist", TimelineActor.AGENT, SemanticEventKind.RUN_CHECKLIST, "Run checklist", ["reviews/checklist_result.md"])]
 
-    def export_markdown(
+    def _export_markdown_events(
         self,
         task_id: str,
         session_id: str,
@@ -230,6 +356,10 @@ def _read_markdown_inputs(workspace_root: Path) -> str:
     for path in sorted(markdown_dir.glob("*.md")):
         chunks.append(f"### {path.name}\n\n{path.read_text(encoding='utf-8').strip()}")
     return "\n\n".join(chunks)
+
+
+def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:
+    return [path for event in events for path in event.paths]
 
 
 def _event(

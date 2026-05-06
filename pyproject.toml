@@ -23,11 +23,13 @@ pythonpath = [
   "packages/timeline",
   "tools/import",
   "services/api",
-  "agent/runtime-adapters/mock"
+  "agent/runtime-adapters/mock",
+  "agent/runtime-adapters/openhands"
 ]
 testpaths = [
   "packages",
   "tools",
   "services/api/tests",
-  "agent/runtime-adapters/mock/tests"
+  "agent/runtime-adapters/mock/tests",
+  "agent/runtime-adapters/openhands/tests"
 ]

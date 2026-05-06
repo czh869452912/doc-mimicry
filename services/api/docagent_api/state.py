@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
+
+from docagent_contracts import RawRuntimeEvent
 
 
 class DocAgentState:
@@ -10,6 +13,7 @@ class DocAgentState:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / "timelines").mkdir(parents=True, exist_ok=True)
+        (self.root / "raw-events").mkdir(parents=True, exist_ok=True)
         (self.root / "workspaces").mkdir(parents=True, exist_ok=True)
 
     def list_tasks(self) -> list[dict[str, Any]]:
@@ -48,6 +52,18 @@ class DocAgentState:
             return []
         return json.loads(path.read_text(encoding="utf-8"))
 
+    def append_raw_runtime_event(self, session_id: str, event: RawRuntimeEvent) -> None:
+        event_dict = asdict(event)
+        event_dict["runtime"] = event.runtime.value
+        with self._raw_events_path(session_id).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event_dict, ensure_ascii=False) + "\n")
+
+    def list_raw_runtime_events(self, session_id: str) -> list[dict[str, Any]]:
+        path = self._raw_events_path(session_id)
+        if not path.exists():
+            return []
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
     def workspace_root(self, task_id: str) -> Path:
         return self.root / "workspaces" / task_id
 
@@ -65,3 +81,6 @@ class DocAgentState:
 
     def _timeline_path(self, session_id: str) -> Path:
         return self.root / "timelines" / f"{session_id}.json"
+
+    def _raw_events_path(self, session_id: str) -> Path:
+        return self.root / "raw-events" / f"{session_id}.jsonl"

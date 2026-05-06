@@ -16,3 +16,12 @@ Expected operations:
 - reject action
 - get state
 
+## Phase 3 Runtime Selection
+
+`services/api` selects runtime adapters through `DOCAGENT_RUNTIME`.
+
+- `mock`: deterministic local and CI adapter.
+- `openhands`: OpenHands Agent Server / SDK adapter.
+
+Runtime-specific payloads must stay inside their adapter package. The product backend consumes `RuntimeOperationResult`, semantic timeline events, raw event references, and stable session states.
+

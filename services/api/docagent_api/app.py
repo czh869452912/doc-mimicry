@@ -12,11 +12,22 @@ from pydantic import BaseModel
 from docagent_api.doctypes import get_doc_type, list_doc_types
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
+from docagent_api.prompts import build_prompt_bundle
+from docagent_api.runtime_factory import create_runtime_adapter
+from docagent_api.session_state import InvalidSessionTransition, require_transition
 from docagent_api.state import DocAgentState
 from docagent_api.time import utc_now
 from docagent_api.workspace_files import list_workspace_files, read_workspace_text_file
-from docagent_contracts import SemanticEventKind, SemanticTimelineEvent, TimelineActor, TimelineStatus
-from docagent_mock_runtime.adapter import MockRuntimeAdapter
+from docagent_contracts import (
+    RuntimeKind,
+    RuntimeOperationResult,
+    RuntimeSessionState,
+    SemanticEventKind,
+    SemanticTimelineEvent,
+    TimelineActor,
+    TimelineStatus,
+)
+from docagent_timeline import map_openhands_raw_event
 from docagent_workspace import create_workspace
 
 
@@ -47,7 +58,11 @@ class UpdateDraftRequest(BaseModel):
     markdown: str
 
 
-def create_app(state_root: Path | None = None, repo_root: Path | None = None) -> FastAPI:
+def create_app(
+    state_root: Path | None = None,
+    repo_root: Path | None = None,
+    runtime_name: str | None = None,
+) -> FastAPI:
     app = FastAPI(title="DocAgent Workbench API")
     app.add_middleware(
         CORSMiddleware,
@@ -58,7 +73,7 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
     )
     root = repo_root or Path.cwd()
     state = DocAgentState(state_root or root / ".local" / "docagent")
-    adapter = MockRuntimeAdapter()
+    adapter = create_runtime_adapter(runtime_name)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -132,7 +147,7 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
 
     @app.post("/tasks/{task_id}/sessions")
     def create_session(task_id: str) -> dict[str, Any]:
-        _require_task(state, task_id)
+        task = _require_task(state, task_id)
         session_id = f"session-{uuid4().hex[:8]}"
         created_at = utc_now()
         record = {
@@ -143,6 +158,15 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
             "updated_at": created_at,
         }
         state.save_session(record)
+        prompt_bundle = build_prompt_bundle(
+            root,
+            Path(task["workspace_root"]),
+            task["id"],
+            session_id,
+            task["doc_type_id"],
+        )
+        result = adapter.create_session(session_id, prompt_bundle)
+        _append_runtime_result(state, task["id"], session_id, result)
         return record
 
     @app.get("/tasks/{task_id}/sessions")
@@ -182,86 +206,82 @@ def create_app(state_root: Path | None = None, repo_root: Path | None = None) ->
     def start_loop(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.build_context_and_outline(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-        )
-        _append_events(state, session_id, events)
-        session["status"] = "await_outline_approval"
-        state.save_session(session)
-        return {"session_id": session_id, "next_state": "await_outline_approval", "event_count": len(events)}
+        _prepare_transition(state, session, RuntimeSessionState.RUNNING_CONTEXT)
+        result = adapter.start_loop(session_id)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return _runtime_result_response(result)
 
     @app.post("/sessions/{session_id}/outline/approve")
     def approve_outline(session_id: str, request: ApproveOutlineRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.approve_outline_and_draft(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-            outline_markdown=request.outline_markdown,
+        _prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT)
+        (Path(task["workspace_root"]) / "draft" / "outline.md").write_text(
+            request.outline_markdown if request.outline_markdown.endswith("\n") else f"{request.outline_markdown}\n",
+            encoding="utf-8",
         )
-        _append_events(state, session_id, events)
-        session["status"] = "draft_ready"
-        state.save_session(session)
-        return {"session_id": session_id, "next_state": "draft_ready", "event_count": len(events)}
+        result = adapter.approve_outline(session_id)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return _runtime_result_response(result)
 
     @app.post("/sessions/{session_id}/revision/selection")
     def revise_selection(session_id: str, request: ReviseSelectionRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        previous_state = RuntimeSessionState(session["status"])
         try:
-            events = adapter.revise_selection(
-                task_id=task["id"],
-                session_id=session_id,
-                workspace_root=Path(task["workspace_root"]),
-                selected_text=request.selected_text,
-                instruction=request.instruction,
-            )
+            _prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
+            result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
         except FileNotFoundError as exc:
+            _set_session_state(state, session, previous_state)
             raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
         except ValueError as exc:
+            _set_session_state(state, session, previous_state)
             raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
-        _append_events(state, session_id, events)
-        return {"session_id": session_id, "paths": _event_paths(events)}
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "paths": result.changed_paths}
 
     @app.post("/sessions/{session_id}/checklist/run")
     def run_checklist(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.run_checklist(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-        )
-        _append_events(state, session_id, events)
-        return {"session_id": session_id, "paths": _event_paths(events)}
+        _prepare_transition(state, session, RuntimeSessionState.RUNNING_CHECKLIST)
+        result = adapter.run_checklist(session_id)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "paths": result.changed_paths}
 
     @app.post("/sessions/{session_id}/artifacts/export-markdown")
     def export_markdown(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.export_markdown(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-        )
-        _append_events(state, session_id, events)
-        return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(events)}
+        _prepare_transition(state, session, RuntimeSessionState.RUNNING_EXPORT)
+        result = adapter.export_markdown(session_id)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
 
     @app.post("/sessions/{session_id}/messages")
     def send_message(session_id: str, request: SendMessageRequest) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
-        events = adapter.send_message(
-            task_id=task["id"],
-            session_id=session_id,
-            workspace_root=Path(task["workspace_root"]),
-            message=request.message,
-        )
-        _append_events(state, session_id, events)
-        return {"session_id": session_id, "event_count": len(events)}
+        _prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
+        result = adapter.send_message(session_id, request.message)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "event_count": len(result.events)}
+
+    @app.post("/sessions/{session_id}/cancel")
+    def cancel_session(session_id: str) -> dict[str, Any]:
+        session = _require_session(state, session_id)
+        task = _require_task(state, session["task_id"])
+        result = adapter.cancel(session_id)
+        _append_runtime_result(state, task["id"], session_id, result)
+        _set_session_state(state, session, result.next_state)
+        return _runtime_result_response(result)
 
     @app.get("/sessions/{session_id}/timeline")
     def get_timeline(session_id: str) -> list[dict[str, Any]]:
@@ -291,6 +311,41 @@ def _append_events(state: DocAgentState, session_id: str, events: list[SemanticT
         state.append_timeline_event(session_id, asdict(event))
 
 
+def _append_runtime_result(
+    state: DocAgentState,
+    task_id: str,
+    session_id: str,
+    result: RuntimeOperationResult,
+) -> None:
+    _append_events(state, session_id, result.events)
+    for raw_event in result.raw_events:
+        state.append_raw_runtime_event(session_id, raw_event)
+        if raw_event.runtime is RuntimeKind.OPENHANDS:
+            state.append_timeline_event(session_id, asdict(map_openhands_raw_event(raw_event, task_id)))
+
+
+def _prepare_transition(
+    state: DocAgentState,
+    session: dict[str, Any],
+    next_state: RuntimeSessionState,
+) -> None:
+    try:
+        require_transition(session["status"], next_state)
+    except InvalidSessionTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    _set_session_state(state, session, next_state)
+
+
+def _set_session_state(
+    state: DocAgentState,
+    session: dict[str, Any],
+    next_state: RuntimeSessionState,
+) -> None:
+    session["status"] = next_state.value
+    session["updated_at"] = utc_now()
+    state.save_session(session)
+
+
 def _manual_event(
     task_id: str,
     session_id: str,
@@ -316,6 +371,15 @@ def _manual_event(
 
 def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:
     return [path for event in events for path in event.paths]
+
+
+def _runtime_result_response(result: RuntimeOperationResult) -> dict[str, Any]:
+    return {
+        "session_id": result.session_id,
+        "next_state": result.next_state.value,
+        "event_count": len(result.events),
+        "raw_event_count": len(result.raw_events),
+    }
 
 
 app = create_app()

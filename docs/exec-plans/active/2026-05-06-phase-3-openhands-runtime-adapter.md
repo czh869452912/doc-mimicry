@@ -4,6 +4,8 @@
 
 **Goal:** Replace the product's direct mock-runtime dependency with a formal runtime adapter boundary and add OpenHands as the first real runtime implementation.
 
+**Execution readiness:** Phase 3 runtime adapter tests, full Python verification, and frontend build pass locally.
+
 **Architecture:** Keep `services/api` runtime-agnostic. Define product-level runtime contracts in `packages/contracts`, choose adapters through a backend factory, keep mock as the deterministic test/runtime fallback, and isolate all OpenHands-specific SDK or HTTP details under `agent/runtime-adapters/openhands`. OpenHands event streaming is consumed server-side first; the UI continues polling existing session and timeline endpoints.
 
 **Tech Stack:** Python 3.11, FastAPI, pytest, dataclasses/Protocols, file-backed JSON/JSONL state, optional OpenHands Agent Server / SDK integration.

@@ -27,3 +27,20 @@ The API should expose converted Markdown resources to the agent runtime. Origina
 ```powershell
 uvicorn docagent_api.app:app --reload --app-dir services/api
 ```
+
+## Runtime Configuration
+
+Default:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "mock"
+```
+
+OpenHands opt-in:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "openhands"
+$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+```
+
+Normal CI and local development should keep `mock` unless OpenHands Agent Server is installed and running.

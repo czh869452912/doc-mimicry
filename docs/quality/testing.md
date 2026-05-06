@@ -74,3 +74,19 @@ Manual demo path:
 6. revise selected draft passage
 7. run checklist
 8. export Markdown artifact
+
+## Phase 3 Runtime Adapter
+
+Run runtime adapter tests:
+
+```powershell
+& 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pytest packages/contracts/tests packages/timeline/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests -q
+```
+
+OpenHands smoke is opt-in:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "openhands"
+$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+& 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' tools/runtime/openhands_smoke.py
+```

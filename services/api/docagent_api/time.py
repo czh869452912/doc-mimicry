@@ -1,7 +1,3 @@
-from __future__ import annotations
+from docagent_contracts import utc_now
 
-from datetime import datetime, timezone
-
-
-def utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+__all__ = ["utc_now"]
