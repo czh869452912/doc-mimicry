@@ -324,7 +324,7 @@ Implementation requirements:
 
 - [ ] Step 4: Replace overlay primitives where useful.
 
-Deferred: official `sheet`, `command`, `tabs`, and `resizable` components were added and build-verified, but `SettingsDrawer`, `CommandPalette`, `EditorPane`, and `AppShell` were not migrated in this pass to keep behavior risk contained.
+Progress: `SettingsDrawer` now uses shadcn `Sheet`, and `CommandPalette` uses shadcn `Command` primitives while preserving the existing overlay behavior. `EditorPane` tabs and `AppShell` resizable panels remain on their existing direct dependencies for now.
 
 Implementation requirements:
 

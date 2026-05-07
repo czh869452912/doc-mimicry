@@ -1,5 +1,11 @@
-import { Command } from "cmdk";
 import { SLASH_COMMANDS } from "./conversation/slashCommands";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../components/ui/command";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -17,11 +23,11 @@ export function CommandPalette({ onClose, onRunCommand, open }: CommandPalettePr
         label="Command palette"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <Command.Input autoFocus placeholder="Run command..." />
-        <Command.List>
-          <Command.Empty>No command found.</Command.Empty>
+        <CommandInput autoFocus placeholder="Run command..." />
+        <CommandList>
+          <CommandEmpty>No command found.</CommandEmpty>
           {SLASH_COMMANDS.map((item) => (
-            <Command.Item
+            <CommandItem
               key={item.command}
               value={`${item.command} ${item.description}`}
               onSelect={() => {
@@ -31,9 +37,9 @@ export function CommandPalette({ onClose, onRunCommand, open }: CommandPalettePr
             >
               <code>{item.command}</code>
               <span>{item.description}</span>
-            </Command.Item>
+            </CommandItem>
           ))}
-        </Command.List>
+        </CommandList>
       </Command>
     </div>
   );
