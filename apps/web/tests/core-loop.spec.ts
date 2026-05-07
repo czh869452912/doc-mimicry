@@ -34,3 +34,17 @@ test("start loop produces outline card", async ({ page }) => {
   await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
   await expect(page.getByRole("button", { name: /approve/i })).toBeVisible();
 });
+
+test("approve outline makes draft content visible", async ({ page }) => {
+  await createWorkspace(page);
+
+  const composer = page.getByLabel("Message");
+  await composer.fill("/start");
+  await composer.press("Enter");
+
+  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
+  await page.getByRole("button", { name: /approve/i }).click();
+
+  // Mock adapter generates a draft with heading "PRD Draft"
+  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+});
