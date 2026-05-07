@@ -52,6 +52,7 @@ export function WorkspacePane({
   onSelectTask,
 }: WorkspacePaneProps) {
   const [creating, setCreating] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [docTypeId, setDocTypeId] = useState(docTypes[0]?.id ?? "prd");
   const selectedId = activeSession ? `session:${activeSession.id}` : activeTask ? `task:${activeTask.id}` : undefined;
   const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), [nodes]);
@@ -59,6 +60,7 @@ export function WorkspacePane({
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<z.infer<typeof createWorkspaceSchema>>({
     resolver: zodResolver(createWorkspaceSchema),
@@ -89,9 +91,15 @@ export function WorkspacePane({
           aria-label="Create workspace"
           className="workspace-create"
           onSubmit={(event) => {
+            setSubmitError(null);
             void handleSubmit(async (values) => {
-              await onCreateWorkspace(docTypeId, { title: values.title, description: values.description });
-              setCreating(false);
+              try {
+                await onCreateWorkspace(docTypeId, { title: values.title, description: values.description });
+                reset();
+                setCreating(false);
+              } catch (err) {
+                setSubmitError(err instanceof Error ? err.message : "Failed to create workspace");
+              }
             })(event);
           }}
         >
@@ -126,9 +134,13 @@ export function WorkspacePane({
             )}
             <FieldDescription>Used as the agent brief inside the workspace.</FieldDescription>
           </Field>
-          <Button type="submit">
-            Create workspace
-          </Button>
+          {submitError && <p className="pane-note pane-note--error">{submitError}</p>}
+          <div className="workspace-create__actions">
+            <Button type="button" variant="outline" onClick={() => { reset(); setCreating(false); }}>
+              Cancel
+            </Button>
+            <Button type="submit">Create workspace</Button>
+          </div>
         </form>
       )}
 

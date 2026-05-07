@@ -71,5 +71,44 @@ describe("WorkspacePane creation form", () => {
         description: "Build a search feature",
       });
     });
+
+    // Form should close and reset after successful submit
+    await waitFor(() => {
+      expect(screen.queryByRole("form", { name: /create workspace/i })).toBeNull();
+    });
+  });
+
+  it("closes the form without submitting when Cancel is clicked", async () => {
+    const user = userEvent.setup();
+    const onCreateWorkspace = vi.fn();
+    render(<WorkspacePane {...defaultProps} onCreateWorkspace={onCreateWorkspace} />);
+
+    const openButtons = screen.getAllByRole("button", { name: /create workspace/i });
+    await user.click(openButtons[0]);
+
+    const form = screen.getByRole("form", { name: /create workspace/i });
+    await user.click(within(form).getByRole("button", { name: /cancel/i }));
+
+    expect(screen.queryByRole("form", { name: /create workspace/i })).toBeNull();
+    expect(onCreateWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("shows a submit error when onCreateWorkspace rejects", async () => {
+    const user = userEvent.setup();
+    const onCreateWorkspace = vi.fn().mockRejectedValue(new Error("Server error"));
+    render(<WorkspacePane {...defaultProps} onCreateWorkspace={onCreateWorkspace} />);
+
+    const openButtons = screen.getAllByRole("button", { name: /create workspace/i });
+    await user.click(openButtons[0]);
+
+    const form = screen.getByRole("form", { name: /create workspace/i });
+    await user.click(within(form).getByRole("button", { name: /create workspace/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/server error/i)).toBeTruthy();
+    });
+
+    // Form remains open so user can retry
+    expect(screen.getByRole("form", { name: /create workspace/i })).toBeTruthy();
   });
 });
