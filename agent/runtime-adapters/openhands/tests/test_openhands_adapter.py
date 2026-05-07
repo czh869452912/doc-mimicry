@@ -16,6 +16,10 @@ class FakeOpenHandsClient:
         self.messages.append(message)
         return [{"kind": "file_written", "path": "draft/outline.md"}]
 
+    def send_message_stream(self, runtime_session_id: str, message: str) -> Any:
+        self.messages.append(message)
+        yield {"kind": "file_written", "path": "draft/streamed.md"}
+
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
         return [{"kind": "cancelled"}]
 
@@ -53,6 +57,19 @@ def test_openhands_adapter_reports_missing_runtime_session() -> None:
         assert str(exc) == "OpenHands runtime session is not bound for session-001. Create a new session."
     else:
         raise AssertionError("Expected missing runtime session to fail clearly")
+
+
+def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:
+    adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
+    adapter.create_session("session-001", _prompt_bundle(tmp_path))
+    streamed = []
+
+    result = adapter.send_message_stream("session-001", "Revise", streamed.append)
+
+    assert result.next_state == RuntimeSessionState.DRAFT_READY
+    assert result.raw_events == []
+    assert streamed[0].payload["path"] == "draft/streamed.md"
+    assert result.changed_paths == ["draft/streamed.md"]
 
 
 def _prompt_bundle(workspace: Path) -> PromptBundle:

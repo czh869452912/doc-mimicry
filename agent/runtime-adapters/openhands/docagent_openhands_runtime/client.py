@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from threading import Thread
+import time
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -12,6 +14,9 @@ class OpenHandsClient(Protocol):
         ...
 
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
+        ...
+
+    def send_message_stream(self, runtime_session_id: str, message: str) -> Any:
         ...
 
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
@@ -61,6 +66,42 @@ class OpenHandsAgentServerClient:
         events = getattr(conversation.state, "events", [])[before_count:]
         return [_event_to_payload(event) for event in events]
 
+    def send_message_stream(
+        self,
+        runtime_session_id: str,
+        message: str,
+        poll_interval_seconds: float = 0.1,
+    ) -> Any:
+        conversation = self._conversation(runtime_session_id)
+        before_count = len(getattr(conversation.state, "events", []))
+        error: list[BaseException] = []
+
+        conversation.send_message(message)
+
+        def run() -> None:
+            try:
+                conversation.run()
+            except BaseException as exc:
+                error.append(exc)
+
+        worker = Thread(target=run, daemon=True)
+        worker.start()
+        next_index = before_count
+        while worker.is_alive():
+            events = getattr(conversation.state, "events", [])
+            while next_index < len(events):
+                yield _event_to_payload(events[next_index])
+                next_index += 1
+            time.sleep(poll_interval_seconds)
+
+        worker.join()
+        events = getattr(conversation.state, "events", [])
+        while next_index < len(events):
+            yield _event_to_payload(events[next_index])
+            next_index += 1
+        if error:
+            raise error[0]
+
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
         conversation = self._conversation(runtime_session_id)
         close = getattr(conversation, "close", None)
@@ -77,7 +118,9 @@ class OpenHandsAgentServerClient:
 
 
 def _event_to_payload(event: Any) -> dict[str, Any]:
-    if hasattr(event, "model_dump"):
+    if isinstance(event, dict):
+        payload = dict(event)
+    elif hasattr(event, "model_dump"):
         payload = event.model_dump(mode="json")
     elif hasattr(event, "dict"):
         payload = event.dict()
