@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
+import json as _json
+import os
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse
 
 from docagent_api.request_models import (
     ApproveOutlineRequest,
@@ -258,5 +262,34 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
         if state.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Session not found")
         return state.list_timeline_events(session_id)
+
+    @router.get("/sessions/{session_id}/timeline/stream")
+    async def stream_timeline_sse(session_id: str, request: Request) -> StreamingResponse:
+        if state.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Bounded polling cycles so that connections don't live forever; clients
+        # using EventSource will auto-reconnect. In tests, set
+        # DOCAGENT_SSE_MAX_POLLS to a small value for fast termination.
+        max_polls = int(os.environ.get("DOCAGENT_SSE_MAX_POLLS", "1500"))
+        poll_interval = float(os.environ.get("DOCAGENT_SSE_POLL_INTERVAL", "0.2"))
+
+        async def generate():
+            sent = 0
+            yield ": keep-alive\n\n"
+            for _ in range(max_polls):
+                if await request.is_disconnected():
+                    return
+                events = state.list_timeline_events(session_id)
+                for event in events[sent:]:
+                    yield f"data: {_json.dumps(event)}\n\n"
+                sent = len(events)
+                await asyncio.sleep(poll_interval)
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     return router
