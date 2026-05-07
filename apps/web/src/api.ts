@@ -54,21 +54,21 @@ export const api = {
       body: JSON.stringify({ name, content }),
     }),
   startLoop: (sessionId: string) =>
-    request<LoopActionResult>(`/sessions/${sessionId}/loop/start`, { method: "POST" }),
+    request<LoopActionResult>(`/sessions/${sessionId}/loop/start?background=true`, { method: "POST" }),
   approveOutline: (sessionId: string, outline_markdown: string) =>
-    request<LoopActionResult>(`/sessions/${sessionId}/outline/approve`, {
+    request<LoopActionResult>(`/sessions/${sessionId}/outline/approve?background=true`, {
       method: "POST",
       body: JSON.stringify({ outline_markdown }),
     }),
   reviseSelection: (sessionId: string, selected_text: string, instruction: string) =>
-    request<LoopActionResult>(`/sessions/${sessionId}/revision/selection`, {
+    request<LoopActionResult>(`/sessions/${sessionId}/revision/selection?background=true`, {
       method: "POST",
       body: JSON.stringify({ selected_text, instruction }),
     }),
   runChecklist: (sessionId: string) =>
-    request<LoopActionResult>(`/sessions/${sessionId}/checklist/run`, { method: "POST" }),
+    request<LoopActionResult>(`/sessions/${sessionId}/checklist/run?background=true`, { method: "POST" }),
   exportMarkdown: (sessionId: string) =>
-    request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown`, { method: "POST" }),
+    request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown?background=true`, { method: "POST" }),
   sendMessage: (sessionId: string, message: string) =>
     request<{ accepted?: boolean; event_count?: number; status?: string }>(
       `/sessions/${sessionId}/messages?background=true`,

@@ -215,9 +215,31 @@ def create_app(
         return _require_session(state, session_id)
 
     @app.post("/sessions/{session_id}/loop/start")
-    def start_loop(session_id: str) -> dict[str, Any]:
+    def start_loop(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        if background:
+            operation = _stream_or_sync(
+                adapter,
+                "start_loop_stream",
+                lambda: adapter.start_loop(session_id),
+                lambda stream_method: lambda: stream_method(
+                    session_id,
+                    _runtime_event_sink(state, task["id"], session_id),
+                ),
+            )
+            response.status_code = 202
+            return _start_background_runtime_operation(
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_CONTEXT,
+                operation,
+            )
         result = _run_runtime_operation(
             state,
             session,
@@ -229,7 +251,12 @@ def create_app(
         return _runtime_result_response(result)
 
     @app.post("/sessions/{session_id}/outline/approve")
-    def approve_outline(session_id: str, request: ApproveOutlineRequest) -> dict[str, Any]:
+    def approve_outline(
+        session_id: str,
+        request: ApproveOutlineRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
         _prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT)
@@ -237,6 +264,26 @@ def create_app(
             request.outline_markdown if request.outline_markdown.endswith("\n") else f"{request.outline_markdown}\n",
             encoding="utf-8",
         )
+        if background:
+            operation = _stream_or_sync(
+                adapter,
+                "approve_outline_stream",
+                lambda: adapter.approve_outline(session_id),
+                lambda stream_method: lambda: stream_method(
+                    session_id,
+                    _runtime_event_sink(state, task["id"], session_id),
+                ),
+            )
+            response.status_code = 202
+            return _start_background_runtime_operation(
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_DRAFT,
+                operation,
+                previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+                transition_prepared=True,
+            )
         try:
             result = adapter.approve_outline(session_id)
         except Exception as exc:
@@ -247,12 +294,39 @@ def create_app(
         return _runtime_result_response(result)
 
     @app.post("/sessions/{session_id}/revision/selection")
-    def revise_selection(session_id: str, request: ReviseSelectionRequest) -> dict[str, Any]:
+    def revise_selection(
+        session_id: str,
+        request: ReviseSelectionRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
         try:
             _prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
+            if background:
+                operation = _stream_or_sync(
+                    adapter,
+                    "revise_selection_stream",
+                    lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
+                    lambda stream_method: lambda: stream_method(
+                        session_id,
+                        request.selected_text,
+                        request.instruction,
+                        _runtime_event_sink(state, task["id"], session_id),
+                    ),
+                )
+                response.status_code = 202
+                return _start_background_runtime_operation(
+                    state,
+                    task["id"],
+                    session,
+                    RuntimeSessionState.RUNNING_REVISION,
+                    operation,
+                    previous_state_on_failure=previous_state,
+                    transition_prepared=True,
+                )
             result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
         except HTTPException:
             raise
@@ -270,9 +344,31 @@ def create_app(
         return {"session_id": session_id, "paths": result.changed_paths}
 
     @app.post("/sessions/{session_id}/checklist/run")
-    def run_checklist(session_id: str) -> dict[str, Any]:
+    def run_checklist(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        if background:
+            operation = _stream_or_sync(
+                adapter,
+                "run_checklist_stream",
+                lambda: adapter.run_checklist(session_id),
+                lambda stream_method: lambda: stream_method(
+                    session_id,
+                    _runtime_event_sink(state, task["id"], session_id),
+                ),
+            )
+            response.status_code = 202
+            return _start_background_runtime_operation(
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_CHECKLIST,
+                operation,
+            )
         result = _run_runtime_operation(
             state,
             session,
@@ -284,9 +380,31 @@ def create_app(
         return {"session_id": session_id, "paths": result.changed_paths}
 
     @app.post("/sessions/{session_id}/artifacts/export-markdown")
-    def export_markdown(session_id: str) -> dict[str, Any]:
+    def export_markdown(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        if background:
+            operation = _stream_or_sync(
+                adapter,
+                "export_markdown_stream",
+                lambda: adapter.export_markdown(session_id),
+                lambda stream_method: lambda: stream_method(
+                    session_id,
+                    _runtime_event_sink(state, task["id"], session_id),
+                ),
+            )
+            response.status_code = 202
+            return _start_background_runtime_operation(
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_EXPORT,
+                operation,
+            )
         result = _run_runtime_operation(
             state,
             session,
@@ -463,9 +581,11 @@ def _start_background_runtime_operation(
     running_state: RuntimeSessionState,
     operation: Any,
     previous_state_on_failure: RuntimeSessionState | None = None,
+    transition_prepared: bool = False,
 ) -> dict[str, Any]:
     previous_state = previous_state_on_failure or RuntimeSessionState(session["status"])
-    _prepare_transition(state, session, running_state)
+    if not transition_prepared:
+        _prepare_transition(state, session, running_state)
 
     def worker() -> None:
         try:
@@ -499,6 +619,13 @@ def _runtime_event_sink(state: DocAgentState, task_id: str, session_id: str) -> 
                 state.append_timeline_event(session_id, asdict(semantic))
 
     return sink
+
+
+def _stream_or_sync(adapter: Any, stream_name: str, sync_operation: Any, stream_operation: Any) -> Any:
+    stream_method = getattr(adapter, stream_name, None)
+    if callable(stream_method):
+        return stream_operation(stream_method)
+    return sync_operation
 
 
 def _set_session_state(
