@@ -1,0 +1,262 @@
+from __future__ import annotations
+
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+from fastapi import APIRouter, HTTPException, Query, Response
+
+from docagent_api.request_models import (
+    ApproveOutlineRequest,
+    ReviseSelectionRequest,
+    SendMessageRequest,
+)
+from docagent_api.response_models import LoopActionResponse, SessionResponse, TimelineEventResponse
+from docagent_api.routes._shared import (
+    append_runtime_result,
+    manual_event,
+    prepare_transition,
+    require_session,
+    require_task,
+    run_runtime_operation,
+    runtime_event_sink,
+    runtime_result_response,
+    set_session_state,
+    start_background_runtime_operation,
+    stream_or_sync,
+)
+from docagent_api.state import DocAgentState
+from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
+
+
+def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/sessions/{session_id}", response_model=SessionResponse)
+    def get_session(session_id: str) -> dict[str, Any]:
+        return require_session(state, session_id)
+
+    @router.post("/sessions/{session_id}/loop/start", response_model=LoopActionResponse)
+    def start_loop(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        if background:
+            operation = stream_or_sync(
+                adapter,
+                "start_loop_stream",
+                lambda: adapter.start_loop(session_id),
+                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            response.status_code = 202
+            return start_background_runtime_operation(
+                state, task["id"], session, RuntimeSessionState.RUNNING_CONTEXT, operation,
+            )
+        result = run_runtime_operation(
+            state, session, RuntimeSessionState.RUNNING_CONTEXT, lambda: adapter.start_loop(session_id),
+        )
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return runtime_result_response(result)
+
+    @router.post("/sessions/{session_id}/outline/approve", response_model=LoopActionResponse)
+    def approve_outline(
+        session_id: str,
+        request: ApproveOutlineRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT)
+        outline_text = request.outline_markdown
+        if not outline_text.endswith("\n"):
+            outline_text = f"{outline_text}\n"
+        (Path(task["workspace_root"]) / "draft" / "outline.md").write_text(outline_text, encoding="utf-8")
+        if background:
+            operation = stream_or_sync(
+                adapter,
+                "approve_outline_stream",
+                lambda: adapter.approve_outline(session_id),
+                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            response.status_code = 202
+            return start_background_runtime_operation(
+                state, task["id"], session, RuntimeSessionState.RUNNING_DRAFT, operation,
+                previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+                transition_prepared=True,
+            )
+        try:
+            result = adapter.approve_outline(session_id)
+        except Exception as exc:
+            set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return runtime_result_response(result)
+
+    @router.post("/sessions/{session_id}/revision/selection", response_model=LoopActionResponse)
+    def revise_selection(
+        session_id: str,
+        request: ReviseSelectionRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        previous_state = RuntimeSessionState(session["status"])
+        try:
+            prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
+            if background:
+                operation = stream_or_sync(
+                    adapter,
+                    "revise_selection_stream",
+                    lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
+                    lambda m: lambda: m(
+                        session_id, request.selected_text, request.instruction,
+                        runtime_event_sink(state, task["id"], session_id),
+                    ),
+                )
+                response.status_code = 202
+                return start_background_runtime_operation(
+                    state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
+                    previous_state_on_failure=previous_state, transition_prepared=True,
+                )
+            result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
+        except HTTPException:
+            raise
+        except FileNotFoundError as exc:
+            set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
+        except ValueError as exc:
+            set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
+        except Exception as exc:
+            set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "paths": result.changed_paths}
+
+    @router.post("/sessions/{session_id}/checklist/run", response_model=LoopActionResponse)
+    def run_checklist(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        if background:
+            operation = stream_or_sync(
+                adapter,
+                "run_checklist_stream",
+                lambda: adapter.run_checklist(session_id),
+                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            response.status_code = 202
+            return start_background_runtime_operation(
+                state, task["id"], session, RuntimeSessionState.RUNNING_CHECKLIST, operation,
+            )
+        result = run_runtime_operation(
+            state, session, RuntimeSessionState.RUNNING_CHECKLIST, lambda: adapter.run_checklist(session_id),
+        )
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "paths": result.changed_paths}
+
+    @router.post("/sessions/{session_id}/artifacts/export-markdown", response_model=LoopActionResponse)
+    def export_markdown(
+        session_id: str,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        if background:
+            operation = stream_or_sync(
+                adapter,
+                "export_markdown_stream",
+                lambda: adapter.export_markdown(session_id),
+                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            response.status_code = 202
+            return start_background_runtime_operation(
+                state, task["id"], session, RuntimeSessionState.RUNNING_EXPORT, operation,
+            )
+        result = run_runtime_operation(
+            state, session, RuntimeSessionState.RUNNING_EXPORT, lambda: adapter.export_markdown(session_id),
+        )
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
+
+    @router.post("/sessions/{session_id}/messages", response_model=LoopActionResponse)
+    def send_message(
+        session_id: str,
+        request: SendMessageRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        if background:
+            user_event = manual_event(
+                task["id"], session_id, f"user-{uuid4().hex[:8]}",
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, request.message, [],
+            )
+            state.append_timeline_event(session_id, asdict(user_event))
+            stream_method = getattr(adapter, "send_message_stream", None)
+            if callable(stream_method):
+                operation = lambda: stream_method(
+                    session_id, request.message,
+                    runtime_event_sink(state, task["id"], session_id),
+                )
+            else:
+                operation = lambda: adapter.send_message(session_id, request.message)
+            response.status_code = 202
+            return start_background_runtime_operation(
+                state, task["id"], session, RuntimeSessionState.RUNNING_CHAT, operation,
+            )
+        result = run_runtime_operation(
+            state, session, RuntimeSessionState.RUNNING_CHAT,
+            lambda: adapter.send_message(session_id, request.message),
+        )
+        append_runtime_result(state, task["id"], session_id, result)
+        if not result.events:
+            user_event = manual_event(
+                task["id"], session_id, f"user-{uuid4().hex[:8]}",
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, request.message, [],
+            )
+            state.append_timeline_event(session_id, asdict(user_event))
+        set_session_state(state, session, result.next_state)
+        return {"session_id": session_id, "event_count": len(result.events)}
+
+    @router.post("/sessions/{session_id}/cancel", response_model=LoopActionResponse)
+    def cancel_session(session_id: str) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        previous_state = RuntimeSessionState(session["status"])
+        prepare_transition(state, session, RuntimeSessionState.CANCELLED)
+        try:
+            result = adapter.cancel(session_id)
+        except HTTPException:
+            set_session_state(state, session, previous_state)
+            raise
+        except Exception as exc:
+            set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=502, detail=f"Runtime cancel failed: {exc}") from exc
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state)
+        return runtime_result_response(result)
+
+    @router.get("/sessions/{session_id}/timeline", response_model=list[TimelineEventResponse])
+    def get_timeline(session_id: str) -> list[dict[str, Any]]:
+        if state.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return state.list_timeline_events(session_id)
+
+    return router

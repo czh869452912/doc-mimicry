@@ -194,6 +194,13 @@ def test_task_without_explicit_title_gets_title_from_description(tmp_path: Path)
     assert fetched["description"] == "Build a search feature"
 
 
+def test_all_route_prefixes_respond_after_refactor(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    assert client.get("/health").status_code == 200
+    assert client.get("/doc-types").status_code == 200
+    assert client.get("/tasks").status_code == 200
+
+
 def test_openapi_schema_includes_task_response_fields(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
     schema = client.get("/openapi.json").json()
