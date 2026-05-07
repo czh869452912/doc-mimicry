@@ -471,8 +471,16 @@ def create_app(
     def cancel_session(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        previous_state = RuntimeSessionState(session["status"])
         _prepare_transition(state, session, RuntimeSessionState.CANCELLED)
-        result = adapter.cancel(session_id)
+        try:
+            result = adapter.cancel(session_id)
+        except HTTPException:
+            _set_session_state(state, session, previous_state)
+            raise
+        except Exception as exc:
+            _set_session_state(state, session, previous_state)
+            raise HTTPException(status_code=502, detail=f"Runtime cancel failed: {exc}") from exc
         _append_runtime_result(state, task["id"], session_id, result)
         # result.next_state is expected to be CANCELLED; _set_session_state picks up
         # any adapter-provided next_state (e.g. to capture timestamps or sub-states).

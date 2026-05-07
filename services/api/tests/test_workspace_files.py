@@ -38,9 +38,9 @@ def test_rejects_path_traversal(tmp_path: Path) -> None:
         read_workspace_text_file(workspace, "../secret.md")
 
 
-def test_rejects_windows_absolute_path(tmp_path: Path) -> None:
+def test_rejects_absolute_path(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
     with pytest.raises(ValueError, match="outside workspace"):
-        read_workspace_text_file(workspace, "C:\\Windows\\System32\\cmd.exe")
+        read_workspace_text_file(workspace, str(tmp_path / "outside.txt"))
