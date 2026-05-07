@@ -70,10 +70,13 @@ export const api = {
   exportMarkdown: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown`, { method: "POST" }),
   sendMessage: (sessionId: string, message: string) =>
-    request<{ event_count: number }>(`/sessions/${sessionId}/messages`, {
-      method: "POST",
-      body: JSON.stringify({ message }),
-    }),
+    request<{ accepted?: boolean; event_count?: number; status?: string }>(
+      `/sessions/${sessionId}/messages?background=true`,
+      {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      },
+    ),
   getTimeline: (sessionId: string) => request<TimelineEvent[]>(`/sessions/${sessionId}/timeline`),
   getDraft: (taskId: string) => request<{ markdown: string }>(`/tasks/${taskId}/draft`),
   updateDraft: (taskId: string, markdown: string) =>

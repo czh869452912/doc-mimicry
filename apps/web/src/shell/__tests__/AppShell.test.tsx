@@ -70,6 +70,7 @@ describe("AppShell", () => {
     vi.mocked(api.getTimeline).mockResolvedValue([]);
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
+    vi.mocked(api.sendMessage).mockResolvedValue({ accepted: true, status: "running_revision" });
   });
 
   afterEach(() => {
@@ -260,5 +261,21 @@ describe("AppShell", () => {
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
 
     expect(await screen.findByRole("textbox")).toBeTruthy();
+  });
+
+  it("sends chat messages in background mode and refreshes timeline immediately", async () => {
+    render(<AppShell />);
+
+    await screen.findByText("Restored workspace");
+    vi.mocked(api.getWorkspace).mockClear();
+    vi.mocked(api.getTimeline).mockClear();
+
+    await userEvent.type(screen.getByLabelText("Message"), "Revise the draft");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the draft"));
+    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getWorkspace).not.toHaveBeenCalled();
+    expect(await screen.findByText("Working...")).toBeTruthy();
   });
 });

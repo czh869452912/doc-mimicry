@@ -67,9 +67,13 @@ export function ConversationPane({
           setStatus("Create a workspace first.");
           return;
         }
-        await api.sendMessage(session.id, input);
-        await refreshWorkspace();
+        const result = await api.sendMessage(session.id, input);
         await refreshTimeline();
+        if (result.accepted) {
+          setStatus("Working...");
+          return;
+        }
+        await refreshWorkspace();
       }
       setStatus(commandResult.message ?? "Message processed.");
     } catch (caught) {
