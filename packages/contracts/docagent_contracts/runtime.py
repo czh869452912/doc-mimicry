@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 
 class RuntimeKind(str, Enum):
@@ -55,6 +55,9 @@ class RuntimeOperationResult:
     raw_events: list[RawRuntimeEvent] = field(default_factory=list)
 
 
+RuntimeEventSink = Callable[[RawRuntimeEvent], None]
+
+
 class RuntimeAdapter(Protocol):
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         ...
@@ -81,4 +84,35 @@ class RuntimeAdapter(Protocol):
         ...
 
     def get_state(self, session_id: str) -> RuntimeSessionState:
+        ...
+
+
+class StreamingRuntimeAdapter(RuntimeAdapter, Protocol):
+    def send_message_stream(
+        self,
+        session_id: str,
+        message: str,
+        sink: RuntimeEventSink,
+    ) -> RuntimeOperationResult:
+        ...
+
+    def start_loop_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
+        ...
+
+    def approve_outline_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
+        ...
+
+    def revise_selection_stream(
+        self,
+        session_id: str,
+        selection: str,
+        instruction: str,
+        sink: RuntimeEventSink,
+    ) -> RuntimeOperationResult:
+        ...
+
+    def run_checklist_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
+        ...
+
+    def export_markdown_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
         ...

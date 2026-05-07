@@ -18,9 +18,11 @@ from .runtime import (
     PromptBundle,
     RawRuntimeEvent,
     RuntimeAdapter,
+    RuntimeEventSink,
     RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
+    StreamingRuntimeAdapter,
 )
 from .time import utc_now
 
@@ -42,8 +44,10 @@ __all__ = [
     "PromptBundle",
     "RawRuntimeEvent",
     "RuntimeAdapter",
+    "RuntimeEventSink",
     "RuntimeKind",
     "RuntimeOperationResult",
     "RuntimeSessionState",
+    "StreamingRuntimeAdapter",
     "utc_now",
 ]
