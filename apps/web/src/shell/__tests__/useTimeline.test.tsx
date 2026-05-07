@@ -9,6 +9,7 @@ vi.mock("../../api", () => ({
   api: {
     getTimeline: vi.fn(),
   },
+  streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
 const eventOne: TimelineEvent = {
@@ -112,5 +113,77 @@ describe("useTimeline", () => {
     });
 
     expect(latest.events.map((event) => event.id)).toEqual(["event-1", "event-2"]);
+  });
+
+  it("opens EventSource for the timeline/stream URL when available", () => {
+    const openedUrls: string[] = [];
+    const mockClose = vi.fn();
+
+    class MockEventSource {
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: ((ev: Event) => void) | null = null;
+      close = mockClose;
+      constructor(url: string) {
+        openedUrls.push(url);
+      }
+    }
+
+    vi.stubGlobal("EventSource", MockEventSource);
+
+    let latest!: ReturnType<typeof useTimeline>;
+    const { unmount } = render(
+      <Harness sessionId="session-sse" onState={(s) => (latest = s)} />,
+    );
+    void latest;
+
+    expect(openedUrls.some((u) => u.includes("/sessions/session-sse/timeline/stream"))).toBe(true);
+
+    unmount();
+    expect(mockClose).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("delivers SSE events into the timeline state via mergeTimelineEvents", async () => {
+    let capturedOnMessage: ((ev: MessageEvent) => void) | null = null;
+    const mockClose = vi.fn();
+
+    class MockEventSource {
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: ((ev: Event) => void) | null = null;
+      close = mockClose;
+      constructor(_url: string) {
+        Object.defineProperty(this, "onmessage", {
+          set(fn: (ev: MessageEvent) => void) {
+            capturedOnMessage = fn;
+          },
+          get() {
+            return capturedOnMessage;
+          },
+        });
+      }
+    }
+
+    vi.stubGlobal("EventSource", MockEventSource);
+
+    const sseEvent: TimelineEvent = {
+      id: "sse-event-1",
+      actor: "agent",
+      kind: "update_draft",
+      paths: ["draft/draft.md"],
+      status: "succeeded",
+      summary: "SSE delivered",
+    };
+
+    let latest!: ReturnType<typeof useTimeline>;
+    render(<Harness sessionId="session-sse-2" onState={(s) => (latest = s)} />);
+
+    act(() => {
+      capturedOnMessage?.({ data: JSON.stringify(sseEvent) } as MessageEvent);
+    });
+
+    await waitFor(() => expect(latest.events.some((e) => e.id === "sse-event-1")).toBe(true));
+
+    vi.unstubAllGlobals();
   });
 });

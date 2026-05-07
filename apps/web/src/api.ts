@@ -11,6 +11,9 @@ import type {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
+export const streamTimelineUrl = (sessionId: string): string =>
+  `${API_BASE}/sessions/${sessionId}/timeline/stream`;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const contentTypeHeader: Record<string, string> = init?.body !== undefined
     ? { "Content-Type": "application/json" }

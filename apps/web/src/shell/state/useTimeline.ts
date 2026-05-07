@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../../api";
+import { api, streamTimelineUrl } from "../../api";
 import type { TimelineEvent } from "../../types";
-import { replaceWithIdDedup } from "../conversation/docagentRuntime";
+import { mergeTimelineEvents, replaceWithIdDedup } from "../conversation/docagentRuntime";
 import { timelinePresentation } from "../conversation/timelinePresentation";
 
 const TIMELINE_POLL_INTERVAL_MS = 1500;
@@ -46,20 +46,52 @@ export function useTimeline(sessionId: string | null | undefined) {
 
   useEffect(() => {
     if (!sessionId) return;
+    const currentSessionId = sessionId;
     let cancelled = false;
-    const interval = window.setInterval(() => {
-      void api.getTimeline(sessionId)
-        .then((nextEvents) => {
-          if (!cancelled) setEvents(replaceWithIdDedup(nextEvents));
-        })
-        .catch((caught) => {
-          if (!cancelled) setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
-        });
-    }, TIMELINE_POLL_INTERVAL_MS);
+    let clearPolling: (() => void) | undefined;
 
+    function startPolling(sid: string) {
+      const id = window.setInterval(() => {
+        void api.getTimeline(sid)
+          .then((nextEvents) => {
+            if (!cancelled) setEvents(replaceWithIdDedup(nextEvents));
+          })
+          .catch((caught) => {
+            if (!cancelled) setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
+          });
+      }, TIMELINE_POLL_INTERVAL_MS);
+      return () => window.clearInterval(id);
+    }
+
+    if (typeof EventSource !== "undefined") {
+      const source = new EventSource(streamTimelineUrl(currentSessionId));
+
+      source.onmessage = (ev: MessageEvent) => {
+        if (cancelled) return;
+        try {
+          const event = JSON.parse(ev.data as string) as TimelineEvent;
+          setEvents((prev) => mergeTimelineEvents(prev, [event]));
+        } catch {
+          // ignore unparseable frames (keep-alive comments are filtered by the browser)
+        }
+      };
+
+      source.onerror = () => {
+        source.close();
+        if (!cancelled) clearPolling = startPolling(currentSessionId);
+      };
+
+      return () => {
+        cancelled = true;
+        source.close();
+        clearPolling?.();
+      };
+    }
+
+    clearPolling = startPolling(currentSessionId);
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      clearPolling?.();
     };
   }, [sessionId]);
 
