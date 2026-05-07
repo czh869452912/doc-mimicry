@@ -8,6 +8,12 @@ export function useAutoSave(taskId: string | null | undefined, markdown: string,
   const lastSaved = useRef(markdown);
 
   useEffect(() => {
+    if (!enabled) return;
+    lastSaved.current = markdown;
+    setSaveState("idle");
+  }, [enabled, taskId]);
+
+  useEffect(() => {
     if (!enabled || !taskId || markdown === lastSaved.current) return;
     setSaveState("saving");
     const timer = window.setTimeout(() => {

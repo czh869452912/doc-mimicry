@@ -138,13 +138,6 @@
   border-radius: var(--radius-md);
 }
 
-.workspace-create label {
-  display: grid;
-  gap: 4px;
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
 .workspace-create input,
 .workspace-create select,
 .workspace-create textarea {
@@ -157,15 +150,6 @@
 .workspace-create textarea {
   min-height: 74px;
   resize: vertical;
-}
-
-.primary-button {
-  min-height: 30px;
-  color: var(--color-surface-card);
-  cursor: pointer;
-  background: var(--color-primary);
-  border: 1px solid var(--color-primary);
-  border-radius: var(--radius-md);
 }
 
 .pane-note {
@@ -185,6 +169,50 @@
   background: transparent;
   border: 1px dashed var(--color-hairline-strong);
   border-radius: var(--radius-lg);
+}
+
+.workspace-section {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.session-list {
+  display: grid;
+  gap: 4px;
+}
+
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 6px;
+  color: var(--color-body);
+  cursor: pointer;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+}
+
+.session-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-item [data-slot="badge"] {
+  margin-left: auto;
+}
+
+.session-item--active {
+  color: var(--color-ink);
+  border-color: var(--color-hairline-strong);
+  outline: 1px solid var(--color-hairline-strong);
 }
 
 .workspace-node {

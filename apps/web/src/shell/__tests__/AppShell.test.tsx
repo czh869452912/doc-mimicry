@@ -50,6 +50,8 @@ describe("AppShell", () => {
         id: "task-1",
         doc_type_id: "prd",
         brief: "Write a PRD",
+        title: "Restored workspace",
+        description: "Write a PRD",
         workspace_root: "workspace/task-1",
         created_at: "2026-05-06T08:00:00Z",
         updated_at: "2026-05-06T09:00:00Z",
@@ -79,12 +81,16 @@ describe("AppShell", () => {
 
     await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-1"));
     expect(await screen.findByRole("heading", { name: "Restored draft" })).toBeTruthy();
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    });
+    expect(api.updateDraft).not.toHaveBeenCalled();
   });
 
   it("runs slash commands selected from the command palette", async () => {
     render(<AppShell />);
 
-    await screen.findByText("Write a PRD");
+    await screen.findByText("Restored workspace");
     await userEvent.click(screen.getByText("Ctrl K"));
     await userEvent.click(screen.getByText("/help"));
 
@@ -99,6 +105,8 @@ describe("AppShell", () => {
         id: "task-1",
         doc_type_id: "prd",
         brief: "Task One",
+        title: "Task One",
+        description: "Task one description",
         workspace_root: "workspace/task-1",
         created_at: "2026-05-06T08:00:00Z",
         updated_at: "2026-05-06T09:00:00Z",
@@ -107,6 +115,8 @@ describe("AppShell", () => {
         id: "task-2",
         doc_type_id: "prd",
         brief: "Task Two",
+        title: "Task Two",
+        description: "Task two description",
         workspace_root: "workspace/task-2",
         created_at: "2026-05-06T08:00:00Z",
         updated_at: "2026-05-06T09:30:00Z",
@@ -140,5 +150,87 @@ describe("AppShell", () => {
     });
     vi.useRealTimers();
     expect(await screen.findByRole("heading", { name: "Task two draft" })).toBeTruthy();
+  });
+
+  it("creates a workspace with a separate title and description using loaded document types", async () => {
+    vi.mocked(api.listDocTypes).mockResolvedValue([
+      { id: "proposal", title: "Proposal", has_skill: true, resource_groups: {} },
+    ]);
+    vi.mocked(api.listTasks).mockResolvedValue([]);
+    vi.mocked(api.listTaskSessions).mockResolvedValue([]);
+    vi.mocked(api.createTask).mockResolvedValue({
+      id: "task-2",
+      doc_type_id: "proposal",
+      brief: "Detailed opportunity description",
+      title: "Opportunity proposal",
+      description: "Detailed opportunity description",
+      workspace_root: "workspace/task-2",
+      created_at: "2026-05-06T10:00:00Z",
+      updated_at: "2026-05-06T10:00:00Z",
+    });
+    vi.mocked(api.createSession).mockResolvedValue({
+      id: "session-2",
+      task_id: "task-2",
+      status: "idle",
+      created_at: "2026-05-06T10:00:00Z",
+      updated_at: "2026-05-06T10:00:00Z",
+    });
+
+    render(<AppShell />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /create workspace/i }));
+    await userEvent.clear(screen.getByLabelText("Title"));
+    await userEvent.type(screen.getByLabelText("Title"), "Opportunity proposal");
+    await userEvent.clear(screen.getByLabelText("Description"));
+    await userEvent.type(screen.getByLabelText("Description"), "Detailed opportunity description");
+    await userEvent.click(screen.getAllByRole("button", { name: /create workspace/i })[1]);
+
+    await waitFor(() =>
+      expect(api.createTask).toHaveBeenCalledWith("proposal", {
+        title: "Opportunity proposal",
+        description: "Detailed opportunity description",
+      }),
+    );
+  });
+
+  it("creates a new session under the active workspace", async () => {
+    vi.mocked(api.createSession).mockResolvedValue({
+      id: "session-2",
+      task_id: "task-1",
+      status: "idle",
+      created_at: "2026-05-06T10:00:00Z",
+      updated_at: "2026-05-06T10:00:00Z",
+    });
+    vi.mocked(api.listTaskSessions).mockResolvedValueOnce([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "draft_ready",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]).mockResolvedValue([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "draft_ready",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+      {
+        id: "session-2",
+        task_id: "task-1",
+        status: "idle",
+        created_at: "2026-05-06T10:00:00Z",
+        updated_at: "2026-05-06T10:00:00Z",
+      },
+    ]);
+
+    render(<AppShell />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /new session/i }));
+
+    await waitFor(() => expect(api.createSession).toHaveBeenCalledWith("task-1"));
+    expect(await screen.findByText(/session-2/)).toBeTruthy();
   });
 });

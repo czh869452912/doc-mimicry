@@ -42,6 +42,8 @@ describe("buildWorkspaceTreeData", () => {
       id: "task-1",
       doc_type_id: "prd",
       brief: "Write a PRD",
+      title: "Billing PRD",
+      description: "Write a PRD",
       workspace_root: "workspace/task-1",
       created_at: "2026-05-06T08:00:00Z",
       updated_at: "2026-05-06T09:00:00Z",
@@ -62,8 +64,9 @@ describe("buildWorkspaceTreeData", () => {
     const [node] = buildWorkspaceTreeData([task], { "task-1": [session] }, { "task-1": workspace });
 
     expect(node.id).toBe("task:task-1");
-    expect(node.children?.some((child) => child.id === "session:session-1")).toBe(true);
+    expect(node.name).toBe("Billing PRD");
     expect(node.children?.some((child) => child.id === "folder:task-1:draft")).toBe(true);
+    expect(node.children?.some((child) => child.kind === "session")).toBe(false);
     const draftFolder = node.children?.find((child) => child.id === "folder:task-1:draft");
     expect(draftFolder?.children?.[0]?.id).toBe("file:task-1:draft/draft.md");
   });

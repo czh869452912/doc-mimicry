@@ -10,6 +10,8 @@ export interface TaskRecord {
   id: string;
   doc_type_id: string;
   brief: string;
+  title?: string;
+  description?: string;
   workspace_root: string;
   created_at: string;
   updated_at: string;

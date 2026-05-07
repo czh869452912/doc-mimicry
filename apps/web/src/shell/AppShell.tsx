@@ -78,7 +78,7 @@ export function AppShell() {
   return (
     <main className="docagent-shell">
       <TopBar
-        workspaceLabel={workspaces.activeTask?.brief ?? "No workspace"}
+        workspaceLabel={workspaces.activeTask?.title ?? workspaces.activeTask?.brief ?? "No workspace"}
         sessionLabel={workspaces.activeSession ? `session ${workspaces.activeSession.id.slice(0, 8)}` : "no session"}
         status={topBarStatus}
         onOpenCommandPalette={() => setCommandOpen(true)}
@@ -99,8 +99,12 @@ export function AppShell() {
               error={workspaces.error}
               loading={workspaces.loading}
               nodes={workspaces.treeData}
+              sessions={workspaces.sessions}
               onCreateWorkspace={async (docTypeId, brief) => {
                 await workspaces.createWorkspace(docTypeId, brief);
+              }}
+              onCreateSession={async () => {
+                await workspaces.createSessionForActiveTask();
               }}
               onOpenFile={(path) => {
                 void openWorkspaceFile(path);

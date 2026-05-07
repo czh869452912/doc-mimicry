@@ -33,10 +33,14 @@ export const api = {
   listDocTypes: () => request<DocTypeSummary[]>("/doc-types"),
   getDocType: (id: string) => request<DocTypeSummary>(`/doc-types/${id}`),
   listTasks: () => request<TaskRecord[]>("/tasks"),
-  createTask: (doc_type_id: string, brief: string) =>
+  createTask: (doc_type_id: string, input: string | { title: string; description: string }) =>
     request<TaskRecord>("/tasks", {
       method: "POST",
-      body: JSON.stringify({ doc_type_id, brief }),
+      body: JSON.stringify(
+        typeof input === "string"
+          ? { doc_type_id, brief: input }
+          : { doc_type_id, title: input.title, description: input.description },
+      ),
     }),
   listTaskSessions: (taskId: string) => request<SessionRecord[]>(`/tasks/${taskId}/sessions`),
   createSession: (taskId: string) =>

@@ -61,3 +61,22 @@ def test_task_session_message_timeline_and_draft_roundtrip(tmp_path: Path) -> No
     update_response = client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Edited\n"})
     assert update_response.status_code == 200
     assert client.get(f"/tasks/{task['id']}/draft").json()["markdown"] == "# Edited\n"
+
+
+def test_task_creation_keeps_title_separate_from_description(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+
+    response = client.post(
+        "/tasks",
+        json={
+            "doc_type_id": "prd",
+            "title": "Billing controls PRD",
+            "description": "Write a PRD for enterprise billing controls.",
+        },
+    )
+
+    assert response.status_code == 200
+    task = response.json()
+    assert task["title"] == "Billing controls PRD"
+    assert task["description"] == "Write a PRD for enterprise billing controls."
+    assert task["brief"] == "Write a PRD for enterprise billing controls."

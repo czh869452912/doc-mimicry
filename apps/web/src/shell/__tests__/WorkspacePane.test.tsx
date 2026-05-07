@@ -31,7 +31,9 @@ describe("WorkspacePane activation", () => {
             ],
           },
         ]}
+        sessions={[]}
         onCreateWorkspace={vi.fn()}
+        onCreateSession={vi.fn()}
         onOpenFile={onOpenFile}
         onSelectSession={vi.fn()}
         onSelectTask={vi.fn()}

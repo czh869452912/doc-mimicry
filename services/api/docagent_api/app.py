@@ -33,7 +33,9 @@ from docagent_workspace import create_workspace
 
 class CreateTaskRequest(BaseModel):
     doc_type_id: str
-    brief: str
+    brief: str | None = None
+    title: str | None = None
+    description: str | None = None
 
 
 class SendMessageRequest(BaseModel):
@@ -99,14 +101,20 @@ def create_app(
     def create_task(request: CreateTaskRequest) -> dict[str, Any]:
         if get_doc_type(root / "doc-types", request.doc_type_id) is None:
             raise HTTPException(status_code=404, detail="Document type not found")
+        description = (request.description or request.brief or "").strip()
+        if not description:
+            raise HTTPException(status_code=422, detail="Description is required")
+        title = (request.title or _title_from_description(description)).strip()
         task_id = f"task-{uuid4().hex[:8]}"
         workspace_root = state.workspace_root(task_id)
-        create_workspace(workspace_root, request.brief)
+        create_workspace(workspace_root, description)
         created_at = utc_now()
         record = {
             "id": task_id,
             "doc_type_id": request.doc_type_id,
-            "brief": request.brief,
+            "brief": description,
+            "title": title,
+            "description": description,
             "workspace_root": str(workspace_root),
             "created_at": created_at,
             "updated_at": created_at,
@@ -331,7 +339,20 @@ def _require_task(state: DocAgentState, task_id: str) -> dict[str, Any]:
     task = state.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
+    _normalize_task(task)
     return task
+
+
+def _normalize_task(task: dict[str, Any]) -> None:
+    description = str(task.get("description") or task.get("brief") or "")
+    task["description"] = description
+    task["brief"] = str(task.get("brief") or description)
+    task["title"] = str(task.get("title") or _title_from_description(description))
+
+
+def _title_from_description(description: str) -> str:
+    first_line = next((line.strip() for line in description.splitlines() if line.strip()), "Untitled workspace")
+    return first_line[:80]
 
 
 def _require_session(state: DocAgentState, session_id: str) -> dict[str, Any]:

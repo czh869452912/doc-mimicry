@@ -17,10 +17,11 @@ class DocAgentState:
         (self.root / "workspaces").mkdir(parents=True, exist_ok=True)
 
     def list_tasks(self) -> list[dict[str, Any]]:
-        return list(self._read_map("tasks.json").values())
+        return [_normalized_task(task) for task in self._read_map("tasks.json").values()]
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
-        return self._read_map("tasks.json").get(task_id)
+        task = self._read_map("tasks.json").get(task_id)
+        return _normalized_task(task) if task is not None else None
 
     def save_task(self, task: dict[str, Any]) -> None:
         tasks = self._read_map("tasks.json")
@@ -84,3 +85,13 @@ class DocAgentState:
 
     def _raw_events_path(self, session_id: str) -> Path:
         return self.root / "raw-events" / f"{session_id}.jsonl"
+
+
+def _normalized_task(task: dict[str, Any]) -> dict[str, Any]:
+    next_task = dict(task)
+    description = str(next_task.get("description") or next_task.get("brief") or "")
+    first_line = next((line.strip() for line in description.splitlines() if line.strip()), "Untitled workspace")
+    next_task["description"] = description
+    next_task["brief"] = str(next_task.get("brief") or description)
+    next_task["title"] = str(next_task.get("title") or first_line[:80])
+    return next_task

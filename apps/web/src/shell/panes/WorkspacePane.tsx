@@ -1,8 +1,18 @@
 import { ChevronRight, FileText, Folder, MessageSquare, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tree, type NodeRendererProps } from "react-arborist";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+} from "../../components/ui/empty";
+import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import type { DocTypeSummary, SessionRecord, TaskRecord } from "../../types";
-import type { WorkspaceTreeNode } from "../state/useWorkspaces";
+import type { CreateWorkspaceInput, WorkspaceTreeNode } from "../state/useWorkspaces";
 
 interface WorkspacePaneProps {
   activeSession: SessionRecord | null;
@@ -11,7 +21,9 @@ interface WorkspacePaneProps {
   error: string | null;
   loading: boolean;
   nodes: WorkspaceTreeNode[];
-  onCreateWorkspace: (docTypeId: string, brief: string) => Promise<void>;
+  sessions: SessionRecord[];
+  onCreateSession: () => Promise<void>;
+  onCreateWorkspace: (docTypeId: string, input: CreateWorkspaceInput) => Promise<void>;
   onOpenFile: (path: string) => void;
   onSelectSession: (sessionId: string) => void;
   onSelectTask: (taskId: string) => void;
@@ -24,19 +36,29 @@ export function WorkspacePane({
   error,
   loading,
   nodes,
+  sessions,
+  onCreateSession,
   onCreateWorkspace,
   onOpenFile,
   onSelectSession,
   onSelectTask,
 }: WorkspacePaneProps) {
   const [creating, setCreating] = useState(false);
-  const [brief, setBrief] = useState("Write a PRD for the first usable document imitation loop.");
+  const [description, setDescription] = useState("Write a PRD for the first usable document imitation loop.");
+  const [title, setTitle] = useState("First usable imitation loop PRD");
   const [docTypeId, setDocTypeId] = useState(docTypes[0]?.id ?? "prd");
   const selectedId = activeSession ? `session:${activeSession.id}` : activeTask ? `task:${activeTask.id}` : undefined;
   const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), [nodes]);
 
+  useEffect(() => {
+    if (docTypes.length === 0) return;
+    if (!docTypes.some((docType) => docType.id === docTypeId)) {
+      setDocTypeId(docTypes[0].id);
+    }
+  }, [docTypeId, docTypes]);
+
   async function submitCreate() {
-    await onCreateWorkspace(docTypeId, brief);
+    await onCreateWorkspace(docTypeId, { description, title });
     setCreating(false);
   }
 
@@ -44,9 +66,9 @@ export function WorkspacePane({
     <div className="workspace-pane">
       <div className="pane-header">
         <span className="caption-uppercase">Workspaces</span>
-        <button className="icon-button" type="button" aria-label="Create workspace" onClick={() => setCreating(true)}>
+        <Button className="icon-button" variant="outline" aria-label="Create workspace" onClick={() => setCreating(true)}>
           <Plus size={14} />
-        </button>
+        </Button>
       </div>
 
       {creating && (
@@ -57,33 +79,72 @@ export function WorkspacePane({
             void submitCreate();
           }}
         >
-          <label>
-            <span>Document type</span>
-            <select value={docTypeId} onChange={(event) => setDocTypeId(event.target.value)}>
+          <Field>
+            <FieldLabel htmlFor="workspace-doc-type">Document type</FieldLabel>
+            <select id="workspace-doc-type" value={docTypeId} onChange={(event) => setDocTypeId(event.target.value)}>
               {docTypes.map((docType) => (
                 <option key={docType.id} value={docType.id}>
                   {docType.title}
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            <span>Brief</span>
-            <textarea value={brief} onChange={(event) => setBrief(event.target.value)} />
-          </label>
-          <button className="primary-button" type="submit">
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="workspace-title">Title</FieldLabel>
+            <Input
+              aria-label="Title"
+              id="workspace-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+            <FieldDescription>Shown in the workspace list.</FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="workspace-description">Description</FieldLabel>
+            <Textarea
+              aria-label="Description"
+              id="workspace-description"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+            <FieldDescription>Used as the agent brief inside the workspace.</FieldDescription>
+          </Field>
+          <Button type="submit">
             Create workspace
-          </button>
+          </Button>
         </form>
       )}
 
       {loading && <p className="pane-note">Loading workspaces...</p>}
       {error && <p className="pane-note pane-note--error">{error}</p>}
       {!loading && nodes.length === 0 && (
-        <button className="empty-card" type="button" onClick={() => setCreating(true)}>
-          Create your first workspace
-        </button>
+        <Empty>
+          <EmptyContent>
+            <EmptyDescription>No workspaces yet.</EmptyDescription>
+            <Button variant="outline" onClick={() => setCreating(true)}>
+              Create workspace
+            </Button>
+          </EmptyContent>
+        </Empty>
       )}
+      {activeTask && (
+        <section className="workspace-section">
+          <div className="pane-header">
+            <span className="caption-uppercase">Sessions</span>
+            <Button variant="outline" aria-label="New session" onClick={() => void onCreateSession()}>
+              <Plus size={14} />
+            </Button>
+          </div>
+          <div className="session-list">
+            {sessions.length > 0 ? (
+              <SessionList activeSession={activeSession} sessions={sessions} onSelectSession={onSelectSession} />
+            ) : (
+              <p className="pane-note">No sessions yet.</p>
+            )}
+          </div>
+        </section>
+      )}
+      {nodes.length > 0 && <span className="caption-uppercase">Workspace files</span>}
       {nodes.length > 0 && (
         <Tree
           data={nodes}
@@ -117,6 +178,33 @@ function WorkspaceNode({ node, style }: NodeRendererProps<WorkspaceTreeNode>) {
       <span className="workspace-node__label">{data.name}</span>
       {data.status && <span className="workspace-node__status">{data.status}</span>}
     </div>
+  );
+}
+
+function SessionList({
+  activeSession,
+  onSelectSession,
+  sessions,
+}: {
+  activeSession: SessionRecord | null;
+  onSelectSession: (sessionId: string) => void;
+  sessions: SessionRecord[];
+}) {
+  return (
+    <>
+      {sessions.map((session) => (
+        <button
+          className={`session-item ${session.id === activeSession?.id ? "session-item--active" : ""}`.trim()}
+          key={session.id}
+          type="button"
+          onClick={() => onSelectSession(session.id)}
+        >
+          <MessageSquare size={14} />
+          <span>{session.id}</span>
+          <Badge variant="secondary">{session.status}</Badge>
+        </button>
+      ))}
+    </>
   );
 }
 

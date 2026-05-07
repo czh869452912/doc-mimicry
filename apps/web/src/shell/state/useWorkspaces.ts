@@ -19,6 +19,11 @@ export interface WorkspaceTreeNode {
   children?: WorkspaceTreeNode[];
 }
 
+export interface CreateWorkspaceInput {
+  description: string;
+  title: string;
+}
+
 export function latestByUpdatedAt<T extends { updated_at: string }>(items: T[]): T | null {
   return [...items].sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ?? null;
 }
@@ -50,18 +55,10 @@ export function buildWorkspaceTreeData(
 
     return {
       id: `task:${task.id}`,
-      name: task.brief,
+      name: task.title ?? task.brief,
       kind: "task" as const,
       taskId: task.id,
       children: [
-        ...sessions.map((session) => ({
-          id: `session:${session.id}`,
-          name: `#${session.id.slice(0, 8)} · ${session.status}`,
-          kind: "session" as const,
-          taskId: task.id,
-          sessionId: session.id,
-          status: session.status,
-        })),
         ...folderNodes,
       ],
     };
@@ -177,8 +174,8 @@ export function useWorkspaces() {
   }, [loadInitialState]);
 
   const createWorkspace = useCallback(
-    async (docTypeId: string, brief: string) => {
-      const task = await api.createTask(docTypeId, brief);
+    async (docTypeId: string, input: CreateWorkspaceInput) => {
+      const task = await api.createTask(docTypeId, input);
       const session = await api.createSession(task.id);
       const nextTasks = await api.listTasks();
       setTasks(nextTasks);
@@ -189,6 +186,13 @@ export function useWorkspaces() {
     },
     [refreshWorkspaceForTask],
   );
+
+  const createSessionForActiveTask = useCallback(async () => {
+    if (!activeTask) return null;
+    const session = await api.createSession(activeTask.id);
+    await refreshWorkspaceForTask(activeTask, session);
+    return session;
+  }, [activeTask, refreshWorkspaceForTask]);
 
   const ensureSession = useCallback(async () => {
     if (!activeTask) return null;
@@ -212,6 +216,7 @@ export function useWorkspaces() {
     activeSession,
     activeTask,
     createWorkspace,
+    createSessionForActiveTask,
     docTypes,
     ensureSession,
     error,

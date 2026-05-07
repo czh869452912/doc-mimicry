@@ -1,5 +1,31 @@
+@import "tailwindcss";
 @import "./shell/theme/tokens.css";
 @import "./shell/theme/reset.css";
 @import "./shell/theme/typography.css";
 @import "./shell/theme/assistant-ui.css";
 @import "./shell/theme/shell.css";
+
+@theme inline {
+  --color-background: #fafaf7;
+  --color-foreground: #26251e;
+  --color-card: #ffffff;
+  --color-card-foreground: #26251e;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #26251e;
+  --color-primary: #f54e00;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #e6e5e0;
+  --color-secondary-foreground: #26251e;
+  --color-muted: #e6e5e0;
+  --color-muted-foreground: #807d72;
+  --color-accent: #dff3e8;
+  --color-accent-foreground: #26251e;
+  --color-destructive: #ba2f2f;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e6e5e0;
+  --color-input: #cfcdc4;
+  --color-ring: #f54e00;
+  --radius-sm: 4px;
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+}
