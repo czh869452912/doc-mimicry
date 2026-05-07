@@ -12,6 +12,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from docagent_api.doctypes import get_doc_type, list_doc_types
+from docagent_api.response_models import (
+    DocTypeSummaryResponse,
+    DraftResponse,
+    HealthResponse,
+    ImportedInputResponse,
+    LoopActionResponse,
+    SessionResponse,
+    TaskResponse,
+    TimelineEventResponse,
+    WorkspaceFileContentResponse,
+    WorkspaceResponse,
+)
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
 from docagent_api.prompts import build_prompt_bundle
@@ -81,26 +93,26 @@ def create_app(
     _recover_interrupted_sessions(state)
     adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 
-    @app.get("/health")
+    @app.get("/health", response_model=HealthResponse)
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/doc-types")
+    @app.get("/doc-types", response_model=list[DocTypeSummaryResponse])
     def doc_types() -> list[dict[str, Any]]:
         return list_doc_types(root / "doc-types")
 
-    @app.get("/doc-types/{doc_type_id}")
+    @app.get("/doc-types/{doc_type_id}", response_model=DocTypeSummaryResponse)
     def doc_type_detail(doc_type_id: str) -> dict[str, Any]:
         detail = get_doc_type(root / "doc-types", doc_type_id)
         if detail is None:
             raise HTTPException(status_code=404, detail="Document type not found")
         return detail
 
-    @app.get("/tasks")
+    @app.get("/tasks", response_model=list[TaskResponse])
     def list_tasks() -> list[dict[str, Any]]:
         return state.list_tasks()
 
-    @app.post("/tasks")
+    @app.post("/tasks", response_model=TaskResponse)
     def create_task(request: CreateTaskRequest) -> dict[str, Any]:
         if get_doc_type(root / "doc-types", request.doc_type_id) is None:
             raise HTTPException(status_code=404, detail="Document type not found")
@@ -125,17 +137,17 @@ def create_app(
         state.save_task(record)
         return record
 
-    @app.get("/tasks/{task_id}")
+    @app.get("/tasks/{task_id}", response_model=TaskResponse)
     def get_task(task_id: str) -> dict[str, Any]:
         return _require_task(state, task_id)
 
-    @app.get("/tasks/{task_id}/workspace")
+    @app.get("/tasks/{task_id}/workspace", response_model=WorkspaceResponse)
     def get_workspace(task_id: str) -> dict[str, Any]:
         task = _require_task(state, task_id)
         workspace_root = Path(task["workspace_root"])
         return {"task_id": task_id, "root": str(workspace_root), "files": list_workspace_files(workspace_root)}
 
-    @app.get("/tasks/{task_id}/workspace/files")
+    @app.get("/tasks/{task_id}/workspace/files", response_model=WorkspaceFileContentResponse)
     def get_workspace_file(task_id: str, file_path: str = Query(alias="path")) -> dict[str, str]:
         task = _require_task(state, task_id)
         try:
@@ -146,18 +158,18 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {"path": file_path, "content": content}
 
-    @app.get("/tasks/{task_id}/draft")
+    @app.get("/tasks/{task_id}/draft", response_model=DraftResponse)
     def get_draft(task_id: str) -> dict[str, str]:
         task = _require_task(state, task_id)
         return {"task_id": task_id, "markdown": read_draft(Path(task["workspace_root"]))}
 
-    @app.put("/tasks/{task_id}/draft")
+    @app.put("/tasks/{task_id}/draft", response_model=DraftResponse)
     def update_draft(task_id: str, request: UpdateDraftRequest) -> dict[str, str]:
         task = _require_task(state, task_id)
         write_draft(Path(task["workspace_root"]), request.markdown)
         return {"task_id": task_id, "markdown": read_draft(Path(task["workspace_root"]))}
 
-    @app.post("/tasks/{task_id}/sessions")
+    @app.post("/tasks/{task_id}/sessions", response_model=SessionResponse)
     def create_session(task_id: str) -> dict[str, Any]:
         task = _require_task(state, task_id)
         session_id = f"session-{uuid4().hex[:8]}"
@@ -181,12 +193,12 @@ def create_app(
         _append_runtime_result(state, task["id"], session_id, result)
         return record
 
-    @app.get("/tasks/{task_id}/sessions")
+    @app.get("/tasks/{task_id}/sessions", response_model=list[SessionResponse])
     def list_task_sessions(task_id: str) -> list[dict[str, Any]]:
         _require_task(state, task_id)
         return [session for session in state.list_sessions() if session["task_id"] == task_id]
 
-    @app.post("/tasks/{task_id}/inputs/text")
+    @app.post("/tasks/{task_id}/inputs/text", response_model=ImportedInputResponse)
     def add_text_input(task_id: str, request: ImportTextRequest) -> dict[str, Any]:
         task = _require_task(state, task_id)
         result = import_text_input(
@@ -210,11 +222,11 @@ def create_app(
             result["event"] = asdict(event)
         return result
 
-    @app.get("/sessions/{session_id}")
+    @app.get("/sessions/{session_id}", response_model=SessionResponse)
     def get_session(session_id: str) -> dict[str, Any]:
         return _require_session(state, session_id)
 
-    @app.post("/sessions/{session_id}/loop/start")
+    @app.post("/sessions/{session_id}/loop/start", response_model=LoopActionResponse)
     def start_loop(
         session_id: str,
         response: Response,
@@ -250,7 +262,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
 
-    @app.post("/sessions/{session_id}/outline/approve")
+    @app.post("/sessions/{session_id}/outline/approve", response_model=LoopActionResponse)
     def approve_outline(
         session_id: str,
         request: ApproveOutlineRequest,
@@ -293,7 +305,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
 
-    @app.post("/sessions/{session_id}/revision/selection")
+    @app.post("/sessions/{session_id}/revision/selection", response_model=LoopActionResponse)
     def revise_selection(
         session_id: str,
         request: ReviseSelectionRequest,
@@ -343,7 +355,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "paths": result.changed_paths}
 
-    @app.post("/sessions/{session_id}/checklist/run")
+    @app.post("/sessions/{session_id}/checklist/run", response_model=LoopActionResponse)
     def run_checklist(
         session_id: str,
         response: Response,
@@ -379,7 +391,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "paths": result.changed_paths}
 
-    @app.post("/sessions/{session_id}/artifacts/export-markdown")
+    @app.post("/sessions/{session_id}/artifacts/export-markdown", response_model=LoopActionResponse)
     def export_markdown(
         session_id: str,
         response: Response,
@@ -415,7 +427,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
 
-    @app.post("/sessions/{session_id}/messages")
+    @app.post("/sessions/{session_id}/messages", response_model=LoopActionResponse)
     def send_message(
         session_id: str,
         request: SendMessageRequest,
@@ -467,7 +479,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "event_count": len(result.events)}
 
-    @app.post("/sessions/{session_id}/cancel")
+    @app.post("/sessions/{session_id}/cancel", response_model=LoopActionResponse)
     def cancel_session(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
@@ -487,7 +499,7 @@ def create_app(
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
 
-    @app.get("/sessions/{session_id}/timeline")
+    @app.get("/sessions/{session_id}/timeline", response_model=list[TimelineEventResponse])
     def get_timeline(session_id: str) -> list[dict[str, Any]]:
         if state.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Session not found")

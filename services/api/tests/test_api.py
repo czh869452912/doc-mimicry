@@ -194,6 +194,15 @@ def test_task_without_explicit_title_gets_title_from_description(tmp_path: Path)
     assert fetched["description"] == "Build a search feature"
 
 
+def test_openapi_schema_includes_task_response_fields(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    schema = client.get("/openapi.json").json()
+
+    task_schema = schema["components"]["schemas"]["TaskResponse"]
+    assert "title" in task_schema["properties"]
+    assert "doc_type_id" in task_schema["properties"]
+
+
 def test_state_root_can_be_read_from_environment(tmp_path: Path) -> None:
     state_root = tmp_path / "custom-state"
     original = os.environ.get("DOCAGENT_STATE_ROOT")
