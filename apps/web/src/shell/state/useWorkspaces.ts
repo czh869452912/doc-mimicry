@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import type { DocTypeSummary, SessionRecord, TaskRecord, WorkspaceFile, WorkspaceTree } from "../../types";
 
@@ -76,7 +76,12 @@ function fileToTreeNode(taskId: string, file: WorkspaceFile): WorkspaceTreeNode 
   };
 }
 
-export function useWorkspaces() {
+export function useWorkspaces(
+  initialTaskId?: string | null,
+  initialSessionId?: string | null,
+) {
+  const initialTaskIdRef = useRef(initialTaskId);
+  const initialSessionIdRef = useRef(initialSessionId);
   const [docTypes, setDocTypes] = useState<DocTypeSummary[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
@@ -149,12 +154,14 @@ export function useWorkspaces() {
       setDocTypes(nextDocTypes);
       setTasks(nextTasks);
 
-      const rememberedTaskId = window.localStorage.getItem(LAST_TASK_KEY);
+      const rememberedTaskId =
+        initialTaskIdRef.current ?? window.localStorage.getItem(LAST_TASK_KEY);
       const nextTask = nextTasks.find((task) => task.id === rememberedTaskId) ?? latestByUpdatedAt(nextTasks);
       if (nextTask) {
         setActiveTask(nextTask);
         const nextSessions = await api.listTaskSessions(nextTask.id);
-        const rememberedSessionId = window.localStorage.getItem(LAST_SESSION_KEY);
+        const rememberedSessionId =
+          initialSessionIdRef.current ?? window.localStorage.getItem(LAST_SESSION_KEY);
         const nextSession =
           nextSessions.find((session) => session.id === rememberedSessionId) ?? latestByUpdatedAt(nextSessions);
         await refreshWorkspaceForTask(nextTask, nextSession);

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { WorkspaceFileContent } from "../types";
 import { CommandPalette } from "./CommandPalette";
@@ -15,13 +16,16 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../compone
 import { ErrorBoundary } from "./ErrorBoundary";
 
 export function AppShell() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTaskId = useRef(searchParams.get("task")).current;
+  const initialSessionId = useRef(searchParams.get("session")).current;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [draftTaskId, setDraftTaskId] = useState<string | null>(null);
   const [draftReloadToken, setDraftReloadToken] = useState(0);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
-  const workspaces = useWorkspaces();
+  const workspaces = useWorkspaces(initialTaskId, initialSessionId);
   const editorTabs = useTabs();
   const collapse = useCollapse();
   const timeline = useTimeline(workspaces.activeSession?.id);
@@ -75,6 +79,14 @@ export function AppShell() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (workspaces.loading) return;
+    const params: Record<string, string> = {};
+    if (workspaces.activeTask) params.task = workspaces.activeTask.id;
+    if (workspaces.activeSession) params.session = workspaces.activeSession.id;
+    setSearchParams(params, { replace: true });
+  }, [workspaces.loading, workspaces.activeTask?.id, workspaces.activeSession?.id, setSearchParams]);
 
   return (
     <main className="docagent-shell">
