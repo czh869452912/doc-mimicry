@@ -297,6 +297,15 @@ def create_app(
             lambda: adapter.send_message(session_id, request.message),
         )
         _append_runtime_result(state, task["id"], session_id, result)
+        # Adapters that return no semantic events (e.g. OpenHands) don't record the user
+        # message themselves — add it explicitly so it always appears in the timeline.
+        if not result.events:
+            user_event = _manual_event(
+                task["id"], session_id, f"user-{uuid4().hex[:8]}",
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE,
+                request.message, [],
+            )
+            state.append_timeline_event(session_id, asdict(user_event))
         _set_session_state(state, session, result.next_state)
         return {"session_id": session_id, "event_count": len(result.events)}
 
@@ -347,7 +356,9 @@ def _append_runtime_result(
     for raw_event in result.raw_events:
         state.append_raw_runtime_event(session_id, raw_event)
         if raw_event.runtime is RuntimeKind.OPENHANDS:
-            state.append_timeline_event(session_id, asdict(map_openhands_raw_event(raw_event, task_id)))
+            semantic = map_openhands_raw_event(raw_event, task_id)
+            if semantic is not None:
+                state.append_timeline_event(session_id, asdict(semantic))
 
 
 def _prepare_transition(
