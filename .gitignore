@@ -11,3 +11,4 @@ dist/
 .vite/
 .env.local
 .superpowers/
+.worktree/
