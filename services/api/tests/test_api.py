@@ -1,10 +1,78 @@
 from pathlib import Path
 import os
+from threading import Event
+import time
+from typing import Any
 
 from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 from docagent_api.app import state_root_from_env
+from docagent_contracts import (
+    PromptBundle,
+    RawRuntimeEvent,
+    RuntimeEventSink,
+    RuntimeKind,
+    RuntimeOperationResult,
+    RuntimeSessionState,
+)
+
+
+class StreamingFakeAdapter:
+    def __init__(self) -> None:
+        self.first_event_sent = Event()
+        self.finish = Event()
+
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def send_message_stream(
+        self,
+        session_id: str,
+        message: str,
+        sink: RuntimeEventSink,
+    ) -> RuntimeOperationResult:
+        sink(_raw(session_id, "stream-1", {"kind": "file_written", "path": "draft/draft.md"}))
+        self.first_event_sent.set()
+        assert self.finish.wait(timeout=2)
+        sink(_raw(session_id, "stream-2", {"kind": "file_written", "path": "draft/final.md"}))
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+
+    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+
+    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.COMPLETED)
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    def get_state(self, session_id: str) -> RuntimeSessionState:
+        return RuntimeSessionState.IDLE
+
+
+def _raw(session_id: str, raw_id: str, payload: dict[str, Any]) -> RawRuntimeEvent:
+    return RawRuntimeEvent(
+        id=raw_id,
+        session_id=session_id,
+        runtime=RuntimeKind.OPENHANDS,
+        runtime_session_id="runtime-001",
+        kind=str(payload.get("kind", "event")),
+        payload=payload,
+        created_at="2026-05-07T00:00:00Z",
+    )
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -63,6 +131,38 @@ def test_task_session_message_timeline_and_draft_roundtrip(tmp_path: Path) -> No
     update_response = client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Edited\n"})
     assert update_response.status_code == 200
     assert client.get(f"/tasks/{task['id']}/draft").json()["markdown"] == "# Edited\n"
+
+
+def test_background_message_streams_partial_timeline_before_completion(tmp_path: Path) -> None:
+    adapter = StreamingFakeAdapter()
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_adapter=adapter))
+
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build billing controls"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/messages?background=true",
+        json={"message": "Start the PRD"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["accepted"] is True
+    assert adapter.first_event_sent.wait(timeout=2)
+
+    timeline = client.get(f"/sessions/{session['id']}/timeline").json()
+    kinds = [event["kind"] for event in timeline]
+    assert "user_message" in kinds
+    assert "update_draft" in kinds
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "running_revision"
+
+    adapter.finish.set()
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        if client.get(f"/sessions/{session['id']}").json()["status"] == "draft_ready":
+            break
+        time.sleep(0.05)
+
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "draft_ready"
 
 
 def test_task_creation_keeps_title_separate_from_description(tmp_path: Path) -> None:

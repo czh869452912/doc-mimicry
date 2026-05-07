@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import asdict
 import os
 from pathlib import Path
+from threading import Thread
 from typing import Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -65,6 +66,7 @@ def create_app(
     state_root: Path | None = None,
     repo_root: Path | None = None,
     runtime_name: str | None = None,
+    runtime_adapter: Any | None = None,
 ) -> FastAPI:
     app = FastAPI(title="DocAgent Workbench API")
     app.add_middleware(
@@ -77,7 +79,7 @@ def create_app(
     root = repo_root or Path.cwd()
     state = DocAgentState(state_root or root / ".local" / "docagent")
     _recover_interrupted_sessions(state)
-    adapter = create_runtime_adapter(runtime_name)
+    adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -296,9 +298,38 @@ def create_app(
         return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
 
     @app.post("/sessions/{session_id}/messages")
-    def send_message(session_id: str, request: SendMessageRequest) -> dict[str, Any]:
+    def send_message(
+        session_id: str,
+        request: SendMessageRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        if background:
+            user_event = _manual_event(
+                task["id"], session_id, f"user-{uuid4().hex[:8]}",
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE,
+                request.message, [],
+            )
+            state.append_timeline_event(session_id, asdict(user_event))
+            stream_method = getattr(adapter, "send_message_stream", None)
+            if callable(stream_method):
+                operation = lambda: stream_method(
+                    session_id,
+                    request.message,
+                    _runtime_event_sink(state, task["id"], session_id),
+                )
+            else:
+                operation = lambda: adapter.send_message(session_id, request.message)
+            response.status_code = 202
+            return _start_background_runtime_operation(
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_REVISION,
+                operation,
+            )
         result = _run_runtime_operation(
             state,
             session,
@@ -423,6 +454,51 @@ def _run_runtime_operation(
     except Exception as exc:
         _set_session_state(state, session, previous_state)
         raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
+
+
+def _start_background_runtime_operation(
+    state: DocAgentState,
+    task_id: str,
+    session: dict[str, Any],
+    running_state: RuntimeSessionState,
+    operation: Any,
+    previous_state_on_failure: RuntimeSessionState | None = None,
+) -> dict[str, Any]:
+    previous_state = previous_state_on_failure or RuntimeSessionState(session["status"])
+    _prepare_transition(state, session, running_state)
+
+    def worker() -> None:
+        try:
+            result = operation()
+        except Exception as exc:
+            failure = _manual_event(
+                task_id,
+                session["id"],
+                f"runtime-failed-{uuid4().hex[:8]}",
+                TimelineActor.SYSTEM,
+                SemanticEventKind.USER_MESSAGE,
+                f"Runtime operation failed: {exc}",
+                [],
+            )
+            state.append_timeline_event(session["id"], asdict(failure))
+            _set_session_state(state, session, previous_state)
+            return
+        _append_runtime_result(state, task_id, session["id"], result)
+        _set_session_state(state, session, result.next_state)
+
+    Thread(target=worker, daemon=True).start()
+    return {"session_id": session["id"], "accepted": True, "status": running_state.value}
+
+
+def _runtime_event_sink(state: DocAgentState, task_id: str, session_id: str) -> Any:
+    def sink(raw_event: Any) -> None:
+        state.append_raw_runtime_event(session_id, raw_event)
+        if raw_event.runtime is RuntimeKind.OPENHANDS:
+            semantic = map_openhands_raw_event(raw_event, task_id)
+            if semantic is not None:
+                state.append_timeline_event(session_id, asdict(semantic))
+
+    return sink
 
 
 def _set_session_state(
