@@ -12,6 +12,7 @@ import { useCollapse } from "./state/useCollapse";
 import { useTimeline } from "./state/useTimeline";
 import { useWorkspaces } from "./state/useWorkspaces";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -92,6 +93,7 @@ export function AppShell() {
       >
         <ResizablePanel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>
           <aside className="shell-panel">
+            <ErrorBoundary label="Workspace">
             <WorkspacePane
               activeSession={workspaces.activeSession}
               activeTask={workspaces.activeTask}
@@ -118,11 +120,13 @@ export function AppShell() {
                 if (task) void workspaces.selectTask(task);
               }}
             />
+            </ErrorBoundary>
           </aside>
         </ResizablePanel>
         <ResizableHandle className="resize-handle" />
         <ResizablePanel id="center" minSize={32}>
           <section className="shell-panel shell-panel--center">
+            <ErrorBoundary label="Conversation">
             <ConversationPane
               activeSession={workspaces.activeSession}
               activeTask={workspaces.activeTask}
@@ -139,11 +143,13 @@ export function AppShell() {
                 setDraftReloadToken((token) => token + 1);
               }}
             />
+            </ErrorBoundary>
           </section>
         </ResizablePanel>
         <ResizableHandle className="resize-handle" />
         <ResizablePanel id="right" defaultSize={collapse.rightPanelSize} minSize={18} collapsedSize={4} collapsible>
           <aside className="shell-panel">
+            <ErrorBoundary label="Editor">
             <EditorPane
               activeSessionId={workspaces.activeSession?.id ?? null}
               activeTabId={editorTabs.activeTabId}
@@ -155,6 +161,7 @@ export function AppShell() {
               onDraftChange={setDraft}
               onTabChange={editorTabs.setActiveTabId}
             />
+            </ErrorBoundary>
           </aside>
         </ResizablePanel>
       </ResizablePanelGroup>
