@@ -350,7 +350,7 @@ Expected: tests and build pass.
 **Files:**
 - Modify: `apps/web/tests/workbench-shell.spec.ts`
 
-- [ ] Step 1: Update Playwright smoke selectors for title and description.
+- [x] Step 1: Update Playwright smoke selectors for title and description.
 
 Smoke should cover:
 
@@ -362,7 +362,7 @@ await page.getByRole("button", { name: /^create workspace$/i }).click();
 await expect(page.getByText("First loop PRD")).toBeVisible();
 ```
 
-- [ ] Step 2: Add session creation smoke.
+- [x] Step 2: Add session creation smoke.
 
 Smoke should cover:
 
@@ -372,7 +372,7 @@ await expect(page.getByText(/session-/i)).toBeVisible();
 await expect(page.getByText("Workspace files")).toBeVisible();
 ```
 
-- [ ] Step 3: Run e2e smoke if local dev server and browser binaries are available.
+- [x] Step 3: Run e2e smoke if local dev server and browser binaries are available.
 
 Run:
 
@@ -476,3 +476,12 @@ npm run build
 ```
 
 Result: 3 test files / 10 tests passed; build exited 0 with the existing large chunk warning.
+
+- Playwright smoke coverage was extended to create a workspace with a unique title and description, create a new session, and assert the dedicated Sessions and Workspace files surfaces. The e2e config now starts both FastAPI and Vite so smoke tests cover the real local REST contract.
+
+```powershell
+cd apps/web
+npm run test:e2e
+```
+
+Result: 2 passed.
