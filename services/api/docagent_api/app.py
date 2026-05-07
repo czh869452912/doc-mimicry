@@ -8,12 +8,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from docagent_api.response_models import HealthResponse
+from docagent_api.routes._shared import set_session_state
 from docagent_api.routes.doctypes import create_doctypes_router
 from docagent_api.routes.sessions import create_sessions_router
 from docagent_api.routes.tasks import create_tasks_router
 from docagent_api.runtime_factory import create_runtime_adapter
 from docagent_api.state import DocAgentState
-from docagent_api.time import utc_now
 from docagent_contracts import RuntimeSessionState
 
 
@@ -58,9 +58,7 @@ def _recover_interrupted_sessions(state: DocAgentState) -> None:
     }
     for session in state.list_sessions():
         if session["status"] in running_states:
-            session["status"] = RuntimeSessionState.FAILED.value
-            session["updated_at"] = utc_now()
-            state.save_session(session)
+            set_session_state(state, session, RuntimeSessionState.FAILED)
 
 
 def state_root_from_env() -> Path | None:

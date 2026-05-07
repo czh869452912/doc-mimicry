@@ -61,6 +61,7 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
         RuntimeSessionState.RUNNING_CONTEXT,
         RuntimeSessionState.RUNNING_DRAFT,
         RuntimeSessionState.RUNNING_REVISION,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.FAILED: {
