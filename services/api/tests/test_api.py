@@ -1,8 +1,10 @@
 from pathlib import Path
+import os
 
 from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
+from docagent_api.app import state_root_from_env
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -80,3 +82,16 @@ def test_task_creation_keeps_title_separate_from_description(tmp_path: Path) -> 
     assert task["title"] == "Billing controls PRD"
     assert task["description"] == "Write a PRD for enterprise billing controls."
     assert task["brief"] == "Write a PRD for enterprise billing controls."
+
+
+def test_state_root_can_be_read_from_environment(tmp_path: Path) -> None:
+    state_root = tmp_path / "custom-state"
+    original = os.environ.get("DOCAGENT_STATE_ROOT")
+    os.environ["DOCAGENT_STATE_ROOT"] = str(state_root)
+    try:
+        assert state_root_from_env() == state_root
+    finally:
+        if original is None:
+            os.environ.pop("DOCAGENT_STATE_ROOT", None)
+        else:
+            os.environ["DOCAGENT_STATE_ROOT"] = original

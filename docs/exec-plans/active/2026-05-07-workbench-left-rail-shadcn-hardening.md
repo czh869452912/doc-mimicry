@@ -322,9 +322,9 @@ Implementation requirements:
 - Replace local `Empty` and `Badge` with official components.
 - Remove `apps/web/src/shell/ui/*` only after no imports remain.
 
-- [ ] Step 4: Replace overlay primitives where useful.
+- [x] Step 4: Replace overlay primitives where useful.
 
-Progress: `SettingsDrawer` now uses shadcn `Sheet`, and `CommandPalette` uses shadcn `Command` primitives while preserving the existing overlay behavior. `EditorPane` tabs and `AppShell` resizable panels remain on their existing direct dependencies for now.
+Completed: `SettingsDrawer` uses shadcn `Sheet`, `CommandPalette` uses shadcn `Command` primitives, `EditorPane` uses shadcn `Tabs`, and `AppShell` uses the local shadcn `Resizable` wrappers over `react-resizable-panels`.
 
 Implementation requirements:
 
@@ -477,7 +477,7 @@ npm run build
 
 Result: 3 test files / 10 tests passed; build exited 0 with the existing large chunk warning.
 
-- Playwright smoke coverage was extended to create a workspace with a unique title and description, create a new session, and assert the dedicated Sessions and Workspace files surfaces. The e2e config now starts both FastAPI and Vite so smoke tests cover the real local REST contract.
+- Playwright smoke coverage was extended to create a workspace with a unique title and description, create a new session, and assert the dedicated Sessions and Workspace files surfaces. The e2e config now starts both FastAPI and Vite so smoke tests cover the real local REST contract. The API reads `DOCAGENT_STATE_ROOT`, and e2e runs use `.local/e2e/docagent` instead of the normal development state root.
 
 ```powershell
 cd apps/web

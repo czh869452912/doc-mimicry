@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -470,4 +471,9 @@ def _runtime_result_response(result: RuntimeOperationResult) -> dict[str, Any]:
     }
 
 
-app = create_app()
+def state_root_from_env() -> Path | None:
+    value = os.environ.get("DOCAGENT_STATE_ROOT")
+    return Path(value) if value else None
+
+
+app = create_app(state_root=state_root_from_env())

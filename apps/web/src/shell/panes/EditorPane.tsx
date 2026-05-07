@@ -1,5 +1,5 @@
-import * as Tabs from "@radix-ui/react-tabs";
 import { X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { ArtifactTab } from "../editor/tabs/ArtifactTab";
 import { DiffTab } from "../editor/tabs/DiffTab";
 import { DraftTab } from "../editor/tabs/DraftTab";
@@ -35,10 +35,10 @@ export function EditorPane({
   taskId,
 }: EditorPaneProps) {
   return (
-    <Tabs.Root className="editor-pane" value={activeTabId} onValueChange={onTabChange}>
-      <Tabs.List className="editor-tabs" aria-label="Editor tabs">
+    <Tabs className="editor-pane" value={activeTabId} onValueChange={onTabChange}>
+      <TabsList className="editor-tabs" aria-label="Editor tabs">
         {tabs.map((tab) => (
-          <Tabs.Trigger className="editor-tab-trigger" key={tab.id} value={tab.id}>
+          <TabsTrigger className="editor-tab-trigger" key={tab.id} value={tab.id}>
             <span>{tab.id === "draft" ? "📌 " : ""}</span>
             <span>{tab.title}</span>
             {tab.id !== "draft" && (
@@ -54,11 +54,11 @@ export function EditorPane({
                 <X size={12} />
               </button>
             )}
-          </Tabs.Trigger>
+          </TabsTrigger>
         ))}
-      </Tabs.List>
+      </TabsList>
       {tabs.map((tab) => (
-        <Tabs.Content className="editor-tab-content" key={tab.id} value={tab.id}>
+        <TabsContent className="editor-tab-content" key={tab.id} value={tab.id}>
           {renderTab(tab, {
             activeSessionId,
             draft,
@@ -68,9 +68,9 @@ export function EditorPane({
             onSendSelectionToChat,
             taskId,
           })}
-        </Tabs.Content>
+        </TabsContent>
       ))}
-    </Tabs.Root>
+    </Tabs>
   );
 }
 

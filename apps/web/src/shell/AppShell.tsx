@@ -1,4 +1,3 @@
-import { Group, Panel, Separator } from "react-resizable-panels";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { WorkspaceFileContent } from "../types";
@@ -12,6 +11,7 @@ import { WorkspacePane } from "./panes/WorkspacePane";
 import { useCollapse } from "./state/useCollapse";
 import { useTimeline } from "./state/useTimeline";
 import { useWorkspaces } from "./state/useWorkspaces";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -84,13 +84,13 @@ export function AppShell() {
         onOpenCommandPalette={() => setCommandOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
-      <Group
+      <ResizablePanelGroup
         orientation="horizontal"
         className="docagent-shell__panels"
         defaultLayout={{ left: collapse.leftPanelSize, center: 100 - collapse.leftPanelSize - collapse.rightPanelSize, right: collapse.rightPanelSize }}
         onLayoutChanged={collapse.rememberLayout}
       >
-        <Panel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>
+        <ResizablePanel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <WorkspacePane
               activeSession={workspaces.activeSession}
@@ -119,9 +119,9 @@ export function AppShell() {
               }}
             />
           </aside>
-        </Panel>
-        <Separator className="resize-handle" />
-        <Panel id="center" minSize={32}>
+        </ResizablePanel>
+        <ResizableHandle className="resize-handle" />
+        <ResizablePanel id="center" minSize={32}>
           <section className="shell-panel shell-panel--center">
             <ConversationPane
               activeSession={workspaces.activeSession}
@@ -140,9 +140,9 @@ export function AppShell() {
               }}
             />
           </section>
-        </Panel>
-        <Separator className="resize-handle" />
-        <Panel id="right" defaultSize={collapse.rightPanelSize} minSize={18} collapsedSize={4} collapsible>
+        </ResizablePanel>
+        <ResizableHandle className="resize-handle" />
+        <ResizablePanel id="right" defaultSize={collapse.rightPanelSize} minSize={18} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <EditorPane
               activeSessionId={workspaces.activeSession?.id ?? null}
@@ -158,8 +158,8 @@ export function AppShell() {
               onTabChange={editorTabs.setActiveTabId}
             />
           </aside>
-        </Panel>
-      </Group>
+        </ResizablePanel>
+      </ResizablePanelGroup>
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} onRunCommand={setQueuedCommand} />
       <SettingsDrawer
         docTypes={workspaces.docTypes}
