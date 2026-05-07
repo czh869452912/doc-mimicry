@@ -500,15 +500,7 @@ def _require_task(state: DocAgentState, task_id: str) -> dict[str, Any]:
     task = state.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
-    _normalize_task(task)
     return task
-
-
-def _normalize_task(task: dict[str, Any]) -> None:
-    description = str(task.get("description") or task.get("brief") or "")
-    task["description"] = description
-    task["brief"] = str(task.get("brief") or description)
-    task["title"] = str(task.get("title") or _title_from_description(description))
 
 
 def _title_from_description(description: str) -> str:

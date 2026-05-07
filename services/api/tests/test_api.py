@@ -184,6 +184,16 @@ def test_task_creation_keeps_title_separate_from_description(tmp_path: Path) -> 
     assert task["brief"] == "Write a PRD for enterprise billing controls."
 
 
+def test_task_without_explicit_title_gets_title_from_description(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build a search feature"}).json()
+    fetched = client.get(f"/tasks/{task['id']}").json()
+
+    assert fetched["title"] == "Build a search feature"
+    assert fetched["description"] == "Build a search feature"
+
+
 def test_state_root_can_be_read_from_environment(tmp_path: Path) -> None:
     state_root = tmp_path / "custom-state"
     original = os.environ.get("DOCAGENT_STATE_ROOT")
