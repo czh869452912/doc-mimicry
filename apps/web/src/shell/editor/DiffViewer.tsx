@@ -1,4 +1,4 @@
-import { diffLines } from "diff";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 
 interface DiffViewerProps {
   left: string;
@@ -8,34 +8,31 @@ interface DiffViewerProps {
 }
 
 export function DiffViewer({ left, leftTitle, right, rightTitle }: DiffViewerProps) {
-  const parts = diffLines(left, right);
-
   return (
     <div className="diff-viewer">
-      <header className="diff-viewer__header">
-        <span>{leftTitle}</span>
-        <span>{rightTitle}</span>
-      </header>
-      <div className="diff-viewer__body">
-        <pre>
-          {parts
-            .filter((part) => !part.added)
-            .map((part, index) => (
-              <span key={`left-${index}`} className={part.removed ? "diff-line diff-line--removed" : "diff-line"}>
-                {part.value}
-              </span>
-            ))}
-        </pre>
-        <pre>
-          {parts
-            .filter((part) => !part.removed)
-            .map((part, index) => (
-              <span key={`right-${index}`} className={part.added ? "diff-line diff-line--added" : "diff-line"}>
-                {part.value}
-              </span>
-            ))}
-        </pre>
-      </div>
+      <ReactDiffViewer
+        oldValue={left}
+        newValue={right}
+        leftTitle={leftTitle}
+        rightTitle={rightTitle}
+        splitView={true}
+        compareMethod={DiffMethod.WORDS}
+        useDarkTheme={false}
+        styles={{
+          variables: {
+            light: {
+              diffViewerBackground: "var(--color-surface)",
+              diffViewerColor: "var(--color-ink)",
+              addedBackground: "#e6ffec",
+              addedColor: "#1a472a",
+              removedBackground: "#ffebe9",
+              removedColor: "#67060c",
+              wordAddedBackground: "#acf2bd",
+              wordRemovedBackground: "#fdb8c0",
+            },
+          },
+        }}
+      />
     </div>
   );
 }

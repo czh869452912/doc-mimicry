@@ -33,6 +33,7 @@
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
     "react-arborist": "^3.5.0",
+    "react-diff-viewer-continued": "^4.2.2",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.11.0",
