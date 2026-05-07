@@ -487,3 +487,7 @@ npm run test:e2e
 Result: 2 passed.
 
 - The previous large chunk warning was removed by lazy-loading the CodeMirror-backed source editor and splitting stable third-party vendor chunks in Vite. The largest async chunk is now below Vite's default 500 kB warning threshold.
+
+- File tree review: keep `react-arborist` for now. It is already a high-quality off-the-shelf tree with virtualization, keyboard navigation, drag/drop support, and controlled/uncontrolled open state. The collapse bug came from not toggling task root nodes, not from a missing tree component. Reasonable alternatives for a future spike are `react-complex-tree` and MUI X Tree View, but either would be a larger migration.
+
+- Timeline refresh review: the frontend now polls the active session timeline so newly persisted runtime/agent events appear without waiting for another user operation. This does not yet create token-level streaming; the current OpenHands adapter still returns raw events after `conversation.run()` completes, so true streaming requires a separate backend/runtime event pump.

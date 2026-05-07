@@ -4,6 +4,8 @@ import type { TimelineEvent } from "../../types";
 import { replaceWithIdDedup } from "../conversation/docagentRuntime";
 import { timelinePresentation } from "../conversation/timelinePresentation";
 
+const TIMELINE_POLL_INTERVAL_MS = 1500;
+
 export function useTimeline(sessionId: string | null | undefined) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,25 @@ export function useTimeline(sessionId: string | null | undefined) {
       cancelled = true;
     };
   }, [loadTimeline, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    const interval = window.setInterval(() => {
+      void api.getTimeline(sessionId)
+        .then((nextEvents) => {
+          if (!cancelled) setEvents(replaceWithIdDedup(nextEvents));
+        })
+        .catch((caught) => {
+          if (!cancelled) setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
+        });
+    }, TIMELINE_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [sessionId]);
 
   const resetTimeline = useCallback(() => {
     setEvents([]);

@@ -1,5 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import type { TimelineEvent } from "../../types";
 import { useTimeline } from "../state/useTimeline";
@@ -34,6 +35,10 @@ function Harness({
 describe("useTimeline", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("refreshes when session id changes", async () => {
@@ -83,5 +88,29 @@ describe("useTimeline", () => {
       { ...eventOne, id: "event-2", summary: "Session two event" },
     ]);
     await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-2"]));
+  });
+
+  it("polls the active session timeline and merges new events", async () => {
+    vi.useFakeTimers();
+    vi.mocked(api.getTimeline)
+      .mockResolvedValueOnce([eventOne])
+      .mockResolvedValueOnce([
+        eventOne,
+        { ...eventOne, id: "event-2", summary: "Draft updated" },
+      ]);
+
+    let latest!: ReturnType<typeof useTimeline>;
+    render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(latest.events.map((event) => event.id)).toEqual(["event-1"]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    expect(latest.events.map((event) => event.id)).toEqual(["event-1", "event-2"]);
   });
 });

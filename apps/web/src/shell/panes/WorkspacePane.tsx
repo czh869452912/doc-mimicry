@@ -156,7 +156,10 @@ export function WorkspacePane({
           width="100%"
           onActivate={(node) => {
             const data = node.data;
-            if (data.kind === "task" && data.taskId) onSelectTask(data.taskId);
+            if (data.kind === "task" && data.taskId) {
+              node.toggle();
+              onSelectTask(data.taskId);
+            }
             if (data.kind === "session" && data.sessionId) onSelectSession(data.sessionId);
             if (data.kind === "folder") node.toggle();
             if (data.kind === "file" && data.path) onOpenFile(data.path);

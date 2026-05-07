@@ -44,4 +44,44 @@ describe("WorkspacePane activation", () => {
 
     expect(onOpenFile).not.toHaveBeenCalled();
   });
+
+  it("collapses a workspace root node to one row", async () => {
+    render(
+      <WorkspacePane
+        activeSession={null}
+        activeTask={null}
+        docTypes={[]}
+        error={null}
+        loading={false}
+        nodes={[
+          {
+            id: "task:task-1",
+            kind: "task",
+            name: "Task",
+            taskId: "task-1",
+            children: [
+              {
+                id: "folder:task-1:draft",
+                kind: "folder",
+                name: "draft/",
+                path: "draft",
+                taskId: "task-1",
+              },
+            ],
+          },
+        ]}
+        sessions={[]}
+        onCreateWorkspace={vi.fn()}
+        onCreateSession={vi.fn()}
+        onOpenFile={vi.fn()}
+        onSelectSession={vi.fn()}
+        onSelectTask={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("draft/")).toBeTruthy();
+    await userEvent.click(screen.getByText("Task"));
+
+    expect(screen.queryByText("draft/")).toBeNull();
+  });
 });
