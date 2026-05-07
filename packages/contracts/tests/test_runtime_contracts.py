@@ -74,3 +74,8 @@ def test_runtime_event_sink_receives_raw_event() -> None:
 
 def test_streaming_runtime_adapter_protocol_is_importable() -> None:
     assert StreamingRuntimeAdapter is not None
+
+
+def test_running_chat_state_exists() -> None:
+    from docagent_contracts import RuntimeSessionState
+    assert RuntimeSessionState.RUNNING_CHAT.value == "running_chat"

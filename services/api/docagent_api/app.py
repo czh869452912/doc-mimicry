@@ -445,13 +445,13 @@ def create_app(
                 state,
                 task["id"],
                 session,
-                RuntimeSessionState.RUNNING_REVISION,
+                RuntimeSessionState.RUNNING_CHAT,
                 operation,
             )
         result = _run_runtime_operation(
             state,
             session,
-            RuntimeSessionState.RUNNING_REVISION,
+            RuntimeSessionState.RUNNING_CHAT,
             lambda: adapter.send_message(session_id, request.message),
         )
         _append_runtime_result(state, task["id"], session_id, result)
@@ -552,6 +552,7 @@ def _recover_interrupted_sessions(state: DocAgentState) -> None:
         RuntimeSessionState.RUNNING_CONTEXT.value,
         RuntimeSessionState.RUNNING_DRAFT.value,
         RuntimeSessionState.RUNNING_REVISION.value,
+        RuntimeSessionState.RUNNING_CHAT.value,
         RuntimeSessionState.RUNNING_CHECKLIST.value,
         RuntimeSessionState.RUNNING_EXPORT.value,
     }

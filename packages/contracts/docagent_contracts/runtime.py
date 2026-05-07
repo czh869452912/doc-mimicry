@@ -18,6 +18,7 @@ class RuntimeSessionState(str, Enum):
     RUNNING_DRAFT = "running_draft"
     DRAFT_READY = "draft_ready"
     RUNNING_REVISION = "running_revision"
+    RUNNING_CHAT = "running_chat"
     RUNNING_CHECKLIST = "running_checklist"
     RUNNING_EXPORT = "running_export"
     PAUSED = "paused"

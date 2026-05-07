@@ -146,3 +146,19 @@ def test_startup_recovers_persisted_running_sessions(tmp_path: Path) -> None:
     assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "failed"
     new_session = recovered_client.post(f"/tasks/{task['id']}/sessions").json()
     assert recovered_client.post(f"/sessions/{new_session['id']}/loop/start").status_code == 200
+
+
+def test_send_message_background_uses_running_chat_state(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": "# Outline\n"})
+
+    response = client.post(
+        f"/sessions/{session['id']}/messages?background=true",
+        json={"message": "hello"},
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "running_chat"

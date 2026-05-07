@@ -153,7 +153,7 @@ def test_background_message_streams_partial_timeline_before_completion(tmp_path:
     kinds = [event["kind"] for event in timeline]
     assert "user_message" in kinds
     assert "update_draft" in kinds
-    assert client.get(f"/sessions/{session['id']}").json()["status"] == "running_revision"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "running_chat"
 
     adapter.finish.set()
     deadline = time.time() + 2

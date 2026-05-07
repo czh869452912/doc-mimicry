@@ -11,6 +11,7 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     RuntimeSessionState.IDLE: {
         RuntimeSessionState.RUNNING_CONTEXT,
         RuntimeSessionState.RUNNING_REVISION,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.RUNNING_CONTEXT: {
@@ -29,12 +30,18 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     },
     RuntimeSessionState.DRAFT_READY: {
         RuntimeSessionState.RUNNING_REVISION,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.RUNNING_CHECKLIST,
         RuntimeSessionState.RUNNING_EXPORT,
         RuntimeSessionState.COMPLETED,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.RUNNING_REVISION: {
+        RuntimeSessionState.DRAFT_READY,
+        RuntimeSessionState.FAILED,
+        RuntimeSessionState.CANCELLED,
+    },
+    RuntimeSessionState.RUNNING_CHAT: {
         RuntimeSessionState.DRAFT_READY,
         RuntimeSessionState.FAILED,
         RuntimeSessionState.CANCELLED,
@@ -60,6 +67,7 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
         RuntimeSessionState.RUNNING_CONTEXT,
         RuntimeSessionState.RUNNING_DRAFT,
         RuntimeSessionState.RUNNING_REVISION,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.CANCELLED: set(),
