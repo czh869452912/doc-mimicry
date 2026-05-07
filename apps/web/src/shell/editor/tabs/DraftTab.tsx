@@ -10,8 +10,8 @@ interface DraftTabProps {
   draft: string;
   taskId: string | null;
   onDraftChange: (draft: string) => void;
-  onReviseSelection: (selectedText: string) => void;
-  onSendSelectionToChat: (selectedText: string) => void;
+  onReviseSelection?: (selectedText: string) => void;
+  onSendSelectionToChat?: (selectedText: string) => void;
 }
 
 export function DraftTab({
@@ -50,7 +50,7 @@ export function DraftTab({
           <LazyDraftEditor markdown={draft} onChange={onDraftChange} onSelection={setSelectedText} />
         )}
       </div>
-      {selectedText && activeSessionId && (
+      {selectedText && activeSessionId && onSendSelectionToChat && onReviseSelection && (
         <div className="selection-bar">
           <button type="button" onClick={() => onSendSelectionToChat(selectedText)}>
             <MessageSquare size={14} /> Send to chat

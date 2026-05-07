@@ -471,8 +471,11 @@ def create_app(
     def cancel_session(session_id: str) -> dict[str, Any]:
         session = _require_session(state, session_id)
         task = _require_task(state, session["task_id"])
+        _prepare_transition(state, session, RuntimeSessionState.CANCELLED)
         result = adapter.cancel(session_id)
         _append_runtime_result(state, task["id"], session_id, result)
+        # result.next_state is expected to be CANCELLED; _set_session_state picks up
+        # any adapter-provided next_state (e.g. to capture timestamps or sub-states).
         _set_session_state(state, session, result.next_state)
         return _runtime_result_response(result)
 
@@ -596,9 +599,10 @@ def _start_background_runtime_operation(
                 session["id"],
                 f"runtime-failed-{uuid4().hex[:8]}",
                 TimelineActor.SYSTEM,
-                SemanticEventKind.USER_MESSAGE,
+                SemanticEventKind.ERROR,
                 f"Runtime operation failed: {exc}",
                 [],
+                status=TimelineStatus.FAILED,
             )
             state.append_timeline_event(session["id"], asdict(failure))
             _set_session_state(state, session, previous_state)
@@ -646,6 +650,7 @@ def _manual_event(
     kind: SemanticEventKind,
     summary: str,
     paths: list[str],
+    status: TimelineStatus = TimelineStatus.SUCCEEDED,
 ) -> SemanticTimelineEvent:
     return SemanticTimelineEvent(
         id=f"{task_id}-{suffix}",
@@ -656,7 +661,7 @@ def _manual_event(
         raw_event_id=None,
         summary=summary,
         paths=paths,
-        status=TimelineStatus.SUCCEEDED,
+        status=status,
         created_at=utc_now(),
     )
 

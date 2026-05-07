@@ -153,8 +153,6 @@ export function AppShell() {
               taskId={workspaces.activeTask?.id ?? null}
               onCloseTab={editorTabs.removeTab}
               onDraftChange={setDraft}
-              onReviseSelection={() => undefined}
-              onSendSelectionToChat={() => undefined}
               onTabChange={editorTabs.setActiveTabId}
             />
           </aside>

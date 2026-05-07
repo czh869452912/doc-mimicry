@@ -16,8 +16,8 @@ interface EditorPaneProps {
   taskId: string | null;
   onCloseTab: (tabId: string) => void;
   onDraftChange: (draft: string) => void;
-  onReviseSelection: (selectedText: string) => void;
-  onSendSelectionToChat: (selectedText: string) => void;
+  onReviseSelection?: (selectedText: string) => void;
+  onSendSelectionToChat?: (selectedText: string) => void;
   onTabChange: (tabId: string) => void;
 }
 

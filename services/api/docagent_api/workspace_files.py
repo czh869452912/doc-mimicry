@@ -33,6 +33,11 @@ def read_workspace_text_file(workspace_root: Path, relative_path: str) -> str:
 
 
 def _resolve_inside(workspace_root: Path, relative_path: str) -> Path:
+    # On Windows, pathlib's / operator replaces the left-hand side when the
+    # right side is an absolute path (e.g. "C:\Windows\..."), so Windows
+    # absolute paths are correctly caught by the parents check below.
+    # On Linux, backslash-containing paths are treated as literal filenames
+    # and would resolve inside the workspace (to a non-existent file).
     root = workspace_root.resolve()
     path = (workspace_root / relative_path).resolve()
     if root != path and root not in path.parents:

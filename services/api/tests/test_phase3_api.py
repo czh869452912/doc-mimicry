@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,58 @@ def test_runtime_error_rolls_session_back_to_previous_state(tmp_path: Path, monk
     assert response.json()["detail"] == "Runtime operation failed: runtime session is not available"
     assert client.get(f"/sessions/{session['id']}").json()["status"] == "idle"
     assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+
+
+class FailingStreamAdapter:
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def start_loop_stream(self, session_id: str, sink: Any) -> None:
+        raise RuntimeError("runtime unavailable")
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    def get_state(self, session_id: str) -> RuntimeSessionState:
+        return RuntimeSessionState.IDLE
+
+
+def test_background_runtime_failure_appends_error_kind_event(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingStreamAdapter())
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    client.post(f"/sessions/{session['id']}/loop/start?background=true")
+
+    deadline = time.monotonic() + 5.0
+    events = []
+    while time.monotonic() < deadline:
+        events = client.get(f"/sessions/{session['id']}/timeline").json()
+        if any(e["kind"] in ("error", "user_message") and "failed" in e.get("summary", "").lower() for e in events):
+            break
+        time.sleep(0.05)
+    user_message_failures = [e for e in events if e["kind"] == "user_message" and "failed" in e.get("summary", "").lower()]
+    assert user_message_failures == [], f"failure must not be user_message kind: {user_message_failures}"
+    error_events = [e for e in events if e["kind"] == "error"]
+    assert len(error_events) == 1
+    assert "runtime unavailable" in error_events[0]["summary"]
+    assert error_events[0]["status"] == "failed"
+
+
+def test_cancel_completed_session_returns_409(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session_resp = client.post(f"/tasks/{task['id']}/sessions").json()
+    db = DocAgentState(state_root)
+    s = db.get_session(session_resp["id"])
+    s["status"] = "completed"
+    db.save_session(s)
+
+    response = client.post(f"/sessions/{session_resp['id']}/cancel")
+
+    assert response.status_code == 409
 
 
 def test_startup_recovers_persisted_running_sessions(tmp_path: Path) -> None:
