@@ -23,6 +23,16 @@ async function createWorkspace(page: Page): Promise<{ title: string }> {
   return { title };
 }
 
+async function reachDraftReady(page: Page) {
+  await createWorkspace(page);
+  const composer = page.getByLabel("Message");
+  await composer.fill("/start");
+  await composer.press("Enter");
+  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
+  await page.getByRole("button", { name: /approve/i }).click();
+  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+}
+
 test("start loop produces outline card", async ({ page }) => {
   await createWorkspace(page);
 
@@ -47,4 +57,24 @@ test("approve outline makes draft content visible", async ({ page }) => {
 
   // Mock adapter generates a draft with heading "PRD Draft"
   await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+});
+
+test("run checklist shows checklist card", async ({ page }) => {
+  await reachDraftReady(page);
+
+  const composer = page.getByLabel("Message");
+  await composer.fill("/check");
+  await composer.press("Enter");
+
+  await expect(page.getByText(/checklist · succeeded/i)).toBeVisible({ timeout: 8_000 });
+});
+
+test("export markdown shows artifact card", async ({ page }) => {
+  await reachDraftReady(page);
+
+  const composer = page.getByLabel("Message");
+  await composer.fill("/export");
+  await composer.press("Enter");
+
+  await expect(page.getByText(/artifact · artifacts\/prd-draft\.md/i)).toBeVisible({ timeout: 8_000 });
 });
