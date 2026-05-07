@@ -1,6 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronRight, FileText, Folder, MessageSquare, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { Tree, type NodeRendererProps } from "react-arborist";
+import { z } from "zod";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -13,6 +16,11 @@ import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import type { DocTypeSummary, SessionRecord, TaskRecord } from "../../types";
 import type { CreateWorkspaceInput, WorkspaceTreeNode } from "../state/useWorkspaces";
+
+const createWorkspaceSchema = z.object({
+  title: z.string(),
+  description: z.string().min(1, "Description is required"),
+});
 
 interface WorkspacePaneProps {
   activeSession: SessionRecord | null;
@@ -44,11 +52,21 @@ export function WorkspacePane({
   onSelectTask,
 }: WorkspacePaneProps) {
   const [creating, setCreating] = useState(false);
-  const [description, setDescription] = useState("Write a PRD for the first usable document imitation loop.");
-  const [title, setTitle] = useState("First usable imitation loop PRD");
   const [docTypeId, setDocTypeId] = useState(docTypes[0]?.id ?? "prd");
   const selectedId = activeSession ? `session:${activeSession.id}` : activeTask ? `task:${activeTask.id}` : undefined;
   const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), [nodes]);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof createWorkspaceSchema>>({
+    resolver: zodResolver(createWorkspaceSchema),
+    defaultValues: {
+      title: "First usable imitation loop PRD",
+      description: "Write a PRD for the first usable document imitation loop.",
+    },
+  });
 
   useEffect(() => {
     if (docTypes.length === 0) return;
@@ -56,11 +74,6 @@ export function WorkspacePane({
       setDocTypeId(docTypes[0].id);
     }
   }, [docTypeId, docTypes]);
-
-  async function submitCreate() {
-    await onCreateWorkspace(docTypeId, { description, title });
-    setCreating(false);
-  }
 
   return (
     <div className="workspace-pane">
@@ -73,10 +86,13 @@ export function WorkspacePane({
 
       {creating && (
         <form
+          aria-label="Create workspace"
           className="workspace-create"
           onSubmit={(event) => {
-            event.preventDefault();
-            void submitCreate();
+            void handleSubmit(async (values) => {
+              await onCreateWorkspace(docTypeId, { title: values.title, description: values.description });
+              setCreating(false);
+            })(event);
           }}
         >
           <Field>
@@ -94,8 +110,7 @@ export function WorkspacePane({
             <Input
               aria-label="Title"
               id="workspace-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              {...register("title")}
             />
             <FieldDescription>Shown in the workspace list.</FieldDescription>
           </Field>
@@ -104,9 +119,11 @@ export function WorkspacePane({
             <Textarea
               aria-label="Description"
               id="workspace-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              {...register("description")}
             />
+            {errors.description && (
+              <p className="pane-note pane-note--error">{errors.description.message}</p>
+            )}
             <FieldDescription>Used as the agent brief inside the workspace.</FieldDescription>
           </Field>
           <Button type="submit">
