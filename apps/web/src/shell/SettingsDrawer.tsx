@@ -1,7 +1,11 @@
-import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 import { useState } from "react";
 import type { DocTypeSummary } from "../types";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
 
 interface SettingsDrawerProps {
   docTypes: DocTypeSummary[];
@@ -15,16 +19,11 @@ export function SettingsDrawer({ docTypes, onOpenChange, open, runtimeLabel }: S
   const selected = docTypes.find((docType) => docType.id === selectedId) ?? docTypes[0];
 
   return (
-    <Dialog.Root modal={false} open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="drawer-overlay" />
-        <Dialog.Content className="settings-drawer">
-          <header className="drawer-header">
-            <Dialog.Title>Settings</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="Close settings">
-              <X size={15} />
-            </Dialog.Close>
-          </header>
+    <Sheet modal={false} open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="settings-drawer" side="right">
+        <SheetHeader className="drawer-header">
+          <SheetTitle>Settings</SheetTitle>
+        </SheetHeader>
           <section className="drawer-section">
             <h2>Document Types</h2>
             <div className="doctype-list">
@@ -68,8 +67,7 @@ export function SettingsDrawer({ docTypes, onOpenChange, open, runtimeLabel }: S
             <h2>Runtime</h2>
             <p className="code-text">{runtimeLabel}</p>
           </section>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      </SheetContent>
+    </Sheet>
   );
 }

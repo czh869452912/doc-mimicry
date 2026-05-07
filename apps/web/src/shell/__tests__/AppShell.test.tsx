@@ -233,4 +233,23 @@ describe("AppShell", () => {
     await waitFor(() => expect(api.createSession).toHaveBeenCalledWith("task-1"));
     expect(await screen.findByText(/session-2/)).toBeTruthy();
   });
+
+  it("opens settings and shows document type resources", async () => {
+    vi.mocked(api.listDocTypes).mockResolvedValue([
+      {
+        id: "prd",
+        title: "PRD",
+        has_skill: true,
+        resource_groups: { examples: ["examples/enterprise-prd.md"] },
+        skill_markdown: "# PRD skill",
+      },
+    ]);
+
+    render(<AppShell />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /open settings/i }));
+
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
+    expect(await screen.findByText("examples/enterprise-prd.md")).toBeTruthy();
+  });
 });
