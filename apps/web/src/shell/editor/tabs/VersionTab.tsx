@@ -1,9 +1,9 @@
-import { DraftEditor } from "../DraftEditor";
+import { LazyDraftEditor } from "../LazyDraftEditor";
 
 interface VersionTabProps {
   content: string;
 }
 
 export function VersionTab({ content }: VersionTabProps) {
-  return <DraftEditor markdown={content} readOnly />;
+  return <LazyDraftEditor markdown={content} readOnly />;
 }

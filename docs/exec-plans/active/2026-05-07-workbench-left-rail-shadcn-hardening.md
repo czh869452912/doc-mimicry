@@ -475,7 +475,7 @@ npm run test:unit -- src/shell/__tests__/AppShell.test.tsx src/shell/__tests__/u
 npm run build
 ```
 
-Result: 3 test files / 10 tests passed; build exited 0 with the existing large chunk warning.
+Result: 3 test files / 10 tests passed; build exited 0.
 
 - Playwright smoke coverage was extended to create a workspace with a unique title and description, create a new session, and assert the dedicated Sessions and Workspace files surfaces. The e2e config now starts both FastAPI and Vite so smoke tests cover the real local REST contract. The API reads `DOCAGENT_STATE_ROOT`, and e2e runs use `.local/e2e/docagent` instead of the normal development state root.
 
@@ -485,3 +485,5 @@ npm run test:e2e
 ```
 
 Result: 2 passed.
+
+- The previous large chunk warning was removed by lazy-loading the CodeMirror-backed source editor and splitting stable third-party vendor chunks in Vite. The largest async chunk is now below Vite's default 500 kB warning threshold.

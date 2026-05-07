@@ -2,7 +2,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 
-interface DraftEditorProps {
+export interface DraftEditorProps {
   markdown: string;
   readOnly?: boolean;
   onChange?: (markdown: string) => void;

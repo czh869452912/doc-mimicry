@@ -252,4 +252,13 @@ describe("AppShell", () => {
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
     expect(await screen.findByText("examples/enterprise-prd.md")).toBeTruthy();
   });
+
+  it("loads the source editor only when source mode is selected", async () => {
+    render(<AppShell />);
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+  });
 });

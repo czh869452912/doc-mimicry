@@ -1,4 +1,4 @@
-import { DraftEditor } from "../DraftEditor";
+import { LazyDraftEditor } from "../LazyDraftEditor";
 import { MarkdownPreview } from "../MarkdownPreview";
 
 interface FileTabProps {
@@ -10,6 +10,6 @@ export function FileTab({ content, path }: FileTabProps) {
   return path.endsWith(".md") ? (
     <MarkdownPreview markdown={content} />
   ) : (
-    <DraftEditor markdown={content} readOnly />
+    <LazyDraftEditor markdown={content} readOnly />
   );
 }

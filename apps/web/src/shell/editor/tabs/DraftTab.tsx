@@ -1,6 +1,6 @@
 import { MessageSquare, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { DraftEditor } from "../DraftEditor";
+import { LazyDraftEditor } from "../LazyDraftEditor";
 import { MarkdownPreview } from "../MarkdownPreview";
 import { useAutoSave } from "../useAutoSave";
 
@@ -47,7 +47,7 @@ export function DraftTab({
         {mode === "preview" ? (
           <MarkdownPreview markdown={draft} />
         ) : (
-          <DraftEditor markdown={draft} onChange={onDraftChange} onSelection={setSelectedText} />
+          <LazyDraftEditor markdown={draft} onChange={onDraftChange} onSelection={setSelectedText} />
         )}
       </div>
       {selectedText && activeSessionId && (
