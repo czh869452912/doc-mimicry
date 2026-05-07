@@ -1,5 +1,10 @@
+import { Route, Routes } from "react-router-dom";
 import { AppShell } from "./shell/AppShell";
 
 export function App() {
-  return <AppShell />;
+  return (
+    <Routes>
+      <Route path="*" element={<AppShell />} />
+    </Routes>
+  );
 }

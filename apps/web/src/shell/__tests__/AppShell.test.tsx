@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import { AppShell } from "../AppShell";
@@ -78,7 +79,7 @@ describe("AppShell", () => {
   });
 
   it("loads the active task draft after restored workspace state is available", async () => {
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-1"));
     expect(await screen.findByRole("heading", { name: "Restored draft" })).toBeTruthy();
@@ -89,7 +90,7 @@ describe("AppShell", () => {
   });
 
   it("runs slash commands selected from the command palette", async () => {
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await screen.findByText("Restored workspace");
     await userEvent.click(screen.getByText("Ctrl K"));
@@ -131,7 +132,7 @@ describe("AppShell", () => {
     });
     window.localStorage.setItem("docagent:lastTaskId", "task-1");
 
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     expect(await screen.findByRole("heading", { name: "Task one draft" })).toBeTruthy();
     vi.mocked(api.updateDraft).mockClear();
@@ -177,7 +178,7 @@ describe("AppShell", () => {
       updated_at: "2026-05-06T10:00:00Z",
     });
 
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await userEvent.click(await screen.findByRole("button", { name: /create workspace/i }));
     await userEvent.clear(screen.getByLabelText("Title"));
@@ -227,7 +228,7 @@ describe("AppShell", () => {
       },
     ]);
 
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await userEvent.click(await screen.findByRole("button", { name: /new session/i }));
 
@@ -246,7 +247,7 @@ describe("AppShell", () => {
       },
     ]);
 
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await userEvent.click(await screen.findByRole("button", { name: /open settings/i }));
 
@@ -255,7 +256,7 @@ describe("AppShell", () => {
   });
 
   it("loads the source editor only when source mode is selected", async () => {
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
@@ -264,7 +265,7 @@ describe("AppShell", () => {
   });
 
   it("sends chat messages in background mode and refreshes timeline immediately", async () => {
-    render(<AppShell />);
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await screen.findByText("Restored workspace");
     vi.mocked(api.getWorkspace).mockClear();
