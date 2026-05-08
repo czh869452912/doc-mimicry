@@ -1,9 +1,18 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
 import type { TimelineEvent } from "../../types";
 import { useTimeline } from "../state/useTimeline";
+
+function renderWithQuery(ui: React.ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  }
+  return render(ui, { wrapper: Wrapper });
+}
 
 vi.mock("../../api", () => ({
   api: {
@@ -24,11 +33,13 @@ const eventOne: TimelineEvent = {
 function Harness({
   onState,
   sessionId,
+  taskId = null,
 }: {
   onState: (state: ReturnType<typeof useTimeline>) => void;
   sessionId: string | null;
+  taskId?: string | null;
 }) {
-  const state = useTimeline(sessionId);
+  const state = useTimeline(sessionId, taskId);
   onState(state);
   return null;
 }
@@ -46,7 +57,7 @@ describe("useTimeline", () => {
     vi.mocked(api.getTimeline).mockResolvedValueOnce([eventOne]);
 
     let latest!: ReturnType<typeof useTimeline>;
-    render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+    renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
     await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-1"]));
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
@@ -56,7 +67,7 @@ describe("useTimeline", () => {
     vi.mocked(api.getTimeline).mockResolvedValueOnce([eventOne]);
 
     let latest!: ReturnType<typeof useTimeline>;
-    const { rerender } = render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+    const { rerender } = renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
     await waitFor(() => expect(latest.events).toHaveLength(1));
     rerender(<Harness sessionId={null} onState={(state) => (latest = state)} />);
@@ -65,7 +76,7 @@ describe("useTimeline", () => {
     expect(latest.loading).toBe(false);
   });
 
-  it("clears previous session events immediately while the next session loads", async () => {
+  it("keeps previous session events visible while the next session loads", async () => {
     let resolveSessionTwo!: (events: TimelineEvent[]) => void;
     vi.mocked(api.getTimeline)
       .mockResolvedValueOnce([eventOne])
@@ -77,13 +88,14 @@ describe("useTimeline", () => {
       );
 
     let latest!: ReturnType<typeof useTimeline>;
-    const { rerender } = render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+    const { rerender } = renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
     await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-1"]));
     rerender(<Harness sessionId="session-2" onState={(state) => (latest = state)} />);
 
     await waitFor(() => expect(latest.loading).toBe(true));
-    expect(latest.events).toEqual([]);
+    // Events must NOT be cleared during the transition — old events remain visible
+    expect(latest.events.map((event) => event.id)).toEqual(["event-1"]);
 
     resolveSessionTwo([
       { ...eventOne, id: "event-2", summary: "Session two event" },
@@ -101,7 +113,7 @@ describe("useTimeline", () => {
       ]);
 
     let latest!: ReturnType<typeof useTimeline>;
-    render(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
+    renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
     await act(async () => {
       await Promise.resolve();
@@ -109,7 +121,7 @@ describe("useTimeline", () => {
     expect(latest.events.map((event) => event.id)).toEqual(["event-1"]);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(3000);
     });
 
     expect(latest.events.map((event) => event.id)).toEqual(["event-1", "event-2"]);
@@ -131,7 +143,7 @@ describe("useTimeline", () => {
     vi.stubGlobal("EventSource", MockEventSource);
 
     let latest!: ReturnType<typeof useTimeline>;
-    const { unmount } = render(
+    const { unmount } = renderWithQuery(
       <Harness sessionId="session-sse" onState={(s) => (latest = s)} />,
     );
     void latest;
@@ -176,7 +188,7 @@ describe("useTimeline", () => {
     };
 
     let latest!: ReturnType<typeof useTimeline>;
-    render(<Harness sessionId="session-sse-2" onState={(s) => (latest = s)} />);
+    renderWithQuery(<Harness sessionId="session-sse-2" onState={(s) => (latest = s)} />);
 
     act(() => {
       capturedOnMessage?.({ data: JSON.stringify(sseEvent) } as MessageEvent);

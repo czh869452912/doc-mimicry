@@ -29,7 +29,7 @@ export function AppShell() {
   const workspaces = useWorkspaces(initialTaskId, initialSessionId);
   const editorTabs = useTabs();
   const collapse = useCollapse();
-  const timeline = useTimeline(workspaces.activeSession?.id);
+  const timeline = useTimeline(workspaces.activeSession?.id, workspaces.activeTask?.id);
   const topBarStatus = workspaces.activeSession?.status?.startsWith("running")
     ? "running"
     : workspaces.activeSession?.status === "failed"
