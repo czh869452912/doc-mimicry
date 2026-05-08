@@ -1,5 +1,5 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import type { SessionRecord, TaskRecord, TimelineEvent } from "../../types";
 import { DocAgentComposer } from "../assistant/DocAgentComposer";
@@ -41,6 +41,60 @@ export function ConversationPane({
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const eventsRef = useRef(events);
+
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
+
+  const submitInput = useCallback(
+    async (rawInput: string) => {
+      const input = rawInput.trimEnd();
+      if (!input) return;
+      setStatus("Working...");
+
+      try {
+        const commandResult = await executeSlashCommand(input, {
+          activeTask,
+          ensureSession,
+          openArtifact: onOpenPath,
+          openHelp: () => setShowHelp(true),
+          refreshTimeline,
+          refreshWorkspace,
+        });
+        if (!commandResult.handled) {
+          const session = await ensureSession();
+          if (!session) {
+            setStatus("Create a workspace first.");
+            return;
+          }
+          const result = await api.sendMessage(session.id, input);
+          await refreshTimeline();
+          if (result.accepted) {
+            setStatus("Working...");
+            return;
+          }
+          await refreshWorkspace();
+        }
+        setStatus(commandResult.message ?? "Message processed.");
+      } catch (caught) {
+        setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
+      }
+    },
+    [activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace],
+  );
+
+  const reloadInput = useCallback(
+    async (parentMessageId: string | null) => {
+      const input = inputForReload(eventsRef.current, parentMessageId);
+      if (!input) {
+        setStatus("No previous user message to reload.");
+        return;
+      }
+      await submitInput(input);
+    },
+    [submitInput],
+  );
+
   const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
@@ -52,58 +106,11 @@ export function ConversationPane({
   });
 
   useEffect(() => {
-    eventsRef.current = events;
-  }, [events]);
-
-  useEffect(() => {
     if (!queuedCommand) return;
     void submitInput(queuedCommand).finally(() => {
       onQueuedCommandHandled?.();
     });
-  }, [queuedCommand]);
-
-  async function submitInput(rawInput: string) {
-    const input = rawInput.trimEnd();
-    if (!input) return;
-    setStatus("Working...");
-
-    try {
-      const commandResult = await executeSlashCommand(input, {
-        activeTask,
-        ensureSession,
-        openArtifact: onOpenPath,
-        openHelp: () => setShowHelp(true),
-        refreshTimeline,
-        refreshWorkspace,
-      });
-      if (!commandResult.handled) {
-        const session = await ensureSession();
-        if (!session) {
-          setStatus("Create a workspace first.");
-          return;
-        }
-        const result = await api.sendMessage(session.id, input);
-        await refreshTimeline();
-        if (result.accepted) {
-          setStatus("Working...");
-          return;
-        }
-        await refreshWorkspace();
-      }
-      setStatus(commandResult.message ?? "Message processed.");
-    } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
-    }
-  }
-
-  async function reloadInput(parentMessageId: string | null) {
-    const input = inputForReload(eventsRef.current, parentMessageId);
-    if (!input) {
-      setStatus("No previous user message to reload.");
-      return;
-    }
-    await submitInput(input);
-  }
+  }, [queuedCommand, submitInput, onQueuedCommandHandled]);
 
   return (
     <section className="conversation-pane aui-root">

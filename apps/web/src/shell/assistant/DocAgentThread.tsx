@@ -6,6 +6,7 @@ import {
   type DataMessagePartProps,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
+import { useMemo } from "react";
 import type { DocAgentAssistantData } from "./docAgentAssistantMessages";
 import { DocAgentMessagePart } from "./DocAgentMessageParts";
 
@@ -30,6 +31,22 @@ export function DocAgentThread({
   onReloadMessage,
   taskId,
 }: DocAgentThreadProps) {
+  const AssistantMessageComponent = useMemo(
+    () =>
+      function AssistantMessageComponent() {
+        return (
+          <AssistantMessage
+            activeSessionId={activeSessionId}
+            taskId={taskId}
+            onApproved={onApproved}
+            onOpenPath={onOpenPath}
+            onReloadMessage={onReloadMessage}
+          />
+        );
+      },
+    [activeSessionId, taskId, onApproved, onOpenPath, onReloadMessage],
+  );
+
   return (
     <ThreadPrimitive.Root className="aui-thread">
       <ThreadPrimitive.Viewport className="aui-thread-viewport">
@@ -41,15 +58,7 @@ export function DocAgentThread({
         <ThreadPrimitive.Messages
           components={{
             UserMessage: UserMessage,
-            AssistantMessage: () => (
-              <AssistantMessage
-                activeSessionId={activeSessionId}
-                taskId={taskId}
-                onApproved={onApproved}
-                onOpenPath={onOpenPath}
-                onReloadMessage={onReloadMessage}
-              />
-            ),
+            AssistantMessage: AssistantMessageComponent,
           }}
         />
         {(isLoading || isRunning) && (

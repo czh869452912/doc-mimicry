@@ -38,19 +38,9 @@ describe("mapTimelineEventsToAssistantMessages", () => {
 
   it("maps semantic timeline cards to assistant-ui data parts", () => {
     const messages = mapTimelineEventsToAssistantMessages([
-      event({
-        id: "evt-outline",
-        kind: "propose_outline",
-        summary: "Review the outline",
-        paths: ["draft/outline.md"],
-      }),
+      event({ id: "evt-outline", kind: "propose_outline", summary: "Review the outline", paths: ["draft/outline.md"] }),
       event({ id: "evt-checklist", kind: "run_checklist", summary: "Checklist complete" }),
-      event({
-        id: "evt-export",
-        kind: "export_markdown",
-        summary: "Markdown exported",
-        paths: ["artifacts/export.md"],
-      }),
+      event({ id: "evt-export", kind: "export_markdown", summary: "Markdown exported", paths: ["artifacts/export.md"] }),
       event({ id: "evt-approval", kind: "approval_requested", summary: "Approval needed" }),
     ]);
 
@@ -59,6 +49,18 @@ describe("mapTimelineEventsToAssistantMessages", () => {
       { type: "data", name: "docagent.checklist-card", data: { kind: "checklist-card" } },
       { type: "data", name: "docagent.artifact-card", data: { kind: "artifact-card" } },
       { type: "data", name: "docagent.approval-card", data: { kind: "approval-card" } },
+    ]);
+  });
+
+  it("maps propose_outline to outline-card regardless of paths", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({ id: "evt-outline-no-path", kind: "propose_outline", summary: "Review", paths: [] }),
+      event({ id: "evt-outline-custom", kind: "propose_outline", summary: "Review", paths: ["drafts/v2/outline.md"] }),
+    ]);
+
+    expect(messages.map((m) => m.content[0])).toMatchObject([
+      { type: "data", name: "docagent.outline-card", data: { kind: "outline-card" } },
+      { type: "data", name: "docagent.outline-card", data: { kind: "outline-card" } },
     ]);
   });
 
@@ -104,6 +106,24 @@ describe("mapTimelineEventsToAssistantMessages", () => {
     expect(messages.map((message) => message.content[0])).toMatchObject([
       { type: "data", name: "docagent.tool-call", data: { status: "failed" } },
       { type: "data", name: "docagent.tool-call", data: { status: "running" } },
+    ]);
+  });
+
+  it("maps timeline event status to ThreadMessage status", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({ id: "evt-running", kind: "agent_message", summary: "Thinking...", status: "running" }),
+      event({ id: "evt-pending", kind: "build_context", summary: "Pending", status: "pending" }),
+      event({ id: "evt-failed", kind: "agent_message", summary: "Error", status: "failed" }),
+      event({ id: "evt-cancelled", kind: "update_draft", summary: "Cancelled", status: "cancelled" }),
+      event({ id: "evt-done", kind: "agent_message", summary: "Done", status: "succeeded" }),
+    ]);
+
+    expect(messages.map((m) => m.status)).toEqual([
+      { type: "running" },
+      { type: "running" },
+      { type: "incomplete", reason: "error" },
+      { type: "incomplete", reason: "cancelled" },
+      { type: "complete", reason: "stop" },
     ]);
   });
 });

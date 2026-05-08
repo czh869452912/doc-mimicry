@@ -1,5 +1,5 @@
 import { useExternalStoreRuntime, type AppendMessage, type ThreadMessage } from "@assistant-ui/react";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "../../types";
 import { createDocAgentTextAttachmentAdapter } from "./docAgentAttachmentAdapter";
 import { mapTimelineEventsToAssistantMessages } from "./docAgentAssistantMessages";
@@ -23,6 +23,11 @@ export function useDocAgentAssistantRuntime({
 }: UseDocAgentAssistantRuntimeOptions) {
   const messages = useMemo(() => mapTimelineEventsToAssistantMessages(events), [events]);
   const importedAttachmentReferencesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    importedAttachmentReferencesRef.current = [];
+  }, [activeTaskId]);
+
   const attachmentAdapter = useMemo(
     () =>
       createDocAgentTextAttachmentAdapter({

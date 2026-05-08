@@ -55,7 +55,7 @@ function mapTimelineEventToAssistantMessage(event: TimelineEvent): ThreadMessage
       role: "assistant",
       createdAt,
       content: [{ type: "text", text: event.summary }],
-      status: { type: "complete", reason: "stop" },
+      status: threadStatusForEvent(event.status),
       metadata: assistantMetadata(custom),
     };
   }
@@ -66,7 +66,7 @@ function mapTimelineEventToAssistantMessage(event: TimelineEvent): ThreadMessage
     role: "assistant",
     createdAt,
     content: [{ type: "data", ...dataPart }],
-    status: { type: "complete", reason: "stop" },
+    status: threadStatusForEvent(event.status),
     metadata: assistantMetadata(custom),
   };
 }
@@ -75,7 +75,7 @@ function dataPartForEvent(event: TimelineEvent): { name: AssistantDataName; data
   if (event.kind === "approval_requested") {
     return { name: "docagent.approval-card", data: { kind: "approval-card", event } };
   }
-  if (event.kind === "propose_outline" && event.paths.includes("draft/outline.md")) {
+  if (event.kind === "propose_outline") {
     return { name: "docagent.outline-card", data: { kind: "outline-card", event } };
   }
   if (event.kind === "run_checklist") {
@@ -140,6 +140,13 @@ function assistantMetadata(custom: Record<string, unknown>) {
     steps: [],
     custom,
   };
+}
+
+function threadStatusForEvent(status: string): ThreadMessage["status"] {
+  if (status === "running" || status === "pending") return { type: "running" };
+  if (status === "failed") return { type: "incomplete", reason: "error" };
+  if (status === "cancelled") return { type: "incomplete", reason: "cancelled" };
+  return { type: "complete", reason: "stop" };
 }
 
 function categoryForKind(kind: string): ToolCallCategory {
