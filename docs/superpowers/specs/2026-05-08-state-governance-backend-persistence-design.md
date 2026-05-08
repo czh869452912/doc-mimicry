@@ -128,7 +128,7 @@ Add `created_at: string` (ISO 8601) to the `TimelineEvent` type and to the backe
 
 ### Storage Layer
 
-Replace `DocAgentState`'s JSON file implementation with SQLAlchemy async (asyncpg driver) backed by Postgres. The `DocAgentState` class interface is preserved — all callers (routes, runtime adapters) are untouched. Only the implementation changes.
+Replace `DocAgentState`'s JSON file implementation with SQLAlchemy sync (psycopg2 driver) backed by Postgres. The `DocAgentState` class interface is preserved — all callers (routes, runtime adapters) are untouched. Only the implementation changes.
 
 **Tables:**
 
@@ -190,10 +190,10 @@ Alembic manages all schema migrations in `services/api/alembic/`. Initial migrat
 
 ### Connection Pool
 
-`db.py` configures the SQLAlchemy async engine with explicit pool settings suitable for a containerised single-machine deployment:
+`db.py` configures the SQLAlchemy sync engine with explicit pool settings suitable for a containerised single-machine deployment:
 
 ```python
-create_async_engine(
+create_engine(
     DATABASE_URL,
     pool_size=5,
     max_overflow=10,
@@ -221,7 +221,7 @@ This runs every 0.2s but reads only new rows since the last seen id — far chea
 Replace `BackgroundRuntimeRunner` (ThreadPoolExecutor) with Celery + Redis broker.
 
 - `services/api/docagent_api/celery_app.py` — Celery app, Redis as broker only (no result backend; job status is tracked via the `sessions` table, not Celery results).
-- `services/api/docagent_api/tasks.py` — `run_session` Celery task (wraps existing runtime adapter logic).
+- `services/api/docagent_api/worker_tasks.py` — `run_session` Celery task (wraps existing runtime adapter logic).
 - API route enqueues: `run_session.delay(session_id)` instead of `runner.submit(session_id, worker)`.
 - Worker process: `celery -A docagent_api.celery_app worker --loglevel=info`.
 - `BackgroundRuntimeRunner` is kept as a dev-mode fallback (activated by `DOCAGENT_QUEUE=inline` env var) for running without Redis.
@@ -253,7 +253,7 @@ services:
     # FastAPI (uvicorn)
     depends_on: [postgres, redis]
     environment:
-      DATABASE_URL: postgresql+asyncpg://...
+      DATABASE_URL: postgresql+psycopg2://...
       REDIS_URL: redis://redis:6379/0
 
   worker:
@@ -262,7 +262,7 @@ services:
     command: celery -A docagent_api.celery_app worker --loglevel=info
     depends_on: [postgres, redis]
     environment:
-      DATABASE_URL: postgresql+asyncpg://...
+      DATABASE_URL: postgresql+psycopg2://...
       REDIS_URL: redis://redis:6379/0
     volumes:
       - workspace_data:/workspace
@@ -306,11 +306,11 @@ Dev setup becomes `docker compose up` instead of manually activating the venv.
 
 ### Files Affected (Phase 2)
 
-- `services/api/docagent_api/state.py` — replace JSON implementation with SQLAlchemy async
-- `services/api/docagent_api/db.py` — new: SQLAlchemy async engine + session factory + pool config
+- `services/api/docagent_api/state.py` — replace JSON implementation with SQLAlchemy sync
+- `services/api/docagent_api/db.py` — new: SQLAlchemy sync engine + session factory + pool config
 - `services/api/alembic/` — new: Alembic env + initial migration (tables + indexes)
 - `services/api/docagent_api/celery_app.py` — new: Celery app with recovery config
-- `services/api/docagent_api/tasks.py` — new: `run_session` Celery task
+- `services/api/docagent_api/worker_tasks.py` — new: `run_session` Celery task
 - `services/api/docagent_api/background.py` — keep as `inline` fallback, disabled by default
 - `services/api/docagent_api/routes/sessions.py` — enqueue via Celery instead of `runner.submit`
 - `services/api/docagent_api/routes/timeline.py` — update SSE to use incremental Postgres query

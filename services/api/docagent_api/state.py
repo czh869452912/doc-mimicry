@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from docagent_contracts import RawRuntimeEvent
+from docagent_api.time import utc_now
 from docagent_api.db import (
     RawRuntimeEventRow,
     SessionRow,
@@ -72,7 +73,7 @@ class DocAgentState:
                 existing.brief = task.get("brief", "")
                 existing.title = task.get("title")
                 existing.description = task.get("description")
-                existing.updated_at = task.get("updated_at", existing.updated_at)
+                existing.updated_at = task.get("updated_at") or utc_now()
             db.commit()
 
     # ── sessions ──────────────────────────────────────────────────────────────
@@ -100,7 +101,7 @@ class DocAgentState:
                 ))
             else:
                 existing.status = session["status"]
-                existing.updated_at = session.get("updated_at", existing.updated_at)
+                existing.updated_at = session.get("updated_at") or utc_now()
             db.commit()
 
     # ── timeline events ───────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ class DocAgentState:
                 .order_by(TimelineEventRow.id)
                 .all()
             )
-            return [r.payload for r in rows]
+            return [_with_created_at(r.payload, r.created_at) for r in rows]
 
     def list_timeline_events_after(
         self, session_id: str, after_row_id: int
@@ -138,7 +139,7 @@ class DocAgentState:
                 .order_by(TimelineEventRow.id)
                 .all()
             )
-            return [(r.id, r.payload) for r in rows]
+            return [(r.id, _with_created_at(r.payload, r.created_at)) for r in rows]
 
     # ── raw runtime events ────────────────────────────────────────────────────
 
@@ -190,3 +191,10 @@ def _session_row_to_dict(row: SessionRow) -> dict[str, Any]:
         "created_at": row.created_at,
         "updated_at": row.updated_at,
     }
+
+
+def _with_created_at(payload: dict[str, Any], row_created_at: str) -> dict[str, Any]:
+    """Return payload with created_at injected from the DB row if missing."""
+    if payload.get("created_at"):
+        return payload
+    return {**payload, "created_at": row_created_at}

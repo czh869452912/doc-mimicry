@@ -133,7 +133,12 @@ def start_background_runtime_operation(
 
     if use_celery and operation_name is not None:
         from docagent_api.worker_tasks import run_session
-        run_session.delay(session["id"], operation_name, operation_kwargs or {})
+        run_session.delay(
+            session["id"],
+            operation_name,
+            operation_kwargs or {},
+            previous_state.value,
+        )
     else:
         def worker() -> None:
             try:

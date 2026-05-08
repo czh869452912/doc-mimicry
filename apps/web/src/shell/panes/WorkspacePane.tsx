@@ -54,7 +54,7 @@ export function WorkspacePane({
   const [creating, setCreating] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [docTypeId, setDocTypeId] = useState(docTypes[0]?.id ?? "prd");
-  const selectedId = activeSession ? `session:${activeSession.id}` : activeTask ? `task:${activeTask.id}` : undefined;
+  const selectedId = activeTask ? `task:${activeTask.id}` : undefined;
   const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), [nodes]);
 
   const {
@@ -189,7 +189,6 @@ export function WorkspacePane({
               node.toggle();
               onSelectTask(data.taskId);
             }
-            if (data.kind === "session" && data.sessionId) onSelectSession(data.sessionId);
             if (data.kind === "folder") node.toggle();
             if (data.kind === "file" && data.path) onOpenFile(data.path);
           }}
@@ -242,6 +241,5 @@ function SessionList({
 
 function iconFor(kind: WorkspaceTreeNode["kind"]) {
   if (kind === "task" || kind === "folder") return <Folder size={14} />;
-  if (kind === "session") return <MessageSquare size={14} />;
   return <FileText size={14} />;
 }

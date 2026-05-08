@@ -22,7 +22,13 @@ def _get_adapter():
 
 
 @celery_app.task(bind=True, max_retries=0)
-def run_session(self, session_id: str, operation_name: str, operation_kwargs: dict[str, Any]) -> None:
+def run_session(
+    self,
+    session_id: str,
+    operation_name: str,
+    operation_kwargs: dict[str, Any],
+    previous_state_on_failure: str | None = None,
+) -> None:
     """Execute a runtime operation for a session in the background worker."""
     state = _get_state()
     adapter = _get_adapter()
@@ -49,5 +55,7 @@ def run_session(self, session_id: str, operation_name: str, operation_kwargs: di
             status=TimelineStatus.FAILED,
         )
         state.append_timeline_event(session_id, asdict(failure))
-        previous = RuntimeSessionState(session["status"])
-        set_session_state(state, session, previous)
+        # Use the state captured before the transition (passed from the dispatcher),
+        # falling back to the current DB status only if not provided.
+        rollback = RuntimeSessionState(previous_state_on_failure or session["status"])
+        set_session_state(state, session, rollback)

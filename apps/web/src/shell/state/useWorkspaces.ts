@@ -4,16 +4,14 @@
 
 import type { SessionRecord, TaskRecord, WorkspaceFile, WorkspaceTree } from "../../types";
 
-export type WorkspaceTreeNodeKind = "task" | "session" | "folder" | "file";
+export type WorkspaceTreeNodeKind = "task" | "folder" | "file";
 
 export interface WorkspaceTreeNode {
   id: string;
   name: string;
   kind: WorkspaceTreeNodeKind;
   taskId?: string;
-  sessionId?: string;
   path?: string;
-  status?: string;
   children?: WorkspaceTreeNode[];
 }
 
