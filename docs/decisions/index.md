@@ -17,12 +17,6 @@ Each decision should include:
 3. Consequences
 4. Alternatives considered
 
-## Current Decisions To Record
-
-- Phase 0 uses one PRD document type.
-- Best-practice examples teach structure and style, not project semantics.
-- Runtime starts with OpenHands candidate behind an adapter.
-
 ## Records
 
 - `2026-04-30-document-claude-code-not-workflow-rag.md`: product is document-version Claude Code, not workflow/RAG.

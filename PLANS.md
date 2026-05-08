@@ -18,7 +18,7 @@ YYYY-MM-DD-short-topic.md
 Example:
 
 ```text
-docs/exec-plans/active/2026-04-30-phase-0-workspace-contract.md
+docs/exec-plans/active/YYYY-MM-DD-short-topic.md
 ```
 
 ## Required Sections

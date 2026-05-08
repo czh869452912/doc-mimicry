@@ -38,7 +38,7 @@ Connect the right-side Markdown editor selection to the assistant-ui center thre
   - `apps/web/src/shell/assistant/__tests__/DocAgentComposer.test.tsx`
   - `apps/web/src/shell/editor/tabs/__tests__/DraftTab.test.tsx`
   - `apps/web/tests/core-loop.spec.ts`
-- Modify `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
   - Record the selection-to-assistant loop status.
 
 ## Step-by-step implementation checklist

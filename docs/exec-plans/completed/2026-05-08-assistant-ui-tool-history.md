@@ -54,7 +54,7 @@
   - Cover rendered tool-call labels, status, summary, and paths.
 - Modify: `apps/web/tests/core-loop.spec.ts`
   - Verify visible tool history in the core loop.
-- Modify: `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify: `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
   - Record that deeper tool-call history is now covered at the current timeline-contract level.
 
 ---
@@ -464,7 +464,7 @@ Expected: PASS.
 ## Task 4: Review Doc And Full Verification
 
 **Files:**
-- Modify: `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify: `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
 
 - [x] **Step 1: Update review status**
 
@@ -505,7 +505,7 @@ Expected:
 Run:
 
 ```powershell
-git add apps/web/src/shell/assistant/docAgentAssistantMessages.ts apps/web/src/shell/assistant/DocAgentMessageParts.tsx apps/web/src/shell/assistant/DocAgentThread.tsx apps/web/src/shell/theme/assistant-ui.css apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts apps/web/src/shell/assistant/__tests__/DocAgentMessageParts.test.tsx apps/web/tests/core-loop.spec.ts docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md docs/exec-plans/active/2026-05-08-assistant-ui-tool-history.md
+git add apps/web/src/shell/assistant/docAgentAssistantMessages.ts apps/web/src/shell/assistant/DocAgentMessageParts.tsx apps/web/src/shell/assistant/DocAgentThread.tsx apps/web/src/shell/theme/assistant-ui.css apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts apps/web/src/shell/assistant/__tests__/DocAgentMessageParts.test.tsx apps/web/tests/core-loop.spec.ts docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md docs/exec-plans/completed/2026-05-08-assistant-ui-tool-history.md
 git commit -m "Formalize assistant tool history"
 ```
 

@@ -56,8 +56,8 @@ Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or
 
 ## Current Design Sources
 
-- `reference/spec_v0_1.md`: original broad platform vision.
-- `reference/spec_review_rapid_prototype_v3.md`: current rapid prototype direction.
+- `reference/spec_v0_1.md`: original broad platform vision (historical reference).
+- `reference/spec_review_rapid_prototype_v3.md`: rapid prototype direction that shaped Phase 0–2.
 - `docs/product/vision.md`: curated current product intent.
 - `docs/product/ui-surfaces.md`: management and authoring UI design.
 - `docs/product/phase-2-authoring-loop.md`: next version scope for the PRD authoring loop.

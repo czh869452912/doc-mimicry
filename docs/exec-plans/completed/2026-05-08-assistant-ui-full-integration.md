@@ -68,7 +68,7 @@ DocAgent keeps responsibility for domain-specific interpretation:
   - Cover mapping, runtime submit behavior, composer behavior, and card rendering.
 - Modify `apps/web/tests/workbench-shell.spec.ts`
   - Cover the assistant-ui center pane in the real workbench.
-- Modify `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
   - Update follow-up status after integration is complete.
 
 ## Step-by-step implementation checklist
@@ -313,7 +313,7 @@ Expected result: all Playwright specs pass.
 
 ### 10. Update documentation and review status
 
-- [x] Update `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`.
+- [x] Update `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`.
 - [x] Replace the current "type/model preparation only" status with the actual assistant-ui runtime/primitive integration status.
 - [x] Keep remaining non-goals explicit:
   - DOCX/PDF export still separate.

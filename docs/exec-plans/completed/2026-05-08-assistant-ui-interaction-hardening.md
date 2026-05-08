@@ -40,7 +40,7 @@ Polish the assistant-ui center pane after the runtime/primitive migration by imp
   - Cover suggestions, copy action presence, running state, and semantic part wrappers.
 - Modify `apps/web/tests/workbench-shell.spec.ts`
   - Cover slash suggestion visibility and center pane interaction.
-- Modify `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
   - Update assistant-ui advanced capability status.
 
 ## Step-by-step implementation checklist

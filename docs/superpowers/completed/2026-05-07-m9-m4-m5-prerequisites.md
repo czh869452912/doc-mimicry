@@ -803,7 +803,7 @@ git commit -m "feat: URL deep-linking for task/session selection via search para
 
 ---
 
-**Plan complete and saved to `docs/superpowers/plans/2026-05-07-m9-m4-m5-prerequisites.md`.**
+**Plan complete and saved to `docs/superpowers/completed/2026-05-07-m9-m4-m5-prerequisites.md`.**
 
 **Two execution options:**
 

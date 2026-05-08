@@ -55,7 +55,7 @@
 ### Task 4: E2E And Docs
 
 - [ ] Add Playwright coverage that uploads a text file, sends it, sees the imported reference in the thread, and sees the imported workspace input path.
-- [ ] Update `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`.
+- [ ] Update `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`.
 - [ ] Run full verification.
 
 ## Verification

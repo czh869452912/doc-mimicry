@@ -806,7 +806,7 @@ Expected: smoke test passes. If Playwright browser binaries are missing, install
 - [ ] Step 7: Final commit.
 
 ```powershell
-git add apps/web docs/exec-plans/active/2026-05-06-workbench-shell-redesign.md
+git add apps/web docs/exec-plans/completed/2026-05-06-workbench-shell-redesign.md
 git commit -m "feat(web): replace pages with workbench shell"
 ```
 

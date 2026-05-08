@@ -48,7 +48,7 @@ Out of scope for this plan:
 - Modify: `services/api/docagent_api/routes/sessions.py`
 - Create or modify: `services/api/tests/test_background_runner.py`
 - Modify: `services/api/tests/test_api.py`
-- Modify: `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify: `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
 
 ---
 
@@ -552,7 +552,7 @@ Expected: PASS.
 ### Task 5: Update Review Tracking Document
 
 **Files:**
-- Modify: `docs/reviews/active/2026-05-07-project-review-assistant-ui-integration.md`
+- Modify: `docs/reviews/completed/2026-05-07-project-review-assistant-ui-integration.md`
 
 - [ ] **Step 1: Update status language**
 
