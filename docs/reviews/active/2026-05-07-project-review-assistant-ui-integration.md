@@ -33,13 +33,14 @@ Resolved in follow-up:
 - **Assistant-ui interaction hardening added.** The composer now exposes slash command suggestions for the existing DocAgent commands, text messages expose assistant-ui copy actions, running/loading state appears inside the thread, and semantic timeline data parts have assistant-ui-specific wrappers and styling.
 - **Selection-to-assistant loop wired.** Right-side CodeMirror source selections can now be queued into the assistant-ui composer for user editing, or sent directly through the existing `reviseSelection` endpoint. The follow-up added unit and E2E coverage for both paths. The floating selection UI remains the existing editor selection bar; assistant-ui `SelectionToolbar` is still deferred.
 - **Assistant-ui tool history formalized.** Semantic timeline work events now render as explicit `docagent.tool-call` assistant-ui data parts with tool names, statuses, summaries, and workspace paths. This covers deeper tool-call history at the current timeline-contract level without requiring a backend schema migration.
+- **Assistant-ui reload action wired.** Assistant message actions now expose a reload control that resends the nearest previous user message through the existing background chat endpoint and refreshes the timeline. This provides practical retry semantics without introducing branch truncation or a backend retry API.
 - **Raw daemon-thread route launching removed.** Background runtime operations now go through `BackgroundRuntimeRunner`, which is owned by the FastAPI app lifecycle and injected into session routes.
 
 Still open and intentionally out of scope for this follow-up:
 
 - `tools/export/export_docx.py` and DOCX/PDF export.
 - Real PRD examples/specs under `doc-types/prd/examples/markdown/` and `doc-types/prd/specs/markdown/`.
-- Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, retry/reload semantics, attachments, dictation, and assistant-ui `SelectionToolbar` replacement for the editor selection bar.
+- Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, attachments, dictation, and assistant-ui `SelectionToolbar` replacement for the editor selection bar.
 - Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
 
 Verification commands used in the follow-up:

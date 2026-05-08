@@ -89,6 +89,21 @@ export function AppShell() {
     setSearchParams(params, { replace: true });
   }, [workspaces.loading, workspaces.activeTask?.id, workspaces.activeSession?.id, setSearchParams]);
 
+  useEffect(() => {
+    if (!workspaces.activeSession?.status?.startsWith("running")) return;
+    let cancelled = false;
+    const intervalId = window.setInterval(() => {
+      void workspaces.refreshActiveWorkspace().then(() => {
+        if (!cancelled) setDraftReloadToken((token) => token + 1);
+      });
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [workspaces.activeSession?.id, workspaces.activeSession?.status, workspaces.refreshActiveWorkspace]);
+
   return (
     <main className="docagent-shell">
       <TopBar

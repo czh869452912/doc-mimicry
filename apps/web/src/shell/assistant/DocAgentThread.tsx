@@ -2,6 +2,7 @@ import {
   ActionBarPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
+  useAuiState,
   type DataMessagePartProps,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
@@ -16,6 +17,7 @@ interface DocAgentThreadProps {
   taskId: string | null;
   onApproved: () => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
+  onReloadMessage: (messageId: string | null) => Promise<void>;
 }
 
 export function DocAgentThread({
@@ -25,6 +27,7 @@ export function DocAgentThread({
   isRunning,
   onApproved,
   onOpenPath,
+  onReloadMessage,
   taskId,
 }: DocAgentThreadProps) {
   return (
@@ -44,6 +47,7 @@ export function DocAgentThread({
                 taskId={taskId}
                 onApproved={onApproved}
                 onOpenPath={onOpenPath}
+                onReloadMessage={onReloadMessage}
               />
             ),
           }}
@@ -86,7 +90,7 @@ function AssistantMessage(props: MessagePartHandlerProps) {
           },
         }}
       />
-      <MessageActions />
+      <MessageActions canReload onReloadMessage={props.onReloadMessage} />
     </MessagePrimitive.Root>
   );
 }
@@ -113,12 +117,33 @@ function DataPart({
   );
 }
 
-function MessageActions() {
+function MessageActions({
+  canReload = false,
+  onReloadMessage,
+}: {
+  canReload?: boolean;
+  onReloadMessage?: (messageId: string | null) => Promise<void>;
+}) {
+  const messageId = useAuiState((state) => state.message.id);
+
   return (
     <ActionBarPrimitive.Root className="aui-message-actions">
       <ActionBarPrimitive.Copy className="aui-message-action" aria-label="Copy text">
         Copy
       </ActionBarPrimitive.Copy>
+      {canReload && (
+        <button
+          className="aui-message-action"
+          type="button"
+          aria-label="Reload response"
+          onClick={(event) => {
+            event.preventDefault();
+            void onReloadMessage?.(messageId ?? null);
+          }}
+        >
+          Reload
+        </button>
+      )}
     </ActionBarPrimitive.Root>
   );
 }

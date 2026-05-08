@@ -1,5 +1,5 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import type { SessionRecord, TaskRecord, TimelineEvent } from "../../types";
 import { DocAgentComposer } from "../assistant/DocAgentComposer";
@@ -40,13 +40,19 @@ export function ConversationPane({
 }: ConversationPaneProps) {
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const eventsRef = useRef(events);
   const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
   const runtime = useDocAgentAssistantRuntime({
     disabled: composerDisabled,
     events,
     isRunning: Boolean(activeSession?.status?.startsWith("running")),
+    onReloadInput: reloadInput,
     onSubmitInput: submitInput,
   });
+
+  useEffect(() => {
+    eventsRef.current = events;
+  }, [events]);
 
   useEffect(() => {
     if (!queuedCommand) return;
@@ -89,6 +95,15 @@ export function ConversationPane({
     }
   }
 
+  async function reloadInput(parentMessageId: string | null) {
+    const input = inputForReload(eventsRef.current, parentMessageId);
+    if (!input) {
+      setStatus("No previous user message to reload.");
+      return;
+    }
+    await submitInput(input);
+  }
+
   return (
     <section className="conversation-pane aui-root">
       <AssistantRuntimeProvider runtime={runtime}>
@@ -103,6 +118,7 @@ export function ConversationPane({
             await refreshTimeline();
           }}
           onOpenPath={onOpenPath}
+          onReloadMessage={reloadInput}
         />
         {showHelp && (
           <article className="inline-card">
@@ -142,4 +158,20 @@ function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecor
 function canSubmitComposerInput(activeSession: SessionRecord | null) {
   if (!activeSession) return true;
   return ["idle", "draft_ready", "paused", "failed"].includes(activeSession.status);
+}
+
+function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {
+  const parentIndex = parentMessageId
+    ? events.findIndex((event) => event.id === parentMessageId)
+    : events.length;
+  if (parentIndex >= 0) {
+    const parentEvent = events[parentIndex];
+    if (parentEvent.kind === "user_message" && parentEvent.summary.trim()) return parentEvent.summary;
+  }
+  const endIndex = parentIndex >= 0 ? parentIndex : events.length;
+  for (let index = endIndex - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event.kind === "user_message" && event.summary.trim()) return event.summary;
+  }
+  return null;
 }

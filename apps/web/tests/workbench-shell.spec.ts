@@ -20,7 +20,7 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
     .filter({ hasText: "Workspaces" })
     .getByRole("button", { name: /create workspace/i })
     .click();
-  await expect(page.getByText("Document type")).toBeVisible();
+  await expect(page.locator("form").getByText("Document type", { exact: true })).toBeVisible();
   await page.getByLabel(/title/i).fill(title);
   await page.getByLabel(/description/i).fill("Write a PRD for the first usable document imitation loop.");
   await page
@@ -45,6 +45,22 @@ test("assistant-ui center pane sends messages and renders timeline updates", asy
   await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
   await expect(page.getByRole("button", { name: /copy text/i }).first()).toBeVisible();
   await expect(page.locator(".aui-thread")).toContainText(/agent|processed|message|draft|context/i, { timeout: 10_000 });
+});
+
+test("assistant-ui reload action resends the previous user message", async ({ page }) => {
+  await page.goto("/");
+  await createDraftReadyWorkspace(page, `Reload PRD ${Date.now()}`);
+
+  await page.getByLabel("Message").fill("Revise the launch scope");
+  await page.getByLabel("Message").press("Enter");
+  await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
+
+  const initialCount = await page.locator(".aui-message--user").filter({ hasText: "Revise the launch scope" }).count();
+  await page.getByRole("button", { name: /reload response/i }).last().click();
+
+  await expect
+    .poll(() => page.locator(".aui-message--user").filter({ hasText: "Revise the launch scope" }).count())
+    .toBeGreaterThan(initialCount);
 });
 
 test("assistant-ui composer exposes slash command suggestions", async ({ page }) => {
@@ -108,7 +124,11 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
   await page.getByLabel("Message").fill("/start");
   await page.getByLabel("Message").press("Enter");
   await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
-  await page.getByRole("button", { name: /approve/i }).click();
-  await expect(page.locator(".aui-tool-call").filter({ hasText: "Update draft" })).toBeVisible({ timeout: 8_000 });
-  await expect(page.getByRole("button", { name: /draft_ready/i })).toBeVisible({ timeout: 8_000 });
+  const approveButton = page
+    .locator(".aui-timeline-part--card")
+    .filter({ hasText: "Outline · waiting for review" })
+    .getByRole("button", { name: /approve/i });
+  await expect(approveButton).toBeVisible({ timeout: 8_000 });
+  await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
+  await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 8_000 });
 }

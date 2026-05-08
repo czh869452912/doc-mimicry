@@ -57,6 +57,7 @@ describe("AppShell", () => {
 
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    window.HTMLElement.prototype.scrollTo = vi.fn();
     window.localStorage.clear();
     vi.clearAllMocks();
     vi.mocked(api.listDocTypes).mockResolvedValue([
@@ -444,5 +445,39 @@ describe("AppShell", () => {
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).not.toHaveBeenCalled();
     expect(await screen.findByText("Working...")).toBeTruthy();
+  });
+
+  it("reloads an assistant message by resending the nearest previous user message", async () => {
+    vi.mocked(api.getTimeline).mockResolvedValue([
+      {
+        id: "user-1",
+        actor: "user",
+        kind: "user_message",
+        summary: "Revise the launch scope",
+        paths: [],
+        status: "succeeded",
+      },
+      {
+        id: "agent-1",
+        actor: "agent",
+        kind: "agent_message",
+        summary: "I updated the launch scope.",
+        paths: [],
+        status: "succeeded",
+      },
+    ]);
+
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
+
+    await screen.findByText("I updated the launch scope.");
+    vi.mocked(api.sendMessage).mockClear();
+    vi.mocked(api.getTimeline).mockClear();
+
+    const reloadButton = screen.getByRole("button", { name: /reload response/i });
+    expect(reloadButton.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the launch scope"));
+    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
   });
 });

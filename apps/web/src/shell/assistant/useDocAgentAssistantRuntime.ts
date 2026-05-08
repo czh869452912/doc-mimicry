@@ -7,6 +7,7 @@ interface UseDocAgentAssistantRuntimeOptions {
   disabled: boolean;
   events: TimelineEvent[];
   isRunning: boolean;
+  onReloadInput?: (parentMessageId: string | null) => Promise<void>;
   onSubmitInput: (input: string) => Promise<void>;
 }
 
@@ -14,6 +15,7 @@ export function useDocAgentAssistantRuntime({
   disabled,
   events,
   isRunning,
+  onReloadInput,
   onSubmitInput,
 }: UseDocAgentAssistantRuntimeOptions) {
   const messages = useMemo(() => mapTimelineEventsToAssistantMessages(events), [events]);
@@ -24,6 +26,9 @@ export function useDocAgentAssistantRuntime({
     messages,
     onNew: async (message: AppendMessage) => {
       await onSubmitInput(textFromAppendMessage(message));
+    },
+    onReload: async (parentId: string | null) => {
+      await onReloadInput?.(parentId);
     },
     unstable_capabilities: { copy: true },
   });
