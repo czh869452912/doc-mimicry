@@ -4,7 +4,7 @@
 
 **Goal:** Replace JSON file-backed `DocAgentState` and `ThreadPoolExecutor` background runner with PostgreSQL (SQLAlchemy sync + psycopg2), Celery + Redis worker queue, and a Docker Compose single-machine deployment.
 
-**Architecture:** `DocAgentState` interface is preserved â€” only the implementation changes. SQLAlchemy sync ORM models replace the JSON file read/write pattern. The SSE endpoint uses incremental Postgres polling (`WHERE id > last_seen_id`) via `asyncio.to_thread`. Celery replaces `BackgroundRuntimeRunner` for durable background job execution; `BackgroundRuntimeRunner` is kept as an `inline` dev fallback. Alembic manages schema migrations. Docker Compose wires all five services with named volumes.
+**Architecture:** `DocAgentState` interface is preserved â€?only the implementation changes. SQLAlchemy sync ORM models replace the JSON file read/write pattern. The SSE endpoint uses incremental Postgres polling (`WHERE id > last_seen_id`) via `asyncio.to_thread`. Celery replaces `BackgroundRuntimeRunner` for durable background job execution; `BackgroundRuntimeRunner` is kept as an `inline` dev fallback. Alembic manages schema migrations. Docker Compose wires all five services with named volumes.
 
 **Tech Stack:** FastAPI, SQLAlchemy 2 (sync, psycopg2 driver), Alembic, Celery 5, Redis 7, psycopg2-binary, testcontainers-python, pytest-asyncio, Docker Compose v2.
 
@@ -39,7 +39,7 @@
 - Modify: `services/api/requirements.txt` (add deps)
 - Create: `services/api/docagent_api/db.py`
 
-- [ ] **Step 1: Confirm existing dependency file format**
+- [x] **Step 1: Confirm existing dependency file format**
 
 ```bash
 cat services/api/requirements.txt 2>/dev/null || cat services/api/pyproject.toml 2>/dev/null | head -40
@@ -47,7 +47,7 @@ cat services/api/requirements.txt 2>/dev/null || cat services/api/pyproject.toml
 
 Note whether the project uses `requirements.txt` or `pyproject.toml`. Steps below show `requirements.txt`; adapt if needed.
 
-- [ ] **Step 2: Add new dependencies**
+- [x] **Step 2: Add new dependencies**
 
 Add to `services/api/requirements.txt`:
 
@@ -66,7 +66,7 @@ cd services/api
 .local/dev/.venv/Scripts/pip.exe install sqlalchemy psycopg2-binary alembic "celery[redis]" redis
 ```
 
-- [ ] **Step 3: Create `db.py` with engine, session factory, and ORM models**
+- [x] **Step 3: Create `db.py` with engine, session factory, and ORM models**
 
 Create `services/api/docagent_api/db.py`:
 
@@ -184,7 +184,7 @@ def create_tables(engine) -> None:
     Base.metadata.create_all(engine)
 ```
 
-- [ ] **Step 4: Write a test that the engine connects**
+- [x] **Step 4: Write a test that the engine connects**
 
 In `services/api/tests/test_db.py` (create it):
 
@@ -205,9 +205,9 @@ def test_create_tables_succeeds(pg_engine):
     assert "raw_runtime_events" in tables
 ```
 
-This test will be wired once `pg_engine` fixture exists (Task 8). Skip for now â€” mark it as expected-to-be-wired.
+This test will be wired once `pg_engine` fixture exists (Task 8). Skip for now â€?mark it as expected-to-be-wired.
 
-- [ ] **Step 5: Verify import works**
+- [x] **Step 5: Verify import works**
 
 ```bash
 cd services/api
@@ -216,7 +216,7 @@ cd services/api
 
 Expected: `ok`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api/docagent_api/db.py services/api/requirements.txt
@@ -231,7 +231,7 @@ git commit -m "feat: add SQLAlchemy ORM models and engine factory"
 - Create: `services/api/alembic/` (directory with env.py + first migration)
 - Create: `services/api/alembic.ini`
 
-- [ ] **Step 1: Initialise Alembic**
+- [x] **Step 1: Initialise Alembic**
 
 ```bash
 cd services/api
@@ -240,7 +240,7 @@ cd services/api
 
 Expected: creates `alembic/` directory and `alembic.ini`.
 
-- [ ] **Step 2: Configure `alembic/env.py` to use the app's models**
+- [x] **Step 2: Configure `alembic/env.py` to use the app's models**
 
 Replace the `target_metadata` block in `services/api/alembic/env.py`. Find the line:
 
@@ -271,7 +271,7 @@ def run_migrations_online() -> None:
             context.run_migrations()
 ```
 
-- [ ] **Step 3: Update `alembic.ini` to not hard-code URL**
+- [x] **Step 3: Update `alembic.ini` to not hard-code URL**
 
 In `services/api/alembic.ini`, set:
 
@@ -281,7 +281,7 @@ sqlalchemy.url = %(DATABASE_URL)s
 
 This is overridden by `env.py`'s `get_database_url()`, so the placeholder is never used directly.
 
-- [ ] **Step 4: Generate the initial migration**
+- [x] **Step 4: Generate the initial migration**
 
 ```bash
 cd services/api
@@ -290,7 +290,7 @@ cd services/api
 
 Expected: creates `alembic/versions/<hash>_initial_schema.py`.
 
-- [ ] **Step 5: Review generated migration**
+- [x] **Step 5: Review generated migration**
 
 Open the generated file. Confirm it includes `CREATE TABLE` statements for all four tables and the three indexes. The auto-generated migration may use `sa.Column` syntax. Verify the `BIGINT GENERATED ALWAYS AS IDENTITY` pattern is reflected (SQLAlchemy uses `autoincrement=True` on BigInteger which generates this in Postgres). Verify CHECK constraint on `sessions.status` is present.
 
@@ -304,7 +304,7 @@ sa.Column('payload', sa.JSON(), ...),
 sa.Column('payload', postgresql.JSONB(), ...),
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api/alembic/ services/api/alembic.ini
@@ -322,7 +322,7 @@ The class interface (`list_tasks`, `get_task`, `save_task`, `list_sessions`, `ge
 
 A new method `list_timeline_events_after(session_id, after_row_id)` is added for the SSE incremental query (Task 6).
 
-- [ ] **Step 1: Write a failing test for `append_timeline_event` + `list_timeline_events`**
+- [x] **Step 1: Write a failing test for `append_timeline_event` + `list_timeline_events`**
 
 In `services/api/tests/test_state.py`, add (the `pg_state` fixture will be wired in Task 8):
 
@@ -358,7 +358,7 @@ def test_list_timeline_events_after(pg_state):
     assert len(later) == 2
 ```
 
-- [ ] **Step 2: Rewrite `state.py`**
+- [x] **Step 2: Rewrite `state.py`**
 
 Replace the entire contents of `services/api/docagent_api/state.py`:
 
@@ -553,7 +553,7 @@ def _session_row_to_dict(row: SessionRow) -> dict[str, Any]:
     }
 ```
 
-- [ ] **Step 3: Verify import**
+- [x] **Step 3: Verify import**
 
 ```bash
 cd services/api
@@ -562,7 +562,7 @@ cd services/api
 
 Expected: `ok`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add services/api/docagent_api/state.py
@@ -571,14 +571,14 @@ git commit -m "feat: replace DocAgentState JSON impl with SQLAlchemy Postgres ba
 
 ---
 
-### Task 4: Update `app.py` â€” use DB-backed state, remove forced session recovery
+### Task 4: Update `app.py` â€?use DB-backed state, remove forced session recovery
 
 **Files:**
 - Modify: `services/api/docagent_api/app.py`
 
 `_recover_interrupted_sessions` forced in-flight sessions to `failed` on startup. With Celery, Celery's own task recovery handles in-flight jobs. Remove the forced recovery; instead log a warning if sessions are found in running states.
 
-- [ ] **Step 1: Update `app.py`**
+- [x] **Step 1: Update `app.py`**
 
 Replace `_recover_interrupted_sessions` with a passive warning function, and wire the `DATABASE_URL` env var:
 
@@ -622,7 +622,7 @@ state = DocAgentState(
 )
 ```
 
-- [ ] **Step 2: Verify the app starts with SQLite in-memory (for quick local test without Postgres)**
+- [x] **Step 2: Verify the app starts with SQLite in-memory (for quick local test without Postgres)**
 
 ```bash
 cd services/api
@@ -636,7 +636,7 @@ import os; os.remove('test_temp.db')
 
 Expected: `app created ok`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add services/api/docagent_api/app.py
@@ -651,7 +651,7 @@ git commit -m "feat: remove forced session recovery; wire DATABASE_URL to DocAge
 - Create: `services/api/docagent_api/celery_app.py`
 - Create: `services/api/docagent_api/worker_tasks.py`
 
-- [ ] **Step 1: Write a failing test for the `run_session` task**
+- [x] **Step 1: Write a failing test for the `run_session` task**
 
 In `services/api/tests/test_worker_tasks.py` (create it):
 
@@ -678,7 +678,7 @@ def test_run_session_calls_runtime_adapter(tmp_path):
     mock_adapter.send_message.assert_called_once_with("s1", "Hello")
 ```
 
-- [ ] **Step 2: Run test to confirm failure**
+- [x] **Step 2: Run test to confirm failure**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest services/api/tests/test_worker_tasks.py -q
@@ -686,7 +686,7 @@ def test_run_session_calls_runtime_adapter(tmp_path):
 
 Expected: FAIL (`worker_tasks` module not found).
 
-- [ ] **Step 3: Create `celery_app.py`**
+- [x] **Step 3: Create `celery_app.py`**
 
 ```python
 # services/api/docagent_api/celery_app.py
@@ -713,7 +713,7 @@ celery_app.conf.update(
 )
 ```
 
-- [ ] **Step 4: Create `worker_tasks.py`**
+- [x] **Step 4: Create `worker_tasks.py`**
 
 ```python
 # services/api/docagent_api/worker_tasks.py
@@ -772,7 +772,7 @@ def run_session(self, session_id: str, operation_name: str, operation_kwargs: di
         set_session_state(state, session, previous)
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest services/api/tests/test_worker_tasks.py -q
@@ -780,7 +780,7 @@ def run_session(self, session_id: str, operation_name: str, operation_kwargs: di
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api/docagent_api/celery_app.py services/api/docagent_api/worker_tasks.py services/api/tests/test_worker_tasks.py
@@ -795,7 +795,7 @@ git commit -m "feat: add Celery app and run_session worker task"
 - Modify: `services/api/docagent_api/routes/_shared.py`
 - Modify: `services/api/docagent_api/routes/sessions.py`
 
-- [ ] **Step 1: Update `start_background_runtime_operation` in `_shared.py`**
+- [x] **Step 1: Update `start_background_runtime_operation` in `_shared.py`**
 
 The function currently calls `runner.submit(session_id, worker)`. Change it to enqueue a Celery task instead, with the inline runner as fallback when `DOCAGENT_QUEUE=inline`.
 
@@ -852,7 +852,7 @@ def start_background_runtime_operation(
     return {"session_id": session["id"], "accepted": True, "status": running_state.value}
 ```
 
-- [ ] **Step 2: Update the SSE endpoint in `sessions.py` to use incremental polling**
+- [x] **Step 2: Update the SSE endpoint in `sessions.py` to use incremental polling**
 
 Locate the `stream_timeline_sse` function (around line 270 in sessions.py). Replace its `generate()` inner function:
 
@@ -886,7 +886,7 @@ async def stream_timeline_sse(session_id: str, request: Request) -> StreamingRes
     )
 ```
 
-- [ ] **Step 3: Run backend tests**
+- [x] **Step 3: Run backend tests**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest services/api/tests/test_api.py services/api/tests/test_sse.py -q
@@ -894,7 +894,7 @@ async def stream_timeline_sse(session_id: str, request: Request) -> StreamingRes
 
 Expected: PASS. (Tests that relied on in-memory JSON state still pass because `DocAgentState` is instantiated fresh in each test with the test DB fixture from Task 8.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add services/api/docagent_api/routes/_shared.py services/api/docagent_api/routes/sessions.py
@@ -911,7 +911,7 @@ git commit -m "feat: queue background ops via Celery; update SSE to incremental 
 - Create: `docker-compose.override.yml`
 - Create: `.env.example`
 
-- [ ] **Step 1: Create `migrate_from_files.py`**
+- [x] **Step 1: Create `migrate_from_files.py`**
 
 ```python
 # services/api/docagent_api/migrate_from_files.py
@@ -1034,7 +1034,7 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: Create `docker-compose.yml`**
+- [x] **Step 2: Create `docker-compose.yml`**
 
 ```yaml
 # docker-compose.yml
@@ -1115,10 +1115,10 @@ volumes:
   workspace_data:
 ```
 
-- [ ] **Step 3: Create `docker-compose.override.yml`**
+- [x] **Step 3: Create `docker-compose.override.yml`**
 
 ```yaml
-# docker-compose.override.yml â€” dev overrides: hot reload for api and worker
+# docker-compose.override.yml â€?dev overrides: hot reload for api and worker
 services:
   api:
     build: ~
@@ -1143,10 +1143,10 @@ services:
       - ./apps/web:/app
 ```
 
-- [ ] **Step 4: Create `.env.example`**
+- [x] **Step 4: Create `.env.example`**
 
 ```bash
-# .env.example â€” copy to .env and fill in values
+# .env.example â€?copy to .env and fill in values
 DATABASE_URL=postgresql+psycopg2://docagent:docagent@localhost:5432/docagent
 REDIS_URL=redis://localhost:6379/0
 DOCAGENT_QUEUE=celery
@@ -1154,7 +1154,7 @@ DOCAGENT_STATE_ROOT=/workspace/state
 VITE_API_BASE=http://localhost:8000
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api/docagent_api/migrate_from_files.py docker-compose.yml docker-compose.override.yml .env.example
@@ -1170,7 +1170,7 @@ git commit -m "feat: add migration script and Docker Compose single-machine depl
 - Modify: `services/api/tests/test_state.py`
 - Modify: `services/api/tests/test_api.py`
 
-- [ ] **Step 1: Add `testcontainers` dependency**
+- [x] **Step 1: Add `testcontainers` dependency**
 
 ```bash
 cd services/api
@@ -1182,7 +1182,7 @@ Add to `requirements.txt`:
 testcontainers[postgres]>=4.0
 ```
 
-- [ ] **Step 2: Add Postgres fixtures to `conftest.py`**
+- [x] **Step 2: Add Postgres fixtures to `conftest.py`**
 
 In `services/api/tests/conftest.py`, add (preserving any existing fixtures):
 
@@ -1245,7 +1245,7 @@ def pg_state(pg_engine, tmp_path):
         conn.commit()
 ```
 
-- [ ] **Step 3: Wire `test_state.py` to use `pg_state`**
+- [x] **Step 3: Wire `test_state.py` to use `pg_state`**
 
 In `services/api/tests/test_state.py`, change the state fixture from the file-backed `DocAgentState` to `pg_state`:
 
@@ -1265,7 +1265,7 @@ def test_append_and_list_timeline_events(pg_state):
     ...
 ```
 
-- [ ] **Step 4: Wire `test_api.py` to use DB-backed state**
+- [x] **Step 4: Wire `test_api.py` to use DB-backed state**
 
 In `services/api/tests/test_api.py`, find the `create_app()` call in the test client fixture. Pass the test Postgres URL:
 
@@ -1282,7 +1282,7 @@ def client(pg_engine, tmp_path):
     os.environ.pop("DATABASE_URL", None)
 ```
 
-- [ ] **Step 5: Run the full backend test suite**
+- [x] **Step 5: Run the full backend test suite**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest services/api/tests/ -q
@@ -1290,7 +1290,7 @@ def client(pg_engine, tmp_path):
 
 Expected: PASS. Tests that don't use Postgres (pure unit tests) should continue to pass unchanged.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api/tests/conftest.py services/api/tests/test_state.py services/api/tests/test_api.py services/api/requirements.txt
@@ -1303,7 +1303,7 @@ git commit -m "test: add testcontainers Postgres fixtures with per-test transact
 
 **Files:** No code changes expected.
 
-- [ ] **Step 1: Backend test suite**
+- [x] **Step 1: Backend test suite**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest -q
@@ -1311,7 +1311,7 @@ git commit -m "test: add testcontainers Postgres fixtures with per-test transact
 
 Expected: PASS.
 
-- [ ] **Step 2: Frontend build (unchanged by this plan)**
+- [x] **Step 2: Frontend build (unchanged by this plan)**
 
 ```bash
 cd apps/web
@@ -1320,7 +1320,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Verify migration script with `--dry-run`**
+- [x] **Step 3: Verify migration script with `--dry-run`**
 
 ```bash
 DATABASE_URL="postgresql+psycopg2://docagent:docagent@localhost:5432/docagent" \
@@ -1329,7 +1329,7 @@ DATABASE_URL="postgresql+psycopg2://docagent:docagent@localhost:5432/docagent" \
 
 Expected: prints migration plan or "Nothing to migrate." No errors.
 
-- [ ] **Step 4: Verify Celery app can be imported**
+- [x] **Step 4: Verify Celery app can be imported**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -c "from docagent_api.celery_app import celery_app; print('broker:', celery_app.conf.broker_url)"
@@ -1337,7 +1337,7 @@ Expected: prints migration plan or "Nothing to migrate." No errors.
 
 Expected: prints the Redis URL.
 
-- [ ] **Step 5: Verify Docker Compose config is valid**
+- [x] **Step 5: Verify Docker Compose config is valid**
 
 ```bash
 docker compose config --quiet
@@ -1345,7 +1345,7 @@ docker compose config --quiet
 
 Expected: exits 0 (no YAML errors).
 
-- [ ] **Step 6: Final commit**
+- [x] **Step 6: Final commit**
 
 ```bash
 git add -A
@@ -1357,27 +1357,27 @@ git commit -m "chore: final cleanup and verification for backend persistence mig
 ## Self-Review
 
 **Spec coverage:**
-- Postgres tables with all columns: Task 1 (ORM models in db.py) âœ“
-- Indexes on `timeline_events(session_id, id)`, `sessions(task_id)`, `raw_runtime_events(session_id)`: Task 1 âœ“
-- `sessions.status` CHECK constraint: Task 1 âœ“
-- `updated_at` via SQLAlchemy `onupdate=func.now()`: Task 1 âœ“
-- `BIGINT GENERATED ALWAYS AS IDENTITY` via `autoincrement=True` on BigInteger: Task 1 âœ“
-- Alembic migrations: Task 2 âœ“
-- Connection pool config: Task 1 (pool_size, max_overflow, pool_timeout, pool_recycle) âœ“
-- `DocAgentState` interface preserved: Task 3 âœ“
-- `list_timeline_events_after` for SSE incremental query: Task 3 âœ“
-- Remove `_recover_interrupted_sessions`: Task 4 âœ“
-- Celery with `task_acks_late`, `task_reject_on_worker_lost`, `visibility_timeout`: Task 5 âœ“
-- `BackgroundRuntimeRunner` inline fallback via `DOCAGENT_QUEUE=inline`: Task 6 âœ“
-- SSE incremental `WHERE id > last_seen_id` via `asyncio.to_thread`: Task 6 âœ“
-- `migrate_from_files.py` idempotent with `--dry-run`: Task 7 âœ“
-- Docker Compose with all 5 services + named volumes: Task 7 âœ“
-- `workspace_data` volume for document files (not JSON state): Task 7 âœ“
-- Redis as broker only (no result backend): Task 5 âœ“
-- Worker `command:` override in Compose: Task 7 âœ“
-- `.env.example`: Task 7 âœ“
-- Postgres testcontainers with per-test cleanup: Task 8 âœ“
+- Postgres tables with all columns: Task 1 (ORM models in db.py) âœ?
+- Indexes on `timeline_events(session_id, id)`, `sessions(task_id)`, `raw_runtime_events(session_id)`: Task 1 âœ?
+- `sessions.status` CHECK constraint: Task 1 âœ?
+- `updated_at` via SQLAlchemy `onupdate=func.now()`: Task 1 âœ?
+- `BIGINT GENERATED ALWAYS AS IDENTITY` via `autoincrement=True` on BigInteger: Task 1 âœ?
+- Alembic migrations: Task 2 âœ?
+- Connection pool config: Task 1 (pool_size, max_overflow, pool_timeout, pool_recycle) âœ?
+- `DocAgentState` interface preserved: Task 3 âœ?
+- `list_timeline_events_after` for SSE incremental query: Task 3 âœ?
+- Remove `_recover_interrupted_sessions`: Task 4 âœ?
+- Celery with `task_acks_late`, `task_reject_on_worker_lost`, `visibility_timeout`: Task 5 âœ?
+- `BackgroundRuntimeRunner` inline fallback via `DOCAGENT_QUEUE=inline`: Task 6 âœ?
+- SSE incremental `WHERE id > last_seen_id` via `asyncio.to_thread`: Task 6 âœ?
+- `migrate_from_files.py` idempotent with `--dry-run`: Task 7 âœ?
+- Docker Compose with all 5 services + named volumes: Task 7 âœ?
+- `workspace_data` volume for document files (not JSON state): Task 7 âœ?
+- Redis as broker only (no result backend): Task 5 âœ?
+- Worker `command:` override in Compose: Task 7 âœ?
+- `.env.example`: Task 7 âœ?
+- Postgres testcontainers with per-test cleanup: Task 8 âœ?
 
 **Placeholder scan:** None found. All steps contain actual code or commands.
 
-**Type consistency:** `list_timeline_events_after(session_id, after_row_id)` returns `list[tuple[int, dict[str, Any]]]` â€” used correctly in both `state.py` (Task 3) and `sessions.py` SSE endpoint (Task 6). `run_session(session_id, operation_name, operation_kwargs)` signature used consistently in Tasks 5 and 6.
+**Type consistency:** `list_timeline_events_after(session_id, after_row_id)` returns `list[tuple[int, dict[str, Any]]]` â€?used correctly in both `state.py` (Task 3) and `sessions.py` SSE endpoint (Task 6). `run_session(session_id, operation_name, operation_kwargs)` signature used consistently in Tasks 5 and 6.

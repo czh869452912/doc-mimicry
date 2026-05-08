@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from docagent_contracts import RawRuntimeEvent
-from docagent_api.time import utc_now
 from docagent_api.db import (
     RawRuntimeEventRow,
     SessionRow,
@@ -65,15 +65,15 @@ class DocAgentState:
                     brief=task.get("brief", ""),
                     title=task.get("title"),
                     description=task.get("description"),
-                    created_at=task.get("created_at", ""),
-                    updated_at=task.get("updated_at", ""),
+                    created_at=_parse_iso(task.get("created_at")) or datetime.now(timezone.utc),
+                    updated_at=_parse_iso(task.get("updated_at")) or datetime.now(timezone.utc),
                 ))
             else:
                 existing.doc_type_id = task["doc_type_id"]
                 existing.brief = task.get("brief", "")
                 existing.title = task.get("title")
                 existing.description = task.get("description")
-                existing.updated_at = task.get("updated_at") or utc_now()
+                existing.updated_at = _parse_iso(task.get("updated_at")) or datetime.now(timezone.utc)
             db.commit()
 
     # ── sessions ──────────────────────────────────────────────────────────────
@@ -96,12 +96,12 @@ class DocAgentState:
                     id=session["id"],
                     task_id=session["task_id"],
                     status=session["status"],
-                    created_at=session.get("created_at", ""),
-                    updated_at=session.get("updated_at", ""),
+                    created_at=_parse_iso(session.get("created_at")) or datetime.now(timezone.utc),
+                    updated_at=_parse_iso(session.get("updated_at")) or datetime.now(timezone.utc),
                 ))
             else:
                 existing.status = session["status"]
-                existing.updated_at = session.get("updated_at") or utc_now()
+                existing.updated_at = _parse_iso(session.get("updated_at")) or datetime.now(timezone.utc)
             db.commit()
 
     # ── timeline events ───────────────────────────────────────────────────────
@@ -178,8 +178,8 @@ def _task_row_to_dict(row: TaskRow) -> dict[str, Any]:
         "title": row.title,
         "description": row.description,
         "workspace_root": "",
-        "created_at": row.created_at,
-        "updated_at": row.updated_at,
+        "created_at": _format_iso(row.created_at),
+        "updated_at": _format_iso(row.updated_at),
     }
 
 
@@ -188,13 +188,33 @@ def _session_row_to_dict(row: SessionRow) -> dict[str, Any]:
         "id": row.id,
         "task_id": row.task_id,
         "status": row.status,
-        "created_at": row.created_at,
-        "updated_at": row.updated_at,
+        "created_at": _format_iso(row.created_at),
+        "updated_at": _format_iso(row.updated_at),
     }
 
 
-def _with_created_at(payload: dict[str, Any], row_created_at: str) -> dict[str, Any]:
+def _parse_iso(dt_str: str | None) -> datetime | None:
+    """Parse an ISO 8601 string (with Z suffix) into a timezone-aware datetime."""
+    if not dt_str:
+        return None
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+
+
+def _format_iso(dt: datetime | str | None) -> str:
+    """Format a datetime as an ISO 8601 string with Z suffix.
+
+    Accepts strings defensively so the function works regardless of the
+    underlying column type (Text or DateTime).
+    """
+    if dt is None:
+        return ""
+    if isinstance(dt, str):
+        return dt
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+def _with_created_at(payload: dict[str, Any], row_created_at: datetime | str | None) -> dict[str, Any]:
     """Return payload with created_at injected from the DB row if missing."""
     if payload.get("created_at"):
         return payload
-    return {**payload, "created_at": row_created_at}
+    return {**payload, "created_at": _format_iso(row_created_at)}

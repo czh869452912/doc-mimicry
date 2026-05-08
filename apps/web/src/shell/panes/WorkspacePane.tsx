@@ -207,7 +207,7 @@ function WorkspaceNode({ node, style }: NodeRendererProps<WorkspaceTreeNode>) {
       <span className="workspace-node__chevron">{node.isInternal ? <ChevronRight size={13} /> : null}</span>
       <span className="workspace-node__icon">{iconFor(data.kind)}</span>
       <span className="workspace-node__label">{data.name}</span>
-      {data.status && <span className="workspace-node__status">{data.status}</span>}
+      {data.kind === "task" && data.taskId && <span className="workspace-node__status">task</span>}
     </div>
   );
 }

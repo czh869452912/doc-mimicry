@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     CheckConstraint,
     Column,
+    DateTime,
     Index,
     String,
     Text,
@@ -47,8 +48,8 @@ class TaskRow(Base):
     brief = Column(Text, nullable=False)
     title = Column(Text)
     description = Column(Text)
-    created_at = Column(Text, nullable=False, server_default=func.now())
-    updated_at = Column(Text, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class SessionRow(Base):
@@ -60,8 +61,8 @@ class SessionRow(Base):
         CheckConstraint(f"status IN ({', '.join(repr(s) for s in VALID_SESSION_STATUSES)})"),
         nullable=False,
     )
-    created_at = Column(Text, nullable=False, server_default=func.now())
-    updated_at = Column(Text, nullable=False, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (Index("idx_sessions_task_id", "task_id"),)
 

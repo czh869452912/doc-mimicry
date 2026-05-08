@@ -69,7 +69,9 @@ export function useTimeline(
     let backoffMs = SSE_BACKOFF_BASE_MS;
 
     function invalidateRelatedQueries(event: TimelineEvent) {
-      void queryClient.invalidateQueries({ queryKey: ["timeline", currentSessionId] });
+      // Note: timeline data is managed directly by this hook (useState + SSE),
+      // so there is no separate useQuery consumer for ["timeline", sessionId].
+      // We invalidate workspace/draft/session queries only.
       if (event.paths.length > 0) {
         void queryClient.invalidateQueries({ queryKey: ["workspace", currentTaskId] });
         if (event.paths.some((p) => p.startsWith("draft/"))) {

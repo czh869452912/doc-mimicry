@@ -47,7 +47,7 @@ describe("buildWorkspaceTreeData", () => {
     expect(node.id).toBe("task:task-1");
     expect(node.name).toBe("Billing PRD");
     expect(node.children?.some((child) => child.id === "folder:task-1:draft")).toBe(true);
-    expect(node.children?.some((child) => child.kind === "session")).toBe(false);
+    expect(node.children?.every((child) => (child.kind as string) !== "session")).toBe(true);
     const draftFolder = node.children?.find((child) => child.id === "folder:task-1:draft");
     expect(draftFolder?.children?.[0]?.id).toBe("file:task-1:draft/draft.md");
   });

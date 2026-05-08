@@ -40,8 +40,8 @@ def upgrade() -> None:
         sa.Column("brief", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.Text(), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.Text(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
     )
 
@@ -58,8 +58,8 @@ def upgrade() -> None:
             ),
             nullable=False,
         ),
-        sa.Column("created_at", sa.Text(), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.Text(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_sessions_task_id", "sessions", ["task_id"])
@@ -75,7 +75,7 @@ def upgrade() -> None:
         sa.Column("session_id", sa.String(), nullable=False),
         sa.Column("event_type", sa.String(), nullable=False),
         sa.Column("payload", postgresql.JSONB(), nullable=False),
-        sa.Column("created_at", sa.Text(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_timeline_session_id", "timeline_events", ["session_id", "id"])
@@ -91,7 +91,7 @@ def upgrade() -> None:
         sa.Column("session_id", sa.String(), nullable=False),
         sa.Column("runtime", sa.String(), nullable=False),
         sa.Column("payload", postgresql.JSONB(), nullable=False),
-        sa.Column("created_at", sa.Text(), nullable=False, server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_raw_events_session_id", "raw_runtime_events", ["session_id"])

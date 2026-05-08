@@ -40,7 +40,7 @@
 - Modify: `apps/web/src/main.tsx`
 - Modify: `apps/web/src/App.tsx`
 
-- [ ] **Step 1: Install TanStack Router and TanStack Query**
+- [x] **Step 1: Install TanStack Router and TanStack Query**
 
 ```bash
 cd apps/web
@@ -49,7 +49,7 @@ npm install @tanstack/react-router @tanstack/react-query
 
 Expected: both packages appear in `node_modules/`.
 
-- [ ] **Step 2: Define the typed route tree in `App.tsx`**
+- [x] **Step 2: Define the typed route tree in `App.tsx`**
 
 Replace the entire contents of `apps/web/src/App.tsx`:
 
@@ -89,7 +89,7 @@ declare module "@tanstack/react-router" {
 }
 ```
 
-- [ ] **Step 3: Wire `RouterProvider` and `QueryClientProvider` in `main.tsx`**
+- [x] **Step 3: Wire `RouterProvider` and `QueryClientProvider` in `main.tsx`**
 
 Replace the entire contents of `apps/web/src/main.tsx`:
 
@@ -113,16 +113,16 @@ createRoot(document.getElementById("root")!).render(
 );
 ```
 
-- [ ] **Step 4: Verify build compiles**
+- [x] **Step 4: Verify build compiles**
 
 ```bash
 cd apps/web
 npm run build
 ```
 
-Expected: PASS. (AppShell still uses `react-router-dom` imports â€” that is expected and will be fixed in Task 6. The build succeeds because both libraries coexist temporarily.)
+Expected: PASS. (AppShell still uses `react-router-dom` imports â€?that is expected and will be fixed in Task 6. The build succeeds because both libraries coexist temporarily.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/package.json apps/web/package-lock.json apps/web/src/main.tsx apps/web/src/App.tsx
@@ -137,7 +137,7 @@ git commit -m "feat: install tanstack router + query; wire provider infrastructu
 - Modify: `apps/web/src/types.ts`
 - Modify: `apps/web/src/shell/assistant/docAgentAssistantMessages.ts`
 
-- [ ] **Step 1: Write a failing unit test for timestamp mapping**
+- [x] **Step 1: Write a failing unit test for timestamp mapping**
 
 In `apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts` (create if absent), add:
 
@@ -176,16 +176,16 @@ describe("mapTimelineEventsToAssistantMessages", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to confirm it fails**
+- [x] **Step 2: Run the test to confirm it fails**
 
 ```bash
 cd apps/web
 npm run test:unit -- src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts
 ```
 
-Expected: FAIL â€” `TimelineEvent` has no `created_at` property.
+Expected: FAIL â€?`TimelineEvent` has no `created_at` property.
 
-- [ ] **Step 3: Add `created_at` to `TimelineEvent` in `types.ts`**
+- [x] **Step 3: Add `created_at` to `TimelineEvent` in `types.ts`**
 
 In `apps/web/src/types.ts`, change:
 
@@ -214,7 +214,7 @@ export interface TimelineEvent {
 }
 ```
 
-- [ ] **Step 4: Use `created_at` in `mapTimelineEventToAssistantMessage`**
+- [x] **Step 4: Use `created_at` in `mapTimelineEventToAssistantMessage`**
 
 In `apps/web/src/shell/assistant/docAgentAssistantMessages.ts`, change line 38:
 
@@ -228,7 +228,7 @@ to:
 const createdAt = event.created_at ? new Date(event.created_at) : new Date(0);
 ```
 
-- [ ] **Step 5: Run the test to confirm it passes**
+- [x] **Step 5: Run the test to confirm it passes**
 
 ```bash
 cd apps/web
@@ -237,7 +237,7 @@ npm run test:unit -- src/shell/assistant/__tests__/docAgentAssistantMessages.tes
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/types.ts apps/web/src/shell/assistant/docAgentAssistantMessages.ts apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts
@@ -255,7 +255,7 @@ git commit -m "feat: add created_at to TimelineEvent; use real timestamps in ass
 - Create: `apps/web/src/shell/state/useWorkspaceTree.ts`
 - Create: `apps/web/src/shell/state/useDraft.ts`
 
-- [ ] **Step 1: Create `useDocTypes.ts`**
+- [x] **Step 1: Create `useDocTypes.ts`**
 
 ```ts
 // apps/web/src/shell/state/useDocTypes.ts
@@ -271,7 +271,7 @@ export function useDocTypes() {
 }
 ```
 
-- [ ] **Step 2: Create `useTasks.ts`**
+- [x] **Step 2: Create `useTasks.ts`**
 
 ```ts
 // apps/web/src/shell/state/useTasks.ts
@@ -287,7 +287,7 @@ export function useTasks() {
 }
 ```
 
-- [ ] **Step 3: Create `useSessions.ts`**
+- [x] **Step 3: Create `useSessions.ts`**
 
 ```ts
 // apps/web/src/shell/state/useSessions.ts
@@ -304,7 +304,7 @@ export function useSessions(taskId: string | null | undefined) {
 }
 ```
 
-- [ ] **Step 4: Create `useWorkspaceTree.ts`**
+- [x] **Step 4: Create `useWorkspaceTree.ts`**
 
 ```ts
 // apps/web/src/shell/state/useWorkspaceTree.ts
@@ -322,7 +322,7 @@ export function useWorkspaceTree(taskId: string | null | undefined) {
 }
 ```
 
-- [ ] **Step 5: Create `useDraft.ts`**
+- [x] **Step 5: Create `useDraft.ts`**
 
 ```ts
 // apps/web/src/shell/state/useDraft.ts
@@ -340,7 +340,7 @@ export function useDraft(taskId: string | null | undefined) {
 }
 ```
 
-- [ ] **Step 6: Verify build**
+- [x] **Step 6: Verify build**
 
 ```bash
 cd apps/web
@@ -349,7 +349,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/shell/state/useDocTypes.ts apps/web/src/shell/state/useTasks.ts apps/web/src/shell/state/useSessions.ts apps/web/src/shell/state/useWorkspaceTree.ts apps/web/src/shell/state/useDraft.ts
@@ -365,7 +365,7 @@ git commit -m "feat: add individual TanStack Query data hooks for tasks, session
 
 This replaces the selection logic from `useWorkspaces`. It holds active task/session as URL state (not React state), reads initial values from URL params with localStorage fallback, and exposes mutations via `useMutation`.
 
-- [ ] **Step 1: Write a failing test**
+- [x] **Step 1: Write a failing test**
 
 Create `apps/web/src/shell/state/__tests__/useActiveWorkspace.test.tsx`:
 
@@ -410,7 +410,7 @@ describe("useActiveWorkspace via AppShell", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to confirm it fails**
+- [x] **Step 2: Run the test to confirm it fails**
 
 ```bash
 cd apps/web
@@ -419,7 +419,7 @@ npm run test:unit -- src/shell/state/__tests__/useActiveWorkspace.test.tsx
 
 Expected: FAIL or error because `useActiveWorkspace` does not exist yet.
 
-- [ ] **Step 3: Create `useActiveWorkspace.ts`**
+- [x] **Step 3: Create `useActiveWorkspace.ts`**
 
 ```ts
 // apps/web/src/shell/state/useActiveWorkspace.ts
@@ -552,7 +552,7 @@ export function useActiveWorkspace() {
 }
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 ```bash
 cd apps/web
@@ -561,7 +561,7 @@ npm run test:unit -- src/shell/state/__tests__/useActiveWorkspace.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 ```bash
 cd apps/web
@@ -570,7 +570,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/shell/state/useActiveWorkspace.ts apps/web/src/shell/state/__tests__/useActiveWorkspace.test.tsx
@@ -579,12 +579,12 @@ git commit -m "feat: add useActiveWorkspace coordinator with TanStack Router URL
 
 ---
 
-### Task 5: Update `useTimeline` â€” add `taskId`, remove clear-before-load, add SSE invalidation and exponential backoff
+### Task 5: Update `useTimeline` â€?add `taskId`, remove clear-before-load, add SSE invalidation and exponential backoff
 
 **Files:**
 - Modify: `apps/web/src/shell/state/useTimeline.ts`
 
-- [ ] **Step 1: Write failing tests for new behavior**
+- [x] **Step 1: Write failing tests for new behavior**
 
 Create `apps/web/src/shell/state/__tests__/useTimeline.test.tsx`:
 
@@ -620,7 +620,7 @@ describe("useTimeline", () => {
     );
     // Events loaded
     await vi.waitFor(() => expect(result.current.events).toHaveLength(1));
-    // Change session â€” events must NOT be cleared to empty during refetch
+    // Change session â€?events must NOT be cleared to empty during refetch
     vi.mocked(api.getTimeline).mockResolvedValue([]);
     rerender({ sid: "session-2", tid: "task-1" });
     // During the brief window before the new fetch resolves, events must not be []
@@ -629,7 +629,7 @@ describe("useTimeline", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to confirm it fails**
+- [x] **Step 2: Run the test to confirm it fails**
 
 ```bash
 cd apps/web
@@ -638,7 +638,7 @@ npm run test:unit -- src/shell/state/__tests__/useTimeline.test.tsx
 
 Expected: FAIL because `useTimeline` currently calls `setEvents([])` on session change.
 
-- [ ] **Step 3: Rewrite `useTimeline.ts`**
+- [x] **Step 3: Rewrite `useTimeline.ts`**
 
 Replace the entire contents of `apps/web/src/shell/state/useTimeline.ts`:
 
@@ -661,7 +661,7 @@ export function useTimeline(
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Keep previous events across session changes â€” don't clear before new load
+  // Keep previous events across session changes â€?don't clear before new load
   const prevSessionIdRef = useRef<string | null | undefined>(null);
 
   const loadTimeline = useCallback(
@@ -676,7 +676,7 @@ export function useTimeline(
       }
       setLoading(true);
       setError(null);
-      // No setEvents([]) here â€” leave previous events visible during fetch
+      // No setEvents([]) here â€?leave previous events visible during fetch
       try {
         const nextEvents = replaceWithIdDedup(await api.getTimeline(sid));
         if (shouldApply()) setEvents(nextEvents);
@@ -801,7 +801,7 @@ export function useTimeline(
 }
 ```
 
-- [ ] **Step 4: Run the test**
+- [x] **Step 4: Run the test**
 
 ```bash
 cd apps/web
@@ -810,7 +810,7 @@ npm run test:unit -- src/shell/state/__tests__/useTimeline.test.tsx
 
 Expected: PASS.
 
-- [ ] **Step 5: Verify build**
+- [x] **Step 5: Verify build**
 
 ```bash
 cd apps/web
@@ -819,7 +819,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/shell/state/useTimeline.ts apps/web/src/shell/state/__tests__/useTimeline.test.tsx
@@ -828,13 +828,13 @@ git commit -m "feat: update useTimeline with SSE invalidation, exponential backo
 
 ---
 
-### Task 6: Update `AppShell` to use new hooks â€” remove interval polling and `draftReloadToken`
+### Task 6: Update `AppShell` to use new hooks â€?remove interval polling and `draftReloadToken`
 
 **Files:**
 - Modify: `apps/web/src/shell/AppShell.tsx`
 - Modify (delete): `apps/web/src/shell/state/useWorkspaces.ts`
 
-- [ ] **Step 1: Rewrite `AppShell.tsx`**
+- [x] **Step 1: Rewrite `AppShell.tsx`**
 
 Replace the entire contents of `apps/web/src/shell/AppShell.tsx`:
 
@@ -1034,21 +1034,21 @@ function tabFromWorkspaceFile(file: WorkspaceFileContent) {
 }
 ```
 
-Note: `onDraftChange` is passed as a no-op because `useDraft` now owns draft state. If the editor needs to save drafts, it calls `api.updateDraft` directly â€” that pattern is unchanged.
+Note: `onDraftChange` is passed as a no-op because `useDraft` now owns draft state. If the editor needs to save drafts, it calls `api.updateDraft` directly â€?that pattern is unchanged.
 
-- [ ] **Step 2: Trim `useWorkspaces.ts` to re-export only the helpers still used by AppShell**
+- [x] **Step 2: Trim `useWorkspaces.ts` to re-export only the helpers still used by AppShell**
 
 `AppShell` imports `buildWorkspaceTreeData` and `isRunnableSession` from `useWorkspaces`. Keep those exports; delete the rest of the file body.
 
 Replace `apps/web/src/shell/state/useWorkspaces.ts` with:
 
 ```ts
-// Retained for re-export â€” migration target: inline callers and delete this file.
+// Retained for re-export â€?migration target: inline callers and delete this file.
 export { buildWorkspaceTreeData, isRunnableSession, latestByUpdatedAt } from "./useWorkspaces_helpers";
 export type { WorkspaceTreeNode, WorkspaceTreeNodeKind, CreateWorkspaceInput } from "./useWorkspaces_types";
 ```
 
-Wait â€” this creates a circular reference. Instead, move just the pure helper functions into a small file.
+Wait â€?this creates a circular reference. Instead, move just the pure helper functions into a small file.
 
 Replace `apps/web/src/shell/state/useWorkspaces.ts` with only the pure helpers that are still needed:
 
@@ -1123,7 +1123,7 @@ function fileToTreeNode(taskId: string, file: WorkspaceFile): WorkspaceTreeNode 
 }
 ```
 
-- [ ] **Step 3: Verify build**
+- [x] **Step 3: Verify build**
 
 ```bash
 cd apps/web
@@ -1132,7 +1132,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/shell/AppShell.tsx apps/web/src/shell/state/useWorkspaces.ts
@@ -1146,7 +1146,7 @@ git commit -m "feat: update AppShell to use Query hooks; remove interval polling
 **Files:**
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 
-- [ ] **Step 1: Run existing tests to see what breaks**
+- [x] **Step 1: Run existing tests to see what breaks**
 
 ```bash
 cd apps/web
@@ -1155,7 +1155,7 @@ npm run test:unit -- src/shell/__tests__/AppShell.test.tsx
 
 Expected: multiple failures because tests use `MemoryRouter` from `react-router-dom` and `useSearchParams`, which no longer exist in the app.
 
-- [ ] **Step 2: Replace the test file's router imports and render helper**
+- [x] **Step 2: Replace the test file's router imports and render helper**
 
 At the top of `apps/web/src/shell/__tests__/AppShell.test.tsx`, replace:
 
@@ -1201,7 +1201,7 @@ function LocationSearch({ onChange }: { onChange: (search: string) => void }) {
 
 Note: `LocationSearch` must be rendered inside a `RouterProvider`. Wrap it inside the `renderAppShell` helper or render it as a sibling route component in tests that need URL observation.
 
-- [ ] **Step 3: Replace all `render(<MemoryRouter ...><AppShell /></MemoryRouter>)` calls**
+- [x] **Step 3: Replace all `render(<MemoryRouter ...><AppShell /></MemoryRouter>)` calls**
 
 Find every occurrence of:
 ```tsx
@@ -1215,7 +1215,7 @@ renderAppShell("/?task=task-1&session=session-1")
 
 (Use the appropriate initial URL for each test.)
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 ```bash
 cd apps/web
@@ -1224,7 +1224,7 @@ npm run test:unit -- src/shell/__tests__/AppShell.test.tsx
 
 Expected: PASS. Fix any remaining import errors (e.g. `useLocation` references).
 
-- [ ] **Step 5: Run full unit test suite**
+- [x] **Step 5: Run full unit test suite**
 
 ```bash
 cd apps/web
@@ -1233,7 +1233,7 @@ npm run test:unit
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/shell/__tests__/AppShell.test.tsx
@@ -1246,7 +1246,7 @@ git commit -m "test: migrate AppShell tests to TanStack Router test harness"
 
 **Files:** No code changes expected.
 
-- [ ] **Step 1: Backend tests (unchanged)**
+- [x] **Step 1: Backend tests (unchanged)**
 
 ```bash
 .local/dev/.venv/Scripts/python.exe -m pytest -q
@@ -1254,7 +1254,7 @@ git commit -m "test: migrate AppShell tests to TanStack Router test harness"
 
 Expected: PASS.
 
-- [ ] **Step 2: Frontend unit tests**
+- [x] **Step 2: Frontend unit tests**
 
 ```bash
 cd apps/web
@@ -1263,7 +1263,7 @@ npm run test:unit
 
 Expected: PASS.
 
-- [ ] **Step 3: Frontend build**
+- [x] **Step 3: Frontend build**
 
 ```bash
 cd apps/web
@@ -1272,16 +1272,16 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 4: E2E smoke (if local servers available)**
+- [x] **Step 4: E2E smoke (if local servers available)**
 
 ```bash
 cd apps/web
 npm run test:e2e
 ```
 
-Expected: PASS. Deep-link test (`workbench-shell.spec.ts`) must pass â€” confirm it loads `?task=` and `?session=` from URL.
+Expected: PASS. Deep-link test (`workbench-shell.spec.ts`) must pass â€?confirm it loads `?task=` and `?session=` from URL.
 
-- [ ] **Step 5: Confirm react-router-dom is no longer imported in app code**
+- [x] **Step 5: Confirm react-router-dom is no longer imported in app code**
 
 ```bash
 grep -r "react-router-dom" apps/web/src --include="*.tsx" --include="*.ts"
@@ -1289,7 +1289,7 @@ grep -r "react-router-dom" apps/web/src --include="*.tsx" --include="*.ts"
 
 Expected: zero matches.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -1301,16 +1301,16 @@ git commit -m "chore: final cleanup and verification for state governance migrat
 ## Self-Review
 
 **Spec coverage:**
-- TanStack Router typed search params: Tasks 1â€“4 âœ“
-- TanStack Query data hooks: Task 3 âœ“
-- useWorkspaces dissolved: Tasks 4, 6 âœ“
-- SSE invalidation (path-based): Task 5 âœ“
-- Exponential backoff reconnect + catchup: Task 5 âœ“
-- Remove interval polling: Task 6 âœ“
-- Remove draftReloadToken: Task 6 âœ“
-- Remove clear-before-load in useTimeline: Task 5 âœ“
-- created_at in TimelineEvent + real timestamps: Task 2 âœ“
-- Test harness migration: Task 7 âœ“
+- TanStack Router typed search params: Tasks 1â€? âœ?
+- TanStack Query data hooks: Task 3 âœ?
+- useWorkspaces dissolved: Tasks 4, 6 âœ?
+- SSE invalidation (path-based): Task 5 âœ?
+- Exponential backoff reconnect + catchup: Task 5 âœ?
+- Remove interval polling: Task 6 âœ?
+- Remove draftReloadToken: Task 6 âœ?
+- Remove clear-before-load in useTimeline: Task 5 âœ?
+- created_at in TimelineEvent + real timestamps: Task 2 âœ?
+- Test harness migration: Task 7 âœ?
 
 **Placeholder scan:** None found. All steps contain actual code.
 
