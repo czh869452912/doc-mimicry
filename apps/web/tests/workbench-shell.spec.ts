@@ -56,7 +56,18 @@ test("assistant-ui center pane sends messages and renders timeline updates", asy
   await page.getByLabel("Message").press("Enter");
 
   await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
+  await expect(page.getByRole("button", { name: /copy text/i }).first()).toBeVisible();
   await expect(page.locator(".aui-thread")).toContainText(/agent|processed|message|draft|context/i, { timeout: 10_000 });
+});
+
+test("assistant-ui composer exposes slash command suggestions", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByLabel("Message").fill("/");
+
+  await expect(page.getByRole("listbox", { name: "Slash commands" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /\/start start outline loop/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /\/export export markdown artifact/i })).toBeVisible();
 });
 
 test("URL params deep-link to a task and session on reload", async ({ page }) => {

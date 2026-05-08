@@ -73,8 +73,28 @@ describe("ConversationPane", () => {
 
     expect(container.querySelector(".aui-thread")).toBeTruthy();
     expect(container.querySelector(".aui-composer")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /copy text/i })).toBeTruthy();
     expect(container.querySelector(".conversation-stream")).toBeFalsy();
     expect(screen.getByText("Write a launch PRD")).toBeTruthy();
+  });
+
+  it("renders running status inside the assistant-ui thread", () => {
+    render(
+      <ConversationPane
+        activeSession={{ ...session, status: "running_chat" }}
+        activeTask={task}
+        ensureSession={vi.fn().mockResolvedValue(session)}
+        events={events}
+        error={null}
+        loading={true}
+        refreshTimeline={vi.fn()}
+        refreshWorkspace={vi.fn()}
+        onOpenPath={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Agent is working...")).toBeTruthy();
+    expect(screen.queryByText("Refreshing timeline...")).toBeFalsy();
   });
 
   it("submits plain text through the existing DocAgent send message API", async () => {

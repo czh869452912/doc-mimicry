@@ -90,6 +90,8 @@ export function ConversationPane({
         <DocAgentThread
           activeSessionId={activeSession?.id ?? null}
           emptyMessage={emptyMessage(activeTask, activeSession)}
+          isLoading={loading}
+          isRunning={Boolean(activeSession?.status?.startsWith("running"))}
           taskId={activeTask?.id ?? null}
           onApproved={async () => {
             await refreshWorkspace();
@@ -117,7 +119,6 @@ export function ConversationPane({
         <DocAgentComposer disabled={!activeTask} />
       </AssistantRuntimeProvider>
       {error && <p className="pane-note pane-note--error">{error}</p>}
-      {loading && <p className="pane-note">Refreshing timeline...</p>}
       <p className="status-line">{status}</p>
     </section>
   );

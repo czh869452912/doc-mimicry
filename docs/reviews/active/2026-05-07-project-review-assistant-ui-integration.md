@@ -30,13 +30,14 @@ Resolved in follow-up:
 - **Local frontend dependency baseline restored.** The previous `react-router-dom`, `react-hook-form`, `@hookform/resolvers`, and `react-diff-viewer-continued` import failures were caused by dependencies not being installed on this machine after work moved from another computer. `npm install` restored `node_modules`; no package manifest or lockfile churn was required.
 - **M5 deep-linking completed and covered.** The app already had `BrowserRouter`, URL-param restoration, and URL sync; the follow-up added regression coverage for `?task=...&session=...` restoration and session-param sync.
 - **Assistant-ui runtime/primitive integration completed.** `ConversationPane` now hosts `AssistantRuntimeProvider`, maps raw `TimelineEvent[]` into assistant-ui `ThreadMessage[]`, renders the center pane through `ThreadPrimitive` / `MessagePrimitive` / `MessagePartPrimitive`, and uses `ComposerPrimitive` for input. The previous `StreamItem`, `Presentation`, and hand-written `<textarea>` composer path have been removed. DocAgent-specific outline, checklist, artifact, approval, and semantic event rows now render as assistant-ui custom data parts.
+- **Assistant-ui interaction hardening added.** The composer now exposes slash command suggestions for the existing DocAgent commands, text messages expose assistant-ui copy actions, running/loading state appears inside the thread, and semantic timeline data parts have assistant-ui-specific wrappers and styling.
 - **Raw daemon-thread route launching removed.** Background runtime operations now go through `BackgroundRuntimeRunner`, which is owned by the FastAPI app lifecycle and injected into session routes.
 
 Still open and intentionally out of scope for this follow-up:
 
 - `tools/export/export_docx.py` and DOCX/PDF export.
 - Real PRD examples/specs under `doc-types/prd/examples/markdown/` and `doc-types/prd/specs/markdown/`.
-- Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, richer retry semantics, attachments, dictation, SelectionToolbar, and deeper tool-call history beyond the current semantic event cards.
+- Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, retry/reload semantics, attachments, dictation, SelectionToolbar, and deeper tool-call history beyond the current semantic event cards.
 - Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
 
 Verification commands used in the follow-up:

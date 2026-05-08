@@ -1,4 +1,5 @@
 import {
+  ActionBarPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
   type DataMessagePartProps,
@@ -10,6 +11,8 @@ import { DocAgentMessagePart } from "./DocAgentMessageParts";
 interface DocAgentThreadProps {
   activeSessionId: string | null;
   emptyMessage: string | null;
+  isLoading: boolean;
+  isRunning: boolean;
   taskId: string | null;
   onApproved: () => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
@@ -18,6 +21,8 @@ interface DocAgentThreadProps {
 export function DocAgentThread({
   activeSessionId,
   emptyMessage,
+  isLoading,
+  isRunning,
   onApproved,
   onOpenPath,
   taskId,
@@ -43,6 +48,11 @@ export function DocAgentThread({
             ),
           }}
         />
+        {(isLoading || isRunning) && (
+          <div className="aui-thread-status" role="status">
+            {isRunning ? "Agent is working..." : "Refreshing timeline..."}
+          </div>
+        )}
       </ThreadPrimitive.Viewport>
     </ThreadPrimitive.Root>
   );
@@ -52,11 +62,14 @@ function UserMessage() {
   return (
     <MessagePrimitive.Root className="aui-message aui-message--user">
       <MessagePrimitive.Content components={{ Text: TextPart }} />
+      <MessageActions />
     </MessagePrimitive.Root>
   );
 }
 
-function AssistantMessage(props: Omit<DocAgentThreadProps, "emptyMessage">) {
+type MessagePartHandlerProps = Omit<DocAgentThreadProps, "emptyMessage" | "isLoading" | "isRunning">;
+
+function AssistantMessage(props: MessagePartHandlerProps) {
   return (
     <MessagePrimitive.Root className="aui-message aui-message--assistant">
       <MessagePrimitive.Content
@@ -73,6 +86,7 @@ function AssistantMessage(props: Omit<DocAgentThreadProps, "emptyMessage">) {
           },
         }}
       />
+      <MessageActions />
     </MessagePrimitive.Root>
   );
 }
@@ -87,7 +101,7 @@ function DataPart({
   onApproved,
   onOpenPath,
   taskId,
-}: DataMessagePartProps<DocAgentAssistantData> & Omit<DocAgentThreadProps, "emptyMessage">) {
+}: DataMessagePartProps<DocAgentAssistantData> & MessagePartHandlerProps) {
   return (
     <DocAgentMessagePart
       activeSessionId={activeSessionId}
@@ -96,5 +110,15 @@ function DataPart({
       onApproved={onApproved}
       onOpenPath={onOpenPath}
     />
+  );
+}
+
+function MessageActions() {
+  return (
+    <ActionBarPrimitive.Root className="aui-message-actions">
+      <ActionBarPrimitive.Copy className="aui-message-action" aria-label="Copy text">
+        Copy
+      </ActionBarPrimitive.Copy>
+    </ActionBarPrimitive.Root>
   );
 }

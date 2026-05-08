@@ -21,35 +21,51 @@ export function DocAgentMessagePart({
 }: DocAgentMessagePartProps) {
   if (data.kind === "event-pill") {
     return (
-      <article className="aui-event-pill-row">
-        <span className="event-pill" data-category={data.category}>
-          {data.event.kind}
-        </span>
-        <span>{data.summary}</span>
-        {data.meta && <small>{data.meta}</small>}
-      </article>
+      <div className="aui-timeline-part aui-timeline-part--event">
+        <article className="aui-event-pill-row">
+          <span className="event-pill" data-category={data.category}>
+            {data.event.kind}
+          </span>
+          <span>{data.summary}</span>
+          {data.meta && <small>{data.meta}</small>}
+        </article>
+      </div>
     );
   }
 
   if (data.kind === "outline-card") {
     return (
-      <OutlineCard
-        event={data.event}
-        sessionId={activeSessionId}
-        taskId={taskId}
-        onApproved={onApproved}
-        onOpenPath={onOpenPath}
-      />
+      <div className="aui-timeline-part aui-timeline-part--card">
+        <OutlineCard
+          event={data.event}
+          sessionId={activeSessionId}
+          taskId={taskId}
+          onApproved={onApproved}
+          onOpenPath={onOpenPath}
+        />
+      </div>
     );
   }
 
   if (data.kind === "checklist-card") {
-    return <ChecklistCard event={data.event} onOpenPath={onOpenPath} />;
+    return (
+      <div className="aui-timeline-part aui-timeline-part--card">
+        <ChecklistCard event={data.event} onOpenPath={onOpenPath} />
+      </div>
+    );
   }
 
   if (data.kind === "artifact-card") {
-    return <ArtifactCard event={data.event} onOpenPath={onOpenPath} />;
+    return (
+      <div className="aui-timeline-part aui-timeline-part--card">
+        <ArtifactCard event={data.event} onOpenPath={onOpenPath} />
+      </div>
+    );
   }
 
-  return <ApprovalCard event={data.event} />;
+  return (
+    <div className="aui-timeline-part aui-timeline-part--card">
+      <ApprovalCard event={data.event} />
+    </div>
+  );
 }

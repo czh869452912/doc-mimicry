@@ -33,7 +33,7 @@ function renderPart(data: DocAgentAssistantData) {
 
 describe("DocAgentMessagePart", () => {
   it("renders event pill data parts", () => {
-    renderPart({
+    const { container } = renderPart({
       kind: "event-pill",
       category: "edit",
       summary: "Built context",
@@ -41,12 +41,13 @@ describe("DocAgentMessagePart", () => {
       event: event({ id: "evt-context", kind: "build_context", summary: "Built context" }),
     });
 
+    expect(container.querySelector(".aui-timeline-part--event")).toBeTruthy();
     expect(screen.getByText("Built context")).toBeTruthy();
     expect(screen.getByText("context/brief.md")).toBeTruthy();
   });
 
   it("renders outline, checklist, artifact, and approval card data parts", () => {
-    const { rerender } = renderPart({
+    const { container, rerender } = renderPart({
       kind: "outline-card",
       event: event({
         id: "evt-outline",
@@ -55,6 +56,7 @@ describe("DocAgentMessagePart", () => {
         paths: ["draft/outline.md"],
       }),
     });
+    expect(container.querySelector(".aui-timeline-part--card")).toBeTruthy();
     expect(screen.getByText("Outline · waiting for review")).toBeTruthy();
 
     rerender(

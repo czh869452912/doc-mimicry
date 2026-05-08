@@ -51,6 +51,57 @@
   border-radius: var(--radius-lg);
 }
 
+.aui-message-actions {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 22px;
+  margin-top: 3px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.aui-message:hover .aui-message-actions,
+.aui-message:focus-within .aui-message-actions {
+  opacity: 1;
+}
+
+.aui-message-action {
+  min-height: 22px;
+  padding: 0 6px;
+  color: var(--color-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+}
+
+.aui-message-action:hover,
+.aui-message-action:focus-visible {
+  color: var(--color-ink);
+  background: var(--color-surface-card);
+  border-color: var(--color-hairline);
+}
+
+.aui-thread-status {
+  width: fit-content;
+  max-width: 78%;
+  padding: 6px 9px;
+  color: var(--color-muted);
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  font-size: 12px;
+}
+
+.aui-timeline-part {
+  width: min(100%, 560px);
+}
+
+.aui-timeline-part--card {
+  display: grid;
+}
+
 .aui-event-pill-row {
   display: flex;
   align-items: center;
@@ -76,7 +127,13 @@
   border-top: 1px solid var(--color-hairline);
 }
 
+.aui-composer__input-wrap {
+  position: relative;
+  min-width: 0;
+}
+
 .aui-composer textarea {
+  width: 100%;
   min-height: 48px;
   max-height: 132px;
   padding: 8px 10px;
@@ -84,6 +141,57 @@
   background: var(--color-surface-card);
   border: 1px solid var(--color-hairline-strong);
   border-radius: var(--radius-md);
+}
+
+.aui-slash-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 14px 40px rgb(38 37 30 / 14%);
+}
+
+.aui-slash-menu__item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 8px;
+  color: var(--color-body);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.aui-slash-menu__item:hover,
+.aui-slash-menu__item:focus-visible {
+  color: var(--color-ink);
+  background: var(--color-canvas-soft);
+}
+
+.aui-slash-menu__item code {
+  color: var(--color-ink);
+  font-family: var(--font-code);
+  font-size: 12px;
+}
+
+.aui-slash-menu__item span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .aui-send-button {
