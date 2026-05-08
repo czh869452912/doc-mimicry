@@ -100,3 +100,46 @@ def test_state_keeps_all_concurrent_timeline_appends(tmp_path: Path) -> None:
     events = state.list_timeline_events("session-001")
     assert len(events) == 40
     assert {event["id"] for event in events} == {f"event-{index:03d}" for index in range(40)}
+
+
+def test_append_and_list_timeline_events(pg_state) -> None:
+    pg_state.save_task({
+        "id": "t1", "doc_type_id": "prd", "brief": "b", "title": "T1",
+        "description": "", "workspace_root": "w/t1",
+        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+    })
+    pg_state.save_session({
+        "id": "s1", "task_id": "t1", "status": "pending",
+        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+    })
+    pg_state.append_timeline_event("s1", {
+        "id": "e1", "kind": "user_message", "summary": "hi",
+        "actor": "user", "paths": [], "status": "done",
+        "created_at": "2026-01-01T00:00:00Z",
+    })
+    events = pg_state.list_timeline_events("s1")
+    assert len(events) == 1
+    assert events[0]["id"] == "e1"
+
+
+def test_list_timeline_events_after(pg_state) -> None:
+    pg_state.save_task({
+        "id": "t2", "doc_type_id": "prd", "brief": "b", "title": "T2",
+        "description": "", "workspace_root": "w/t2",
+        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+    })
+    pg_state.save_session({
+        "id": "s2", "task_id": "t2", "status": "pending",
+        "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z",
+    })
+    for i in range(3):
+        pg_state.append_timeline_event("s2", {
+            "id": f"e{i}", "kind": "user_message", "summary": f"msg {i}",
+            "actor": "user", "paths": [], "status": "done",
+            "created_at": "2026-01-01T00:00:00Z",
+        })
+    rows = pg_state.list_timeline_events_after("s2", after_row_id=0)
+    assert len(rows) == 3
+    first_row_id = rows[0][0]
+    later = pg_state.list_timeline_events_after("s2", after_row_id=first_row_id)
+    assert len(later) == 2
