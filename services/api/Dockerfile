@@ -19,4 +19,4 @@ COPY doc-types ./doc-types
 
 RUN pip install --no-cache-dir -e .
 
-CMD ["uvicorn", "docagent_api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "--factory", "docagent_api.app:create_app", "--host", "0.0.0.0", "--port", "8000"]

@@ -29,7 +29,7 @@ On Windows, start the Phase 1 API and web app together with:
 .\start-dev.cmd
 ```
 
-The script starts FastAPI on `http://127.0.0.1:8000`, Vite on `http://127.0.0.1:5173`, and writes logs under `.local/dev/`.
+The script uses Docker Compose to start Postgres, Redis, FastAPI, the Celery worker, and Vite. FastAPI is available on `http://127.0.0.1:8000`, and the web app is available on `http://127.0.0.1:5173`.
 
 To start the same stack with the OpenHands runtime adapter selected:
 

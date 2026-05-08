@@ -1,7 +1,7 @@
 # docker-compose.override.yml — dev overrides: hot reload for api and worker
 services:
   api:
-    command: uvicorn docagent_api.app:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn --factory docagent_api.app:create_app --host 0.0.0.0 --port 8000 --reload
     environment:
       DOCAGENT_REPO_ROOT: /app
     volumes:
@@ -22,8 +22,3 @@ services:
       - ./tools:/app/tools
       - ./doc-types:/app/doc-types
       - workspace_data:/workspace
-
-  web:
-    command: npm run dev -- --host 0.0.0.0
-    volumes:
-      - ./apps/web:/app

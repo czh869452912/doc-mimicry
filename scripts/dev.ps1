@@ -9,49 +9,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$webRoot = Join-Path $repoRoot "apps\web"
 $logRoot = Join-Path $repoRoot ".local\dev"
-$venvRoot = Join-Path $logRoot ".venv"
-$venvPython = Join-Path $venvRoot "Scripts\python.exe"
-$apiLog = Join-Path $logRoot "api.log"
 $openHandsLog = Join-Path $logRoot "openhands.log"
-$setupLog = Join-Path $logRoot "setup.log"
-$webLog = Join-Path $logRoot "web.log"
 
 function Test-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
-}
-
-function Test-PythonVersion {
-    param([Parameter(Mandatory = $true)][string]$Python)
-    try {
-        $version = & $Python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-        return [version]$version -ge [version]"3.11"
-    }
-    catch {
-        return $false
-    }
-}
-
-function Get-PythonCommand {
-    $bundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-    $candidates = @($bundledPython, "python")
-    foreach ($candidate in $candidates) {
-        if ((Test-Path $candidate) -or (Test-Command $candidate)) {
-            if (Test-PythonVersion $candidate) {
-                return $candidate
-            }
-        }
-    }
-    throw "Python 3.11+ is required. Install Python 3.11+ or run inside the Codex workspace runtime."
-}
-
-function Stop-DevJobs {
-    Get-Job -Name "docagent-api", "docagent-web", "docagent-openhands" -ErrorAction SilentlyContinue | ForEach-Object {
-        Stop-Job $_ -ErrorAction SilentlyContinue
-        Remove-Job $_ -Force -ErrorAction SilentlyContinue
-    }
 }
 
 function Import-LocalEnv {
@@ -76,7 +39,7 @@ function Import-LocalEnv {
 function Test-HttpReady {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 60
     )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
@@ -91,19 +54,10 @@ function Test-HttpReady {
     return $false
 }
 
-New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
-Import-LocalEnv (Join-Path $repoRoot ".env.local")
-
-if (-not (Test-Command "npm")) {
-    throw "npm is required. Install Node.js 22+ before starting the dev stack."
-}
-
-$python = Get-PythonCommand
-if ([string]::IsNullOrWhiteSpace($Runtime)) {
-    $Runtime = "mock"
-}
-
-if ($Runtime -eq "openhands") {
+function Start-OpenHandsIfNeeded {
+    if ($Runtime -ne "openhands") {
+        return $null
+    }
     if ([string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
         $OpenHandsBaseUrl = "http://127.0.0.1:$OpenHandsPort"
     }
@@ -113,107 +67,80 @@ if ($Runtime -eq "openhands") {
             exit 1
         }
     }
-}
-
-Push-Location $repoRoot
-try {
-    if (-not (Test-Path $venvPython)) {
-        & $python -m venv $venvRoot
-    }
-    & $venvPython -m pip install --upgrade fastapi uvicorn httpx | Tee-Object -FilePath $setupLog
-}
-finally {
-    Pop-Location
-}
-
-if (-not (Test-Path (Join-Path $webRoot "node_modules"))) {
-    Push-Location $webRoot
-    try {
-        npm ci | Tee-Object -FilePath $webLog
-    }
-    finally {
-        Pop-Location
-    }
-}
-
-Stop-DevJobs
-
-$openHandsJob = $null
-if ($Runtime -eq "openhands") {
     try {
         Invoke-WebRequest -Uri "$OpenHandsBaseUrl/docs" -UseBasicParsing -TimeoutSec 2 | Out-Null
         Write-Host "OpenHands Agent Server already running at $OpenHandsBaseUrl"
+        return $null
     }
     catch {
-        $openHandsJob = Start-Job -Name "docagent-openhands" -ScriptBlock {
-            param($repoRoot, $openHandsLog, $venvPython, $openHandsPort)
+        $python = Get-Command python -ErrorAction SilentlyContinue
+        if ($null -eq $python) {
+            throw "OpenHands runtime needs python on PATH when no OpenHands server is already running."
+        }
+        $job = Start-Job -Name "docagent-openhands" -ScriptBlock {
+            param($repoRoot, $openHandsLog, $openHandsPort)
             Set-Location $repoRoot
             $env:OPENHANDS_SUPPRESS_BANNER = "1"
-            & $venvPython -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
-        } -ArgumentList $repoRoot, $openHandsLog, $venvPython, $OpenHandsPort
+            python -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
+        } -ArgumentList $repoRoot, $openHandsLog, $OpenHandsPort
         if (-not (Test-HttpReady "$OpenHandsBaseUrl/docs" 45)) {
-            Receive-Job $openHandsJob -Keep | Write-Host
+            Receive-Job $job -Keep | Write-Host
             throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog."
         }
+        return $job
     }
 }
 
-$pythonPath = @(
-    Join-Path $repoRoot "packages\contracts"
-    Join-Path $repoRoot "packages\workspace"
-    Join-Path $repoRoot "packages\timeline"
-    Join-Path $repoRoot "tools\import"
-    Join-Path $repoRoot "services\api"
-    Join-Path $repoRoot "agent\runtime-adapters\mock"
-    Join-Path $repoRoot "agent\runtime-adapters\openhands"
-) -join [IO.Path]::PathSeparator
+New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+Import-LocalEnv (Join-Path $repoRoot ".env.local")
 
-$apiJob = Start-Job -Name "docagent-api" -ScriptBlock {
-    param($repoRoot, $pythonPath, $apiLog, $venvPython, $runtime, $openHandsBaseUrl)
-    Set-Location $repoRoot
-    $env:PYTHONPATH = $pythonPath
-    $env:DOCAGENT_RUNTIME = $runtime
-    if (-not [string]::IsNullOrWhiteSpace($openHandsBaseUrl)) {
-        $env:OPENHANDS_BASE_URL = $openHandsBaseUrl
-    }
-    & $venvPython -m uvicorn --factory docagent_api.app:create_app --host 127.0.0.1 --port 8000 *>> $apiLog
-} -ArgumentList $repoRoot, $pythonPath, $apiLog, $venvPython, $Runtime, $OpenHandsBaseUrl
-
-$webJob = Start-Job -Name "docagent-web" -ScriptBlock {
-    param($webRoot, $webLog)
-    Set-Location $webRoot
-    $env:VITE_API_BASE = "http://127.0.0.1:8000"
-    npm run dev -- --host 127.0.0.1 --port 5173 *>> $webLog
-} -ArgumentList $webRoot, $webLog
-
-Write-Host "DocAgent dev stack starting..."
-Write-Host "Runtime: $Runtime"
-if ($Runtime -eq "openhands") {
-    Write-Host "OpenHands: $OpenHandsBaseUrl"
+if ([string]::IsNullOrWhiteSpace($Runtime)) {
+    $Runtime = "mock"
 }
-Write-Host "API: http://127.0.0.1:8000"
-Write-Host "Web: http://127.0.0.1:5173"
-Write-Host "Logs: $logRoot"
-Write-Host "Press Ctrl+C to stop."
-
-if (-not $NoBrowser) {
-    Start-Process "http://127.0.0.1:5173"
+if (-not (Test-Command "docker")) {
+    throw "Docker is required for the local dev stack. Install Docker Desktop and start it before running start-dev.cmd."
 }
 
+$openHandsJob = $null
+Push-Location $repoRoot
 try {
-    while ($true) {
-        Start-Sleep -Seconds 2
-        foreach ($job in @($openHandsJob, $apiJob, $webJob)) {
-            if ($null -eq $job) {
-                continue
-            }
-            if ($job.State -in @("Failed", "Stopped", "Completed")) {
-                Receive-Job $job -Keep | Write-Host
-                throw "Dev job '$($job.Name)' exited with state $($job.State). Check logs in $logRoot."
-            }
-        }
+    $openHandsJob = Start-OpenHandsIfNeeded
+
+    $env:DOCAGENT_RUNTIME = $Runtime
+    $env:DOCAGENT_QUEUE = "celery"
+    $env:DOCAGENT_REPO_ROOT = "/app"
+    if (-not [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
+        $env:OPENHANDS_BASE_URL = $OpenHandsBaseUrl
+    }
+
+    docker compose up -d --build postgres redis api worker web
+
+    if (-not (Test-HttpReady "http://127.0.0.1:8000/health" 90)) {
+        docker compose logs api --tail 80
+        throw "API did not become ready at http://127.0.0.1:8000. Check docker compose logs api."
+    }
+    if (-not (Test-HttpReady "http://127.0.0.1:5173" 90)) {
+        docker compose logs web --tail 80
+        throw "Web app did not become ready at http://127.0.0.1:5173. Check docker compose logs web."
+    }
+
+    Write-Host "DocAgent dev stack is running."
+    Write-Host "Runtime: $Runtime"
+    if ($Runtime -eq "openhands") {
+        Write-Host "OpenHands: $OpenHandsBaseUrl"
+    }
+    Write-Host "API: http://127.0.0.1:8000"
+    Write-Host "Web: http://127.0.0.1:5173"
+    Write-Host "Logs: docker compose logs -f api worker web"
+    Write-Host "Stop: docker compose down"
+
+    if (-not $NoBrowser) {
+        Start-Process "http://127.0.0.1:5173"
     }
 }
 finally {
-    Stop-DevJobs
+    Pop-Location
+    if ($null -ne $openHandsJob -and $openHandsJob.State -in @("Failed", "Stopped", "Completed")) {
+        Remove-Job $openHandsJob -Force -ErrorAction SilentlyContinue
+    }
 }

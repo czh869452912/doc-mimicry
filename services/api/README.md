@@ -25,8 +25,17 @@ The API should expose converted Markdown resources to the agent runtime. Origina
 ## Phase 1 Local Run
 
 ```powershell
-uvicorn docagent_api.app:app --reload --app-dir services/api
+.\start-dev.cmd
 ```
+
+The local development stack is Docker Compose based. It starts Postgres, Redis,
+the FastAPI API, the Celery worker, and the web app. Use:
+
+```powershell
+docker compose logs -f api worker
+```
+
+to inspect backend logs.
 
 ## Runtime Configuration
 
