@@ -1,25 +1,6 @@
-import { render, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../../api";
+import { describe, expect, it } from "vitest";
 import type { SessionRecord, TaskRecord, WorkspaceTree } from "../../types";
-import { buildWorkspaceTreeData, latestByUpdatedAt, useWorkspaces } from "../state/useWorkspaces";
-
-vi.mock("../../api", () => ({
-  api: {
-    listDocTypes: vi.fn(),
-    listTasks: vi.fn(),
-    listTaskSessions: vi.fn(),
-    getWorkspace: vi.fn(),
-    createTask: vi.fn(),
-    createSession: vi.fn(),
-  },
-}));
-
-function Harness({ onState }: { onState: (state: ReturnType<typeof useWorkspaces>) => void }) {
-  const state = useWorkspaces();
-  onState(state);
-  return null;
-}
+import { buildWorkspaceTreeData, latestByUpdatedAt } from "../state/useWorkspaces";
 
 describe("latestByUpdatedAt", () => {
   it("returns null for an empty list", () => {
@@ -69,48 +50,5 @@ describe("buildWorkspaceTreeData", () => {
     expect(node.children?.some((child) => child.kind === "session")).toBe(false);
     const draftFolder = node.children?.find((child) => child.id === "folder:task-1:draft");
     expect(draftFolder?.children?.[0]?.id).toBe("file:task-1:draft/draft.md");
-  });
-});
-
-describe("useWorkspaces initialization", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    vi.clearAllMocks();
-  });
-
-  it("loads the initial workspace once without rerunning after active state is set", async () => {
-    vi.mocked(api.listDocTypes).mockResolvedValue([{ id: "prd", title: "PRD", has_skill: true, resource_groups: {} }]);
-    vi.mocked(api.listTasks).mockResolvedValue([
-      {
-        id: "task-1",
-        doc_type_id: "prd",
-        brief: "Write a PRD",
-        workspace_root: "workspace/task-1",
-        created_at: "2026-05-06T08:00:00Z",
-        updated_at: "2026-05-06T09:00:00Z",
-      },
-    ]);
-    vi.mocked(api.listTaskSessions).mockResolvedValue([
-      {
-        id: "session-1",
-        task_id: "task-1",
-        status: "draft_ready",
-        created_at: "2026-05-06T08:00:00Z",
-        updated_at: "2026-05-06T09:00:00Z",
-      },
-    ]);
-    vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-1", root: "workspace/task-1", files: [] });
-
-    let latest!: ReturnType<typeof useWorkspaces>;
-    render(<Harness onState={(state) => (latest = state)} />);
-
-    await waitFor(() => expect(latest.loading).toBe(false));
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-
-    expect(api.listTasks).toHaveBeenCalledTimes(1);
-    expect(api.listTaskSessions).toHaveBeenCalledTimes(2);
-    expect(api.getWorkspace).toHaveBeenCalledTimes(1);
-    expect(latest.activeTask?.id).toBe("task-1");
-    expect(latest.activeSession?.id).toBe("session-1");
   });
 });

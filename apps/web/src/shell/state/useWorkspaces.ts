@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../../api";
-import type { DocTypeSummary, SessionRecord, TaskRecord, WorkspaceFile, WorkspaceTree } from "../../types";
+// This file retains only the pure helper functions and types used by AppShell, WorkspacePane,
+// and existing tests. The useWorkspaces hook has been replaced by useActiveWorkspace + individual
+// Query hooks.
 
-const LAST_TASK_KEY = "docagent:lastTaskId";
-const LAST_SESSION_KEY = "docagent:lastSessionId";
-const WORKSPACE_FOLDERS = ["versions", "inputs", "context", "draft", "reviews", "artifacts"] as const;
+import type { SessionRecord, TaskRecord, WorkspaceFile, WorkspaceTree } from "../../types";
 
 export type WorkspaceTreeNodeKind = "task" | "session" | "folder" | "file";
 
@@ -24,8 +22,10 @@ export interface CreateWorkspaceInput {
   title: string;
 }
 
+const WORKSPACE_FOLDERS = ["versions", "inputs", "context", "draft", "reviews", "artifacts"] as const;
+
 export function latestByUpdatedAt<T extends { updated_at: string }>(items: T[]): T | null {
-  return [...items].sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))[0] ?? null;
+  return [...items].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at))[0] ?? null;
 }
 
 export function isRunnableSession(session: SessionRecord): boolean {
@@ -38,9 +38,6 @@ export function buildWorkspaceTreeData(
   workspaceByTaskId: Record<string, WorkspaceTree | undefined>,
 ): WorkspaceTreeNode[] {
   return tasks.map((task) => {
-    const sessions = [...(sessionsByTaskId[task.id] ?? [])].sort(
-      (left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at),
-    );
     const files = workspaceByTaskId[task.id]?.files ?? [];
     const folderNodes = WORKSPACE_FOLDERS.map((folder) => ({
       id: `folder:${task.id}:${folder}`,
@@ -52,188 +49,17 @@ export function buildWorkspaceTreeData(
         .filter((file) => file.path === folder || file.path.startsWith(`${folder}/`))
         .map((file) => fileToTreeNode(task.id, file)),
     }));
-
     return {
       id: `task:${task.id}`,
       name: task.title ?? task.brief,
       kind: "task" as const,
       taskId: task.id,
-      children: [
-        ...folderNodes,
-      ],
+      children: [...folderNodes],
     };
   });
 }
 
 function fileToTreeNode(taskId: string, file: WorkspaceFile): WorkspaceTreeNode {
   const name = file.path.split("/").at(-1) ?? file.path;
-  return {
-    id: `file:${taskId}:${file.path}`,
-    name,
-    kind: "file",
-    taskId,
-    path: file.path,
-  };
-}
-
-export function useWorkspaces(
-  initialTaskId?: string | null,
-  initialSessionId?: string | null,
-) {
-  const initialTaskIdRef = useRef(initialTaskId);
-  const initialSessionIdRef = useRef(initialSessionId);
-  const [docTypes, setDocTypes] = useState<DocTypeSummary[]>([]);
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [sessions, setSessions] = useState<SessionRecord[]>([]);
-  const [workspaceTree, setWorkspaceTree] = useState<WorkspaceTree | null>(null);
-  const [activeTask, setActiveTask] = useState<TaskRecord | null>(null);
-  const [activeSession, setActiveSession] = useState<SessionRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const refreshWorkspaceForTask = useCallback(
-    async (task: TaskRecord | null, sessionOverride: SessionRecord | null = null) => {
-      if (!task) {
-        setWorkspaceTree(null);
-        setSessions([]);
-        setActiveSession(null);
-        window.localStorage.removeItem(LAST_TASK_KEY);
-        window.localStorage.removeItem(LAST_SESSION_KEY);
-        return;
-      }
-
-      const [nextSessions, nextWorkspace] = await Promise.all([
-        api.listTaskSessions(task.id),
-        api.getWorkspace(task.id),
-      ]);
-      const preferredSession =
-        (sessionOverride && nextSessions.find((session) => session.id === sessionOverride.id)) ??
-        latestByUpdatedAt(nextSessions);
-
-      setSessions(nextSessions);
-      setWorkspaceTree(nextWorkspace);
-      setActiveSession(preferredSession);
-      window.localStorage.setItem(LAST_TASK_KEY, task.id);
-      if (preferredSession) {
-        window.localStorage.setItem(LAST_SESSION_KEY, preferredSession.id);
-      } else {
-        window.localStorage.removeItem(LAST_SESSION_KEY);
-      }
-    },
-    [],
-  );
-
-  const refreshActiveWorkspace = useCallback(
-    async () => {
-      await refreshWorkspaceForTask(activeTask, activeSession);
-    },
-    [activeSession, activeTask, refreshWorkspaceForTask],
-  );
-
-  const selectTask = useCallback(
-    async (task: TaskRecord) => {
-      setActiveTask(task);
-      await refreshWorkspaceForTask(task, null);
-    },
-    [refreshWorkspaceForTask],
-  );
-
-  const selectSession = useCallback(
-    async (session: SessionRecord) => {
-      setActiveSession(session);
-      window.localStorage.setItem(LAST_SESSION_KEY, session.id);
-    },
-    [],
-  );
-
-  const loadInitialState = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [nextDocTypes, nextTasks] = await Promise.all([api.listDocTypes(), api.listTasks()]);
-      setDocTypes(nextDocTypes);
-      setTasks(nextTasks);
-
-      const rememberedTaskId =
-        initialTaskIdRef.current ?? window.localStorage.getItem(LAST_TASK_KEY);
-      const nextTask = nextTasks.find((task) => task.id === rememberedTaskId) ?? latestByUpdatedAt(nextTasks);
-      if (nextTask) {
-        setActiveTask(nextTask);
-        const nextSessions = await api.listTaskSessions(nextTask.id);
-        const rememberedSessionId =
-          initialSessionIdRef.current ?? window.localStorage.getItem(LAST_SESSION_KEY);
-        const nextSession =
-          nextSessions.find((session) => session.id === rememberedSessionId) ?? latestByUpdatedAt(nextSessions);
-        await refreshWorkspaceForTask(nextTask, nextSession);
-      } else {
-        setActiveTask(null);
-        await refreshWorkspaceForTask(null);
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not load workspaces");
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshWorkspaceForTask]);
-
-  useEffect(() => {
-    void loadInitialState();
-  }, [loadInitialState]);
-
-  const createWorkspace = useCallback(
-    async (docTypeId: string, input: CreateWorkspaceInput) => {
-      const task = await api.createTask(docTypeId, input);
-      const session = await api.createSession(task.id);
-      const nextTasks = await api.listTasks();
-      setTasks(nextTasks);
-      setActiveTask(task);
-      setActiveSession(session);
-      await refreshWorkspaceForTask(task, session);
-      return { task, session };
-    },
-    [refreshWorkspaceForTask],
-  );
-
-  const createSessionForActiveTask = useCallback(async () => {
-    if (!activeTask) return null;
-    const session = await api.createSession(activeTask.id);
-    await refreshWorkspaceForTask(activeTask, session);
-    return session;
-  }, [activeTask, refreshWorkspaceForTask]);
-
-  const ensureSession = useCallback(async () => {
-    if (!activeTask) return null;
-    if (activeSession && isRunnableSession(activeSession)) return activeSession;
-    const session = await api.createSession(activeTask.id);
-    await refreshWorkspaceForTask(activeTask, session);
-    return session;
-  }, [activeSession, activeTask, refreshWorkspaceForTask]);
-
-  const treeData = useMemo(
-    () =>
-      buildWorkspaceTreeData(
-        tasks,
-        activeTask ? { [activeTask.id]: sessions } : {},
-        activeTask && workspaceTree ? { [activeTask.id]: workspaceTree } : {},
-      ),
-    [activeTask, sessions, tasks, workspaceTree],
-  );
-
-  return {
-    activeSession,
-    activeTask,
-    createWorkspace,
-    createSessionForActiveTask,
-    docTypes,
-    ensureSession,
-    error,
-    loading,
-    refreshActiveWorkspace,
-    selectSession,
-    selectTask,
-    sessions,
-    tasks,
-    treeData,
-    workspaceTree,
-  };
+  return { id: `file:${taskId}:${file.path}`, name, kind: "file", taskId, path: file.path };
 }

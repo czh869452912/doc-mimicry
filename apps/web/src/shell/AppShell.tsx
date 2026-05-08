@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { WorkspaceFileContent } from "../types";
 import { CommandPalette } from "./CommandPalette";
@@ -11,101 +11,46 @@ import { ConversationPane } from "./panes/ConversationPane";
 import { WorkspacePane } from "./panes/WorkspacePane";
 import { useCollapse } from "./state/useCollapse";
 import { useTimeline } from "./state/useTimeline";
-import { useWorkspaces } from "./state/useWorkspaces";
+import { useActiveWorkspace } from "./state/useActiveWorkspace";
+import { useWorkspaceTree } from "./state/useWorkspaceTree";
+import { useDraft } from "./state/useDraft";
+import { buildWorkspaceTreeData } from "./state/useWorkspaces";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 export function AppShell() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTaskId = useRef(searchParams.get("task")).current;
-  const initialSessionId = useRef(searchParams.get("session")).current;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [draftTaskId, setDraftTaskId] = useState<string | null>(null);
-  const [draftReloadToken, setDraftReloadToken] = useState(0);
   const [queuedComposerDraft, setQueuedComposerDraft] = useState<string | null>(null);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
-  const workspaces = useWorkspaces(initialTaskId, initialSessionId);
+  const queryClient = useQueryClient();
+
+  const workspaces = useActiveWorkspace();
+  const workspaceTreeQuery = useWorkspaceTree(workspaces.activeTask?.id);
+  const draftQuery = useDraft(workspaces.activeTask?.id);
   const editorTabs = useTabs();
   const collapse = useCollapse();
   const timeline = useTimeline(workspaces.activeSession?.id, workspaces.activeTask?.id);
+
+  const draft = draftQuery.data?.markdown ?? "";
+  const draftTaskId = draftQuery.isSuccess ? (workspaces.activeTask?.id ?? null) : null;
+
+  const treeData = buildWorkspaceTreeData(
+    workspaces.tasks,
+    workspaces.activeTask ? { [workspaces.activeTask.id]: workspaces.sessions } : {},
+    workspaces.activeTask && workspaceTreeQuery.data
+      ? { [workspaces.activeTask.id]: workspaceTreeQuery.data }
+      : {},
+  );
+
   const topBarStatus = workspaces.activeSession?.status?.startsWith("running")
     ? "running"
     : workspaces.activeSession?.status === "failed"
       ? "failed"
       : "idle";
 
-  useEffect(() => {
-    let cancelled = false;
-    const taskId = workspaces.activeTask?.id;
-
-    if (!taskId) {
-      setDraft("");
-      setDraftTaskId(null);
-      return;
-    }
-    const activeTaskId = taskId;
-    setDraft("");
-    setDraftTaskId(null);
-
-    async function loadActiveDraft() {
-      try {
-        const response = await api.getDraft(activeTaskId);
-        if (!cancelled) {
-          setDraft(response.markdown);
-          setDraftTaskId(activeTaskId);
-        }
-      } catch {
-        if (!cancelled) {
-          setDraft("");
-          setDraftTaskId(activeTaskId);
-        }
-      }
-    }
-
-    void loadActiveDraft();
-    return () => {
-      cancelled = true;
-    };
-  }, [draftReloadToken, workspaces.activeTask?.id]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setCommandOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (workspaces.loading) return;
-    const params: Record<string, string> = {};
-    if (workspaces.activeTask) params.task = workspaces.activeTask.id;
-    if (workspaces.activeSession) params.session = workspaces.activeSession.id;
-    setSearchParams(params, { replace: true });
-  }, [workspaces.loading, workspaces.activeTask?.id, workspaces.activeSession?.id, setSearchParams]);
-
-  useEffect(() => {
-    if (!workspaces.activeSession?.status?.startsWith("running")) return;
-    let cancelled = false;
-    const intervalId = window.setInterval(() => {
-      void workspaces.refreshActiveWorkspace().then(() => {
-        if (!cancelled) setDraftReloadToken((token) => token + 1);
-      });
-    }, 1500);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [workspaces.activeSession?.id, workspaces.activeSession?.status, workspaces.refreshActiveWorkspace]);
-
   return (
-    <main className="docagent-shell">
+    <main className="docagent-shell" onKeyDown={handleKeyDown}>
       <TopBar
         workspaceLabel={workspaces.activeTask?.title ?? workspaces.activeTask?.brief ?? "No workspace"}
         sessionLabel={workspaces.activeSession ? `session ${workspaces.activeSession.id.slice(0, 8)}` : "no session"}
@@ -122,32 +67,32 @@ export function AppShell() {
         <ResizablePanel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <ErrorBoundary label="Workspace">
-            <WorkspacePane
-              activeSession={workspaces.activeSession}
-              activeTask={workspaces.activeTask}
-              docTypes={workspaces.docTypes}
-              error={workspaces.error}
-              loading={workspaces.loading}
-              nodes={workspaces.treeData}
-              sessions={workspaces.sessions}
-              onCreateWorkspace={async (docTypeId, brief) => {
-                await workspaces.createWorkspace(docTypeId, brief);
-              }}
-              onCreateSession={async () => {
-                await workspaces.createSessionForActiveTask();
-              }}
-              onOpenFile={(path) => {
-                void openWorkspaceFile(path);
-              }}
-              onSelectSession={(sessionId) => {
-                const session = workspaces.sessions.find((item) => item.id === sessionId);
-                if (session) void workspaces.selectSession(session);
-              }}
-              onSelectTask={(taskId) => {
-                const task = workspaces.tasks.find((item) => item.id === taskId);
-                if (task) void workspaces.selectTask(task);
-              }}
-            />
+              <WorkspacePane
+                activeSession={workspaces.activeSession}
+                activeTask={workspaces.activeTask}
+                docTypes={workspaces.docTypes}
+                error={workspaces.error}
+                loading={workspaces.loading}
+                nodes={treeData}
+                sessions={workspaces.sessions}
+                onCreateWorkspace={async (docTypeId, brief) => {
+                  await workspaces.createWorkspace(docTypeId, brief);
+                }}
+                onCreateSession={async () => {
+                  await workspaces.createSessionForActiveTask();
+                }}
+                onOpenFile={(path) => {
+                  void openWorkspaceFile(path);
+                }}
+                onSelectSession={(sessionId) => {
+                  const session = workspaces.sessions.find((s) => s.id === sessionId);
+                  if (session) workspaces.selectSession(session);
+                }}
+                onSelectTask={(taskId) => {
+                  const task = workspaces.tasks.find((t) => t.id === taskId);
+                  if (task) workspaces.selectTask(task);
+                }}
+              />
             </ErrorBoundary>
           </aside>
         </ResizablePanel>
@@ -155,24 +100,24 @@ export function AppShell() {
         <ResizablePanel id="center" minSize={32}>
           <section className="shell-panel shell-panel--center">
             <ErrorBoundary label="Conversation">
-            <ConversationPane
-              activeSession={workspaces.activeSession}
-              activeTask={workspaces.activeTask}
-              ensureSession={workspaces.ensureSession}
-              events={timeline.events}
-              error={timeline.error}
-              loading={timeline.loading}
-              onOpenPath={openWorkspaceFile}
-              onQueuedComposerDraftHandled={() => setQueuedComposerDraft(null)}
-              onQueuedCommandHandled={() => setQueuedCommand(null)}
-              queuedComposerDraft={queuedComposerDraft}
-              queuedCommand={queuedCommand}
-              refreshTimeline={timeline.refreshTimeline}
-              refreshWorkspace={async () => {
-                await workspaces.refreshActiveWorkspace();
-                setDraftReloadToken((token) => token + 1);
-              }}
-            />
+              <ConversationPane
+                activeSession={workspaces.activeSession}
+                activeTask={workspaces.activeTask}
+                ensureSession={workspaces.ensureSession}
+                events={timeline.events}
+                error={timeline.error}
+                loading={timeline.loading}
+                onOpenPath={openWorkspaceFile}
+                onQueuedComposerDraftHandled={() => setQueuedComposerDraft(null)}
+                onQueuedCommandHandled={() => setQueuedCommand(null)}
+                queuedComposerDraft={queuedComposerDraft}
+                queuedCommand={queuedCommand}
+                refreshTimeline={timeline.refreshTimeline}
+                refreshWorkspace={async () => {
+                  await queryClient.invalidateQueries({ queryKey: ["workspace", workspaces.activeTask?.id] });
+                  await queryClient.invalidateQueries({ queryKey: ["draft", workspaces.activeTask?.id] });
+                }}
+              />
             </ErrorBoundary>
           </section>
         </ResizablePanel>
@@ -180,21 +125,21 @@ export function AppShell() {
         <ResizablePanel id="right" defaultSize={collapse.rightPanelSize} minSize={18} collapsedSize={4} collapsible>
           <aside className="shell-panel">
             <ErrorBoundary label="Editor">
-            <EditorPane
-              activeSessionId={workspaces.activeSession?.id ?? null}
-              activeTabId={editorTabs.activeTabId}
-              draft={draft}
-              draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null)}
-              tabs={editorTabs.tabs}
-              taskId={workspaces.activeTask?.id ?? null}
-              onCloseTab={editorTabs.removeTab}
-              onDraftChange={setDraft}
-              onReviseSelection={reviseSelectedText}
-              onSendSelectionToChat={(selectedText) => {
-                setQueuedComposerDraft(selectionPrompt(selectedText));
-              }}
-              onTabChange={editorTabs.setActiveTabId}
-            />
+              <EditorPane
+                activeSessionId={workspaces.activeSession?.id ?? null}
+                activeTabId={editorTabs.activeTabId}
+                draft={draft}
+                draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null)}
+                tabs={editorTabs.tabs}
+                taskId={workspaces.activeTask?.id ?? null}
+                onCloseTab={editorTabs.removeTab}
+                onDraftChange={() => {}}
+                onReviseSelection={reviseSelectedText}
+                onSendSelectionToChat={(selectedText) => {
+                  setQueuedComposerDraft(selectionPrompt(selectedText));
+                }}
+                onTabChange={editorTabs.setActiveTabId}
+              />
             </ErrorBoundary>
           </aside>
         </ResizablePanel>
@@ -208,6 +153,13 @@ export function AppShell() {
       />
     </main>
   );
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      setCommandOpen(true);
+    }
+  }
 
   async function openWorkspaceFile(path: string) {
     if (!workspaces.activeTask) return;
@@ -223,8 +175,8 @@ export function AppShell() {
       "Please revise the selected passage while preserving its meaning.",
     );
     await timeline.refreshTimeline();
-    await workspaces.refreshActiveWorkspace();
-    setDraftReloadToken((token) => token + 1);
+    await queryClient.invalidateQueries({ queryKey: ["workspace", workspaces.activeTask?.id] });
+    await queryClient.invalidateQueries({ queryKey: ["draft", workspaces.activeTask?.id] });
   }
 }
 
