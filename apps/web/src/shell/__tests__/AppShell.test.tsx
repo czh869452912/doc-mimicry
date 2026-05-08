@@ -441,7 +441,7 @@ describe("AppShell", () => {
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
   });
 
-  it("sends chat messages in background mode and refreshes timeline immediately", async () => {
+  it("sends chat messages in background mode and refreshes timeline and workspace", async () => {
     render(<MemoryRouter><AppShell /></MemoryRouter>);
 
     await screen.findByText("Restored workspace");
@@ -453,8 +453,8 @@ describe("AppShell", () => {
 
     await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the draft"));
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
-    expect(api.getWorkspace).not.toHaveBeenCalled();
-    expect(await screen.findByText("Working...")).toBeTruthy();
+    expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
+    expect(screen.queryByText("Working...")).toBeNull();
   });
 
   it("imports composer text attachments before sending the message", async () => {

@@ -50,7 +50,6 @@ export function ConversationPane({
     async (rawInput: string) => {
       const input = rawInput.trimEnd();
       if (!input) return;
-      setStatus("Working...");
 
       try {
         const commandResult = await executeSlashCommand(input, {
@@ -67,15 +66,13 @@ export function ConversationPane({
             setStatus("Create a workspace first.");
             return;
           }
-          const result = await api.sendMessage(session.id, input);
+          await api.sendMessage(session.id, input);
           await refreshTimeline();
-          if (result.accepted) {
-            setStatus("Working...");
-            return;
-          }
           await refreshWorkspace();
+          setStatus("");
+          return;
         }
-        setStatus(commandResult.message ?? "Message processed.");
+        setStatus(commandResult.message ?? "");
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
       }
