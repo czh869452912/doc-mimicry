@@ -1,16 +1,26 @@
 import { ComposerPrimitive, useAui } from "@assistant-ui/react";
 import { Send } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DocAgentSlashCommands } from "./DocAgentSlashCommands";
 
 interface DocAgentComposerProps {
   disabled: boolean;
+  draftText?: string | null;
+  onDraftTextApplied?: () => void;
 }
 
-export function DocAgentComposer({ disabled }: DocAgentComposerProps) {
+export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: DocAgentComposerProps) {
   const aui = useAui();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!draftText) return;
+    aui.composer().setText(draftText);
+    inputRef.current?.focus();
+    setQuery(draftText);
+    onDraftTextApplied?.();
+  }, [aui, draftText, onDraftTextApplied]);
 
   function selectCommand(command: string) {
     const input = inputRef.current;

@@ -10,12 +10,21 @@ export interface DraftEditorProps {
 }
 
 export function DraftEditor({ markdown: value, onChange, onSelection, readOnly = false }: DraftEditorProps) {
+  const selectionListener = EditorView.updateListener.of((viewUpdate) => {
+    if (!viewUpdate.selectionSet) return;
+    const selection = viewUpdate.state.sliceDoc(
+      viewUpdate.state.selection.main.from,
+      viewUpdate.state.selection.main.to,
+    );
+    onSelection?.(selection);
+  });
+
   return (
     <CodeMirror
       basicSetup
       className="draft-source-editor"
       editable={!readOnly}
-      extensions={[markdown(), EditorView.lineWrapping]}
+      extensions={[markdown(), EditorView.lineWrapping, selectionListener]}
       height="100%"
       theme="light"
       value={value}

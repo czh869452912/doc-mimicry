@@ -35,21 +35,8 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
 });
 
 test("assistant-ui center pane sends messages and renders timeline updates", async ({ page }) => {
-  const title = `Assistant UI PRD ${Date.now()}`;
-
   await page.goto("/");
-  await page
-    .locator(".pane-header")
-    .filter({ hasText: "Workspaces" })
-    .getByRole("button", { name: /create workspace/i })
-    .click();
-  await page.getByLabel(/title/i).fill(title);
-  await page.getByLabel(/description/i).fill("Exercise the assistant-ui center pane.");
-  await page
-    .locator("form")
-    .filter({ has: page.getByLabel(/description/i) })
-    .getByRole("button", { name: /^create workspace$/i })
-    .click();
+  await createDraftReadyWorkspace(page, `Assistant UI PRD ${Date.now()}`);
 
   await expect(page.locator(".aui-composer")).toBeVisible();
   await page.getByLabel("Message").fill("Revise the launch scope");
@@ -104,3 +91,23 @@ test("URL params deep-link to a task and session on reload", async ({ page }) =>
   expect(new URL(page.url()).searchParams.get("task")).toBe(taskId);
   expect(new URL(page.url()).searchParams.get("session")).toBe(sessionId);
 });
+
+async function createDraftReadyWorkspace(page: import("@playwright/test").Page, title: string) {
+  await page
+    .locator(".pane-header")
+    .filter({ hasText: "Workspaces" })
+    .getByRole("button", { name: /create workspace/i })
+    .click();
+  await page.getByLabel(/title/i).fill(title);
+  await page.getByLabel(/description/i).fill("Exercise the assistant-ui center pane.");
+  await page
+    .locator("form")
+    .filter({ has: page.getByLabel(/description/i) })
+    .getByRole("button", { name: /^create workspace$/i })
+    .click();
+  await page.getByLabel("Message").fill("/start");
+  await page.getByLabel("Message").press("Enter");
+  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
+  await page.getByRole("button", { name: /approve/i }).click();
+  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+}

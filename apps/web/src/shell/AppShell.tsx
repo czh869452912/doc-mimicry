@@ -24,6 +24,7 @@ export function AppShell() {
   const [draft, setDraft] = useState("");
   const [draftTaskId, setDraftTaskId] = useState<string | null>(null);
   const [draftReloadToken, setDraftReloadToken] = useState(0);
+  const [queuedComposerDraft, setQueuedComposerDraft] = useState<string | null>(null);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
   const workspaces = useWorkspaces(initialTaskId, initialSessionId);
   const editorTabs = useTabs();
@@ -147,7 +148,9 @@ export function AppShell() {
               error={timeline.error}
               loading={timeline.loading}
               onOpenPath={openWorkspaceFile}
+              onQueuedComposerDraftHandled={() => setQueuedComposerDraft(null)}
               onQueuedCommandHandled={() => setQueuedCommand(null)}
+              queuedComposerDraft={queuedComposerDraft}
               queuedCommand={queuedCommand}
               refreshTimeline={timeline.refreshTimeline}
               refreshWorkspace={async () => {
@@ -171,6 +174,10 @@ export function AppShell() {
               taskId={workspaces.activeTask?.id ?? null}
               onCloseTab={editorTabs.removeTab}
               onDraftChange={setDraft}
+              onReviseSelection={reviseSelectedText}
+              onSendSelectionToChat={(selectedText) => {
+                setQueuedComposerDraft(selectionPrompt(selectedText));
+              }}
               onTabChange={editorTabs.setActiveTabId}
             />
             </ErrorBoundary>
@@ -192,6 +199,22 @@ export function AppShell() {
     const file = await api.getWorkspaceFile(workspaces.activeTask.id, path);
     editorTabs.openTab(tabFromWorkspaceFile(file));
   }
+
+  async function reviseSelectedText(selectedText: string) {
+    if (!workspaces.activeSession) return;
+    await api.reviseSelection(
+      workspaces.activeSession.id,
+      selectedText,
+      "Please revise the selected passage while preserving its meaning.",
+    );
+    await timeline.refreshTimeline();
+    await workspaces.refreshActiveWorkspace();
+    setDraftReloadToken((token) => token + 1);
+  }
+}
+
+function selectionPrompt(selectedText: string) {
+  return `Please review this selected passage and suggest improvements:\n\n> ${selectedText}`;
 }
 
 function tabFromWorkspaceFile(file: WorkspaceFileContent) {

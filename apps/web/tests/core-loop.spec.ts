@@ -78,3 +78,32 @@ test("export markdown shows artifact card", async ({ page }) => {
 
   await expect(page.getByText(/artifact · artifacts\/prd-draft\.md/i)).toBeVisible({ timeout: 8_000 });
 });
+
+test("selected source text can be queued into assistant composer", async ({ page }) => {
+  await reachDraftReady(page);
+
+  await page.getByRole("button", { name: "Source" }).click();
+  const editor = page.locator(".cm-content");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+
+  await expect(page.getByRole("button", { name: "Send to chat" })).toBeVisible({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Send to chat" }).click();
+
+  await expect(page.getByLabel("Message")).toContainText("Please review this selected passage");
+  await expect(page.getByLabel("Message")).toContainText("PRD Draft");
+});
+
+test("selected source text can trigger revise selection", async ({ page }) => {
+  await reachDraftReady(page);
+
+  await page.getByRole("button", { name: "Source" }).click();
+  const editor = page.locator(".cm-content");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+A" : "Control+A");
+
+  await expect(page.getByRole("button", { name: "Revise selection" })).toBeVisible({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Revise selection" }).click();
+
+  await expect(page.locator(".aui-thread")).toContainText(/revise_selection|update_draft|revision/i, { timeout: 8_000 });
+});

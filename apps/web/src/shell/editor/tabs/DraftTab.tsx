@@ -56,7 +56,7 @@ export function DraftTab({
             <MessageSquare size={14} /> Send to chat
           </button>
           <button type="button" onClick={() => onReviseSelection(selectedText)}>
-            <Sparkles size={14} /> Revise
+            <Sparkles size={14} /> Revise selection
           </button>
         </div>
       )}

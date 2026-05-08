@@ -4,7 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { DocAgentComposer } from "../DocAgentComposer";
 
-function ComposerHarness({ onNew = vi.fn() }: { onNew?: (message: AppendMessage) => Promise<void> }) {
+function ComposerHarness({
+  draftText,
+  onDraftTextApplied,
+  onNew = vi.fn(),
+}: {
+  draftText?: string | null;
+  onDraftTextApplied?: () => void;
+  onNew?: (message: AppendMessage) => Promise<void>;
+}) {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [],
     onNew,
@@ -12,7 +20,7 @@ function ComposerHarness({ onNew = vi.fn() }: { onNew?: (message: AppendMessage)
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <DocAgentComposer disabled={false} />
+      <DocAgentComposer disabled={false} draftText={draftText} onDraftTextApplied={onDraftTextApplied} />
     </AssistantRuntimeProvider>
   );
 }
@@ -37,5 +45,14 @@ describe("DocAgentComposer", () => {
     await userEvent.click(await screen.findByRole("button", { name: /\/start start outline loop/i }));
 
     expect((input as HTMLTextAreaElement).value).toBe("/start ");
+  });
+
+  it("applies externally queued draft text to the assistant-ui composer", async () => {
+    const onDraftTextApplied = vi.fn();
+
+    render(<ComposerHarness draftText="Please review this selected passage" onDraftTextApplied={onDraftTextApplied} />);
+
+    expect(await screen.findByDisplayValue("Please review this selected passage")).toBeTruthy();
+    expect(onDraftTextApplied).toHaveBeenCalledOnce();
   });
 });

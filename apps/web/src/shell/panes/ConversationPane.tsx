@@ -15,7 +15,9 @@ interface ConversationPaneProps {
   error: string | null;
   loading: boolean;
   onOpenPath: (path: string) => Promise<void>;
+  onQueuedComposerDraftHandled?: () => void;
   onQueuedCommandHandled?: () => void;
+  queuedComposerDraft?: string | null;
   queuedCommand?: string | null;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
@@ -28,16 +30,19 @@ export function ConversationPane({
   events,
   error,
   loading,
+  onQueuedComposerDraftHandled,
   onQueuedCommandHandled,
   onOpenPath,
+  queuedComposerDraft,
   queuedCommand,
   refreshTimeline,
   refreshWorkspace,
 }: ConversationPaneProps) {
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
   const runtime = useDocAgentAssistantRuntime({
-    disabled: !activeTask,
+    disabled: composerDisabled,
     events,
     isRunning: Boolean(activeSession?.status?.startsWith("running")),
     onSubmitInput: submitInput,
@@ -116,7 +121,11 @@ export function ConversationPane({
             </ul>
           </article>
         )}
-        <DocAgentComposer disabled={!activeTask} />
+        <DocAgentComposer
+          disabled={composerDisabled}
+          draftText={queuedComposerDraft}
+          onDraftTextApplied={onQueuedComposerDraftHandled}
+        />
       </AssistantRuntimeProvider>
       {error && <p className="pane-note pane-note--error">{error}</p>}
       <p className="status-line">{status}</p>
@@ -128,4 +137,9 @@ function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecor
   if (!activeTask) return "Create a workspace to begin.";
   if (!activeSession) return "Send a message or run /start to create a session.";
   return null;
+}
+
+function canSubmitComposerInput(activeSession: SessionRecord | null) {
+  if (!activeSession) return true;
+  return ["idle", "draft_ready", "paused", "failed"].includes(activeSession.status);
 }

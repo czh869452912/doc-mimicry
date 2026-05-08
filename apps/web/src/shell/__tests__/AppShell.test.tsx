@@ -20,10 +20,17 @@ vi.mock("../../api", () => ({
     listTaskSessions: vi.fn(),
     listTasks: vi.fn(),
     runChecklist: vi.fn(),
+    reviseSelection: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),
     updateDraft: vi.fn(),
   },
+}));
+
+vi.mock("../editor/LazyDraftEditor", () => ({
+  LazyDraftEditor: ({ onSelection }: { onSelection: (selectedText: string) => void }) => (
+    <div data-testid="draft-source-editor" onClick={() => onSelection("selected paragraph")} />
+  ),
 }));
 
 vi.mock("react-resizable-panels", () => ({
@@ -81,6 +88,7 @@ describe("AppShell", () => {
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.sendMessage).mockResolvedValue({ accepted: true, status: "running_revision" });
+    vi.mocked(api.reviseSelection).mockResolvedValue({ session_id: "session-1", next_state: "RUNNING_REVISION" });
   });
 
   afterEach(() => {
@@ -390,6 +398,36 @@ describe("AppShell", () => {
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
 
     expect(await screen.findByRole("textbox")).toBeTruthy();
+  });
+
+  it("queues selected draft text into the assistant composer", async () => {
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    await userEvent.click(await screen.findByTestId("draft-source-editor"));
+    await userEvent.click(screen.getByRole("button", { name: "Send to chat" }));
+
+    expect(await screen.findByDisplayValue(/selected paragraph/)).toBeTruthy();
+  });
+
+  it("revises selected draft text through the active session", async () => {
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    await userEvent.click(await screen.findByTestId("draft-source-editor"));
+    await userEvent.click(screen.getByRole("button", { name: "Revise selection" }));
+
+    await waitFor(() =>
+      expect(api.reviseSelection).toHaveBeenCalledWith(
+        "session-1",
+        "selected paragraph",
+        "Please revise the selected passage while preserving its meaning.",
+      ),
+    );
+    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
   });
 
   it("sends chat messages in background mode and refreshes timeline immediately", async () => {

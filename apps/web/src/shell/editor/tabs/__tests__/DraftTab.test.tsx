@@ -28,7 +28,7 @@ describe("DraftTab selection bar", () => {
     fireEvent.click(screen.getByTestId("editor"));
 
     expect(screen.queryByText("Send to chat")).toBeNull();
-    expect(screen.queryByText("Revise")).toBeNull();
+    expect(screen.queryByText("Revise selection")).toBeNull();
   });
 
   it("shows selection bar when selection handlers are provided", () => {
@@ -46,6 +46,6 @@ describe("DraftTab selection bar", () => {
     fireEvent.click(screen.getByTestId("editor"));
 
     expect(screen.getByText("Send to chat")).toBeTruthy();
-    expect(screen.getByText("Revise")).toBeTruthy();
+    expect(screen.getByText("Revise selection")).toBeTruthy();
   });
 });
