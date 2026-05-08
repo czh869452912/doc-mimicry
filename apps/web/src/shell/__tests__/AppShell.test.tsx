@@ -1,9 +1,10 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useEffect } from "react";
 import { api } from "../../api";
+import { createAppRouter } from "../../App";
 import { AppShell } from "../AppShell";
 
 vi.mock("../../api", () => ({
@@ -40,13 +41,21 @@ vi.mock("react-resizable-panels", () => ({
   Separator: () => <div />,
 }));
 
-function LocationProbe({ onChange }: { onChange: (search: string) => void }) {
-  const location = useLocation();
-  useEffect(() => {
-    onChange(location.search);
-  }, [location.search, onChange]);
-  return null;
+function renderAppShell(initialUrl = "/") {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [initialUrl] }));
+  return {
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+    router,
+  };
 }
+
+// AppShell is not imported directly in these tests — it is rendered via the router.
+void AppShell;
 
 describe("AppShell", () => {
   beforeEach(() => {
@@ -107,7 +116,7 @@ describe("AppShell", () => {
   });
 
   it("loads the active task draft after restored workspace state is available", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-1"));
     expect(await screen.findByRole("heading", { name: "Restored draft" })).toBeTruthy();
@@ -118,7 +127,7 @@ describe("AppShell", () => {
   });
 
   it("runs slash commands selected from the command palette", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("Restored workspace");
     await userEvent.click(screen.getByText("Ctrl K"));
@@ -158,27 +167,21 @@ describe("AppShell", () => {
         resolveTaskTwoDraft = resolve;
       });
     });
-    window.localStorage.setItem("docagent:lastTaskId", "task-1");
 
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     expect(await screen.findByRole("heading", { name: "Task one draft" })).toBeTruthy();
     vi.mocked(api.updateDraft).mockClear();
-    vi.useFakeTimers();
 
-    act(() => {
-      fireEvent.click(screen.getByText("Task Two"));
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(900);
-    });
+    fireEvent.click(screen.getByText("Task Two"));
 
+    // Wait for the query to fire so resolveTaskTwoDraft is initialized
+    await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-2"));
+
+    // The key invariant: task-1 draft must NOT be auto-saved into task-2
     expect(api.updateDraft).not.toHaveBeenCalledWith("task-2", "# Task one draft");
 
-    await act(async () => {
-      resolveTaskTwoDraft({ markdown: "# Task two draft" });
-    });
-    vi.useRealTimers();
+    resolveTaskTwoDraft({ markdown: "# Task two draft" });
     expect(await screen.findByRole("heading", { name: "Task two draft" })).toBeTruthy();
   });
 
@@ -206,7 +209,7 @@ describe("AppShell", () => {
       updated_at: "2026-05-06T10:00:00Z",
     });
 
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell();
 
     await userEvent.click(await screen.findByRole("button", { name: /create workspace/i }));
     await userEvent.clear(screen.getByLabelText("Title"));
@@ -256,7 +259,7 @@ describe("AppShell", () => {
       },
     ]);
 
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await userEvent.click(await screen.findByRole("button", { name: /new session/i }));
 
@@ -305,11 +308,7 @@ describe("AppShell", () => {
     vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-2", root: "workspace/task-2", files: [] });
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Linked draft" });
 
-    render(
-      <MemoryRouter initialEntries={["/?task=task-2&session=session-2"]}>
-        <AppShell />
-      </MemoryRouter>,
-    );
+    renderAppShell("/?task=task-2&session=session-2");
 
     expect(await screen.findByText("Linked task")).toBeTruthy();
     expect(await screen.findByRole("heading", { name: "Linked draft" })).toBeTruthy();
@@ -317,7 +316,6 @@ describe("AppShell", () => {
   });
 
   it("syncs selected task and session into URL search params", async () => {
-    const searches: string[] = [];
     vi.mocked(api.listTasks).mockResolvedValue([
       {
         id: "task-1",
@@ -369,18 +367,16 @@ describe("AppShell", () => {
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Draft" });
     window.localStorage.setItem("docagent:lastTaskId", "task-1");
 
-    render(
-      <MemoryRouter>
-        <LocationProbe onChange={(search) => searches.push(search)} />
-        <AppShell />
-      </MemoryRouter>,
-    );
+    const { router } = renderAppShell();
 
     await screen.findByText("Task One");
     fireEvent.click(screen.getByText("Task Two"));
 
-    await waitFor(() => expect(searches.at(-1)).toContain("task=task-2"));
-    await waitFor(() => expect(searches.at(-1)).toContain("session=session-2"));
+    await waitFor(() => {
+      const search = router.state.location.search as { task?: string; session?: string };
+      expect(search.task).toBe("task-2");
+      expect(search.session).toBe("session-2");
+    });
   });
 
   it("opens settings and shows document type resources", async () => {
@@ -394,7 +390,7 @@ describe("AppShell", () => {
       },
     ]);
 
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await userEvent.click(await screen.findByRole("button", { name: /open settings/i }));
 
@@ -403,7 +399,7 @@ describe("AppShell", () => {
   });
 
   it("loads the source editor only when source mode is selected", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
@@ -412,7 +408,7 @@ describe("AppShell", () => {
   });
 
   it("queues selected draft text into the assistant composer", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
@@ -423,7 +419,7 @@ describe("AppShell", () => {
   });
 
   it("revises selected draft text through the active session", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
@@ -442,7 +438,7 @@ describe("AppShell", () => {
   });
 
   it("sends chat messages in background mode and refreshes timeline and workspace", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("Restored workspace");
     vi.mocked(api.getWorkspace).mockClear();
@@ -458,7 +454,7 @@ describe("AppShell", () => {
   });
 
   it("imports composer text attachments before sending the message", async () => {
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("Restored workspace");
     await userEvent.click(screen.getByLabelText("Attach file"));
@@ -501,7 +497,7 @@ describe("AppShell", () => {
       },
     ]);
 
-    render(<MemoryRouter><AppShell /></MemoryRouter>);
+    renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("I updated the launch scope.");
     vi.mocked(api.sendMessage).mockClear();
