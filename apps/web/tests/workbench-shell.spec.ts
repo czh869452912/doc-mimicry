@@ -4,6 +4,9 @@ test("workbench shell mounts core surfaces", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("DocAgent")).toBeVisible();
   await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
+  await expect(page.locator(".aui-thread")).toBeVisible();
+  await expect(page.locator(".aui-composer")).toBeVisible();
+  await expect(page.locator(".conversation-stream")).toHaveCount(0);
   await expect(page.getByLabel("Message")).toBeVisible();
   await expect(page.getByRole("tab", { name: /draft/i })).toBeVisible();
 });
@@ -29,6 +32,31 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
   await page.getByRole("button", { name: /new session/i }).click();
   await expect(page.getByText(/session-/i).first()).toBeVisible();
   await expect(page.getByText("Workspace files")).toBeVisible();
+});
+
+test("assistant-ui center pane sends messages and renders timeline updates", async ({ page }) => {
+  const title = `Assistant UI PRD ${Date.now()}`;
+
+  await page.goto("/");
+  await page
+    .locator(".pane-header")
+    .filter({ hasText: "Workspaces" })
+    .getByRole("button", { name: /create workspace/i })
+    .click();
+  await page.getByLabel(/title/i).fill(title);
+  await page.getByLabel(/description/i).fill("Exercise the assistant-ui center pane.");
+  await page
+    .locator("form")
+    .filter({ has: page.getByLabel(/description/i) })
+    .getByRole("button", { name: /^create workspace$/i })
+    .click();
+
+  await expect(page.locator(".aui-composer")).toBeVisible();
+  await page.getByLabel("Message").fill("Revise the launch scope");
+  await page.getByLabel("Message").press("Enter");
+
+  await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
+  await expect(page.locator(".aui-thread")).toContainText(/agent|processed|message|draft|context/i, { timeout: 10_000 });
 });
 
 test("URL params deep-link to a task and session on reload", async ({ page }) => {

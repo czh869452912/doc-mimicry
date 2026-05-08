@@ -9,3 +9,101 @@
   --aui-color-primary: var(--color-accent);
   font-family: var(--font-body);
 }
+
+.aui-root {
+  display: contents;
+}
+
+.aui-thread {
+  min-height: 0;
+}
+
+.aui-thread-viewport {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.aui-message {
+  max-width: 78%;
+  color: var(--color-body);
+}
+
+.aui-message--user {
+  align-self: flex-end;
+  color: var(--color-ink);
+}
+
+.aui-message--assistant {
+  align-self: flex-start;
+}
+
+.aui-message-text {
+  margin: 0;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+}
+
+.aui-event-pill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--color-body);
+  font-size: 13px;
+}
+
+.aui-event-pill-row small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aui-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.aui-composer textarea {
+  min-height: 48px;
+  max-height: 132px;
+  padding: 8px 10px;
+  resize: none;
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+}
+
+.aui-send-button {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  align-self: end;
+  justify-content: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 8px;
+  color: var(--color-surface-card);
+  cursor: pointer;
+  background: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-md);
+}
+
+.aui-send-button:disabled,
+.aui-composer textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

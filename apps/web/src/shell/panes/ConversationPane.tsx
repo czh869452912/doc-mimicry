@@ -1,24 +1,21 @@
-import type { ExternalThreadMessage } from "@assistant-ui/react";
-import { Send } from "lucide-react";
+import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useEffect, useState } from "react";
 import { api } from "../../api";
-import type { SessionRecord, TaskRecord } from "../../types";
+import type { SessionRecord, TaskRecord, TimelineEvent } from "../../types";
+import { DocAgentComposer } from "../assistant/DocAgentComposer";
+import { DocAgentThread } from "../assistant/DocAgentThread";
+import { useDocAgentAssistantRuntime } from "../assistant/useDocAgentAssistantRuntime";
 import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashCommands";
-import type { Presentation } from "../conversation/timelinePresentation";
-import { ApprovalCard } from "../conversation/cards/ApprovalCard";
-import { ArtifactCard } from "../conversation/cards/ArtifactCard";
-import { ChecklistCard } from "../conversation/cards/ChecklistCard";
-import { OutlineCard } from "../conversation/cards/OutlineCard";
 
 interface ConversationPaneProps {
   activeSession: SessionRecord | null;
   activeTask: TaskRecord | null;
   ensureSession: () => Promise<SessionRecord | null>;
+  events: TimelineEvent[];
   error: string | null;
   loading: boolean;
   onOpenPath: (path: string) => Promise<void>;
   onQueuedCommandHandled?: () => void;
-  presentations: Presentation[];
   queuedCommand?: string | null;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
@@ -28,21 +25,23 @@ export function ConversationPane({
   activeSession,
   activeTask,
   ensureSession,
+  events,
   error,
   loading,
   onQueuedCommandHandled,
   onOpenPath,
-  presentations,
   queuedCommand,
   refreshTimeline,
   refreshWorkspace,
 }: ConversationPaneProps) {
-  const [composer, setComposer] = useState("");
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
-  const assistantMessages: ExternalThreadMessage[] = presentations
-    .filter((presentation) => presentation.kind === "message")
-    .map(toAssistantMessage);
+  const runtime = useDocAgentAssistantRuntime({
+    disabled: !activeTask,
+    events,
+    isRunning: Boolean(activeSession?.status?.startsWith("running")),
+    onSubmitInput: submitInput,
+  });
 
   useEffect(() => {
     if (!queuedCommand) return;
@@ -85,22 +84,19 @@ export function ConversationPane({
     }
   }
 
-  async function submitComposer() {
-    const input = composer;
-    setComposer("");
-    await submitInput(input);
-  }
-
   return (
     <section className="conversation-pane aui-root">
-      <div
-        className="conversation-stream aui-thread"
-        data-assistant-ui-message-count={assistantMessages.length}
-      >
-        {!activeTask && <div className="conversation-empty">Create a workspace to begin.</div>}
-        {activeTask && !activeSession && (
-          <div className="conversation-empty">Send a message or run /start to create a session.</div>
-        )}
+      <AssistantRuntimeProvider runtime={runtime}>
+        <DocAgentThread
+          activeSessionId={activeSession?.id ?? null}
+          emptyMessage={emptyMessage(activeTask, activeSession)}
+          taskId={activeTask?.id ?? null}
+          onApproved={async () => {
+            await refreshWorkspace();
+            await refreshTimeline();
+          }}
+          onOpenPath={onOpenPath}
+        />
         {showHelp && (
           <article className="inline-card">
             <header>
@@ -118,122 +114,17 @@ export function ConversationPane({
             </ul>
           </article>
         )}
-        {presentations.map((presentation) => (
-          <StreamItem
-            activeSessionId={activeSession?.id ?? null}
-            key={presentation.kind === "card" ? presentation.payload.id : presentation.event.id}
-            presentation={presentation}
-            taskId={activeTask?.id ?? null}
-            onApproved={async () => {
-              await refreshWorkspace();
-              await refreshTimeline();
-            }}
-            onOpenPath={onOpenPath}
-          />
-        ))}
-      </div>
+        <DocAgentComposer disabled={!activeTask} />
+      </AssistantRuntimeProvider>
       {error && <p className="pane-note pane-note--error">{error}</p>}
       {loading && <p className="pane-note">Refreshing timeline...</p>}
       <p className="status-line">{status}</p>
-      <form
-        className="composer aui-composer"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submitComposer();
-        }}
-      >
-        <textarea
-          aria-label="Message"
-          placeholder="Message the agent, or type / for commands"
-          value={composer}
-          onChange={(event) => setComposer(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              void submitComposer();
-            }
-          }}
-        />
-        <button className="send-button" type="submit" disabled={!activeTask}>
-          <Send size={15} />
-        </button>
-      </form>
     </section>
   );
 }
 
-function toAssistantMessage(presentation: Extract<Presentation, { kind: "message" }>): ExternalThreadMessage {
-  if (presentation.role === "agent") {
-    return {
-      id: presentation.event.id,
-      role: "assistant",
-      content: [{ type: "text", text: presentation.body }],
-      createdAt: new Date(),
-      status: { type: "complete", reason: "stop" },
-      metadata: {
-        unstable_state: null,
-        unstable_annotations: [],
-        unstable_data: [],
-        steps: [],
-        custom: { timelineEventId: presentation.event.id },
-      },
-    };
-  }
-  return {
-    id: presentation.event.id,
-    role: "user",
-    content: [{ type: "text", text: presentation.body }],
-    createdAt: new Date(),
-    attachments: [],
-    metadata: {
-      custom: { timelineEventId: presentation.event.id },
-    },
-  };
-}
-
-function StreamItem({
-  activeSessionId,
-  onApproved,
-  onOpenPath,
-  presentation,
-  taskId,
-}: {
-  activeSessionId: string | null;
-  onApproved: () => Promise<void>;
-  onOpenPath: (path: string) => Promise<void>;
-  presentation: Presentation;
-  taskId: string | null;
-}) {
-  if (presentation.kind === "message") {
-    return <article className={`message message--${presentation.role}`}>{presentation.body}</article>;
-  }
-  if (presentation.kind === "pill") {
-    return (
-      <article className="event-pill-row">
-        <span className="event-pill" data-category={presentation.category}>
-          {presentation.event.kind}
-        </span>
-        <span>{presentation.summary}</span>
-        {presentation.meta && <small>{presentation.meta}</small>}
-      </article>
-    );
-  }
-  if (presentation.cardType === "outline") {
-    return (
-      <OutlineCard
-        event={presentation.payload}
-        sessionId={activeSessionId}
-        taskId={taskId}
-        onApproved={onApproved}
-        onOpenPath={onOpenPath}
-      />
-    );
-  }
-  if (presentation.cardType === "checklist") {
-    return <ChecklistCard event={presentation.payload} onOpenPath={onOpenPath} />;
-  }
-  if (presentation.cardType === "artifact") {
-    return <ArtifactCard event={presentation.payload} onOpenPath={onOpenPath} />;
-  }
-  return <ApprovalCard event={presentation.payload} />;
+function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecord | null) {
+  if (!activeTask) return "Create a workspace to begin.";
+  if (!activeSession) return "Send a message or run /start to create a session.";
+  return null;
 }

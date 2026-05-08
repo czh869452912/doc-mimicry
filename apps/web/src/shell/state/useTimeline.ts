@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, streamTimelineUrl } from "../../api";
 import type { TimelineEvent } from "../../types";
 import { mergeTimelineEvents, replaceWithIdDedup } from "../conversation/docagentRuntime";
-import { timelinePresentation } from "../conversation/timelinePresentation";
 
 const TIMELINE_POLL_INTERVAL_MS = 1500;
 
@@ -100,7 +99,5 @@ export function useTimeline(sessionId: string | null | undefined) {
     setError(null);
   }, []);
 
-  const presentations = useMemo(() => events.map(timelinePresentation), [events]);
-
-  return { error, events, loading, presentations, refreshTimeline, resetTimeline };
+  return { error, events, loading, refreshTimeline, resetTimeline };
 }
