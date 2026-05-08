@@ -44,6 +44,34 @@ Still open and intentionally out of scope for this follow-up:
 - Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, dictation, binary attachments, and assistant-ui `SelectionToolbar` replacement for the editor selection bar.
 - Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
 
+### 2026-05-08 Assistant-UI Gap & Correctness Fixes
+
+A second follow-up pass identified and resolved five correctness issues in the assistant-ui integration layer. All 61 frontend unit tests pass after the fixes.
+
+Resolved in follow-up (commit `f61f39e`):
+
+- **AssistantMessage component re-mount on every parent render fixed.** `DocAgentThread` passed an inline arrow function as the `AssistantMessage` component to `ThreadPrimitive.Messages`. React treats each render's new function reference as a new component type and unmounts/remounts all assistant messages on every `DocAgentThread` render. This reset `OutlineCard`'s local outline state, causing the loaded file content to flicker back to the event summary. Fixed by stabilizing the component reference with `useMemo` keyed on the handler props.
+
+- **Cross-task attachment reference contamination fixed.** `useDocAgentAssistantRuntime` accumulated imported attachment references in a `useRef` that persisted across task changes. Switching from task A to task B while an unsent attachment was pending would include task A's reference in the next task B message. Fixed by clearing the ref via `useEffect` when `activeTaskId` changes.
+
+- **`ThreadMessage.status` now reflects live event status.** All assistant messages previously hardcoded `status: { type: "complete", reason: "stop" }` regardless of the underlying timeline event status. Running and pending events now map to `{ type: "running" }`, failed events to `{ type: "incomplete", reason: "error" }`, and cancelled events to `{ type: "incomplete", reason: "cancelled" }`. This enables assistant-ui's per-message running indicator for in-progress tool steps.
+
+- **`queuedCommand` effect stale closure fixed.** `ConversationPane`'s `queuedCommand` effect was missing `submitInput` and `onQueuedCommandHandled` from its dependency array. `submitInput` was also recreated on every render (plain `async function`). Fixed by converting `submitInput` and `reloadInput` to `useCallback` and completing the effect dependency array.
+
+- **`propose_outline` path guard removed.** The outline-card mapping required `event.paths.includes("draft/outline.md")`, silently falling through to a generic tool-call row if the backend used a different path. All `propose_outline` events now unconditionally map to `docagent.outline-card`; `OutlineCard` already handles the path lookup with a sensible fallback.
+
+Also resolved in this follow-up:
+
+- **Python test permission errors fixed.** The 58 test errors across `agent/runtime-adapters/mock/tests/` and `agent/runtime-adapters/openhands/tests/` were caused by a Windows `PermissionError` on `C:\Users\fai_l\AppData\Local\Temp\pytest-of-fai_l`, not missing dependencies. `pyproject.toml` now sets `addopts = "--basetemp=.local/pytest-tmp"` and `cache_dir = ".local/pytest-cache"` so all pytest I/O stays under `.local/` (already gitignored). The full suite of 99 Python tests now passes without any CLI flags.
+
+Verification commands for this follow-up:
+
+```powershell
+cd apps\web
+npm run test:unit
+.local\dev\.venv\Scripts\python.exe -m pytest -q
+```
+
 ### Remaining Assistant-UI Advanced Gaps
 
 The center pane is now formally built on assistant-ui runtime and primitives, but the following advanced capabilities are still intentionally incomplete. These should be treated as product backlog items rather than defects in the completed runtime migration.

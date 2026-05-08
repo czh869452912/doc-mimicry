@@ -33,3 +33,6 @@ testpaths = [
   "agent/runtime-adapters/mock/tests",
   "agent/runtime-adapters/openhands/tests"
 ]
+tmp_path_retention_policy = "failed"
+cache_dir = ".local/pytest-cache"
+addopts = "--basetemp=.local/pytest-tmp"
