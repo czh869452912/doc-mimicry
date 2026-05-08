@@ -4,7 +4,7 @@
 
 **Goal:** Replace JSON file-backed `DocAgentState` and `ThreadPoolExecutor` background runner with PostgreSQL (SQLAlchemy sync + psycopg2), Celery + Redis worker queue, and a Docker Compose single-machine deployment.
 
-**Architecture:** `DocAgentState` interface is preserved â€?only the implementation changes. SQLAlchemy sync ORM models replace the JSON file read/write pattern. The SSE endpoint uses incremental Postgres polling (`WHERE id > last_seen_id`) via `asyncio.to_thread`. Celery replaces `BackgroundRuntimeRunner` for durable background job execution; `BackgroundRuntimeRunner` is kept as an `inline` dev fallback. Alembic manages schema migrations. Docker Compose wires all five services with named volumes.
+**Architecture:** `DocAgentState` interface is preserved --only the implementation changes. SQLAlchemy sync ORM models replace the JSON file read/write pattern. The SSE endpoint uses incremental Postgres polling (`WHERE id > last_seen_id`) via `asyncio.to_thread`. Celery replaces `BackgroundRuntimeRunner` for durable background job execution; `BackgroundRuntimeRunner` is kept as an `inline` dev fallback. Alembic manages schema migrations. Docker Compose wires all five services with named volumes.
 
 **Tech Stack:** FastAPI, SQLAlchemy 2 (sync, psycopg2 driver), Alembic, Celery 5, Redis 7, psycopg2-binary, testcontainers-python, pytest-asyncio, Docker Compose v2.
 
@@ -205,7 +205,7 @@ def test_create_tables_succeeds(pg_engine):
     assert "raw_runtime_events" in tables
 ```
 
-This test will be wired once `pg_engine` fixture exists (Task 8). Skip for now â€?mark it as expected-to-be-wired.
+This test will be wired once `pg_engine` fixture exists (Task 8). Skip for now --mark it as expected-to-be-wired.
 
 - [x] **Step 5: Verify import works**
 
@@ -571,7 +571,7 @@ git commit -m "feat: replace DocAgentState JSON impl with SQLAlchemy Postgres ba
 
 ---
 
-### Task 4: Update `app.py` â€?use DB-backed state, remove forced session recovery
+### Task 4: Update `app.py` --use DB-backed state, remove forced session recovery
 
 **Files:**
 - Modify: `services/api/docagent_api/app.py`
@@ -1118,7 +1118,7 @@ volumes:
 - [x] **Step 3: Create `docker-compose.override.yml`**
 
 ```yaml
-# docker-compose.override.yml â€?dev overrides: hot reload for api and worker
+# docker-compose.override.yml --dev overrides: hot reload for api and worker
 services:
   api:
     build: ~
@@ -1146,7 +1146,7 @@ services:
 - [x] **Step 4: Create `.env.example`**
 
 ```bash
-# .env.example â€?copy to .env and fill in values
+# .env.example --copy to .env and fill in values
 DATABASE_URL=postgresql+psycopg2://docagent:docagent@localhost:5432/docagent
 REDIS_URL=redis://localhost:6379/0
 DOCAGENT_QUEUE=celery
@@ -1357,27 +1357,27 @@ git commit -m "chore: final cleanup and verification for backend persistence mig
 ## Self-Review
 
 **Spec coverage:**
-- Postgres tables with all columns: Task 1 (ORM models in db.py) âœ?
-- Indexes on `timeline_events(session_id, id)`, `sessions(task_id)`, `raw_runtime_events(session_id)`: Task 1 âœ?
-- `sessions.status` CHECK constraint: Task 1 âœ?
-- `updated_at` via SQLAlchemy `onupdate=func.now()`: Task 1 âœ?
-- `BIGINT GENERATED ALWAYS AS IDENTITY` via `autoincrement=True` on BigInteger: Task 1 âœ?
-- Alembic migrations: Task 2 âœ?
-- Connection pool config: Task 1 (pool_size, max_overflow, pool_timeout, pool_recycle) âœ?
-- `DocAgentState` interface preserved: Task 3 âœ?
-- `list_timeline_events_after` for SSE incremental query: Task 3 âœ?
-- Remove `_recover_interrupted_sessions`: Task 4 âœ?
-- Celery with `task_acks_late`, `task_reject_on_worker_lost`, `visibility_timeout`: Task 5 âœ?
-- `BackgroundRuntimeRunner` inline fallback via `DOCAGENT_QUEUE=inline`: Task 6 âœ?
-- SSE incremental `WHERE id > last_seen_id` via `asyncio.to_thread`: Task 6 âœ?
-- `migrate_from_files.py` idempotent with `--dry-run`: Task 7 âœ?
-- Docker Compose with all 5 services + named volumes: Task 7 âœ?
-- `workspace_data` volume for document files (not JSON state): Task 7 âœ?
-- Redis as broker only (no result backend): Task 5 âœ?
-- Worker `command:` override in Compose: Task 7 âœ?
-- `.env.example`: Task 7 âœ?
-- Postgres testcontainers with per-test cleanup: Task 8 âœ?
+- Postgres tables with all columns: Task 1 (ORM models in db.py) [done]
+- Indexes on `timeline_events(session_id, id)`, `sessions(task_id)`, `raw_runtime_events(session_id)`: Task 1 [done]
+- `sessions.status` CHECK constraint: Task 1 [done]
+- `updated_at` via SQLAlchemy `onupdate=func.now()`: Task 1 [done]
+- `BIGINT GENERATED ALWAYS AS IDENTITY` via `autoincrement=True` on BigInteger: Task 1 [done]
+- Alembic migrations: Task 2 [done]
+- Connection pool config: Task 1 (pool_size, max_overflow, pool_timeout, pool_recycle) [done]
+- `DocAgentState` interface preserved: Task 3 [done]
+- `list_timeline_events_after` for SSE incremental query: Task 3 [done]
+- Remove `_recover_interrupted_sessions`: Task 4 [done]
+- Celery with `task_acks_late`, `task_reject_on_worker_lost`, `visibility_timeout`: Task 5 [done]
+- `BackgroundRuntimeRunner` inline fallback via `DOCAGENT_QUEUE=inline`: Task 6 [done]
+- SSE incremental `WHERE id > last_seen_id` via `asyncio.to_thread`: Task 6 [done]
+- `migrate_from_files.py` idempotent with `--dry-run`: Task 7 [done]
+- Docker Compose with all 5 services + named volumes: Task 7 [done]
+- `workspace_data` volume for document files (not JSON state): Task 7 [done]
+- Redis as broker only (no result backend): Task 5 [done]
+- Worker `command:` override in Compose: Task 7 [done]
+- `.env.example`: Task 7 [done]
+- Postgres testcontainers with per-test cleanup: Task 8 [done]
 
 **Placeholder scan:** None found. All steps contain actual code or commands.
 
-**Type consistency:** `list_timeline_events_after(session_id, after_row_id)` returns `list[tuple[int, dict[str, Any]]]` â€?used correctly in both `state.py` (Task 3) and `sessions.py` SSE endpoint (Task 6). `run_session(session_id, operation_name, operation_kwargs)` signature used consistently in Tasks 5 and 6.
+**Type consistency:** `list_timeline_events_after(session_id, after_row_id)` returns `list[tuple[int, dict[str, Any]]]` --used correctly in both `state.py` (Task 3) and `sessions.py` SSE endpoint (Task 6). `run_session(session_id, operation_name, operation_kwargs)` signature used consistently in Tasks 5 and 6.

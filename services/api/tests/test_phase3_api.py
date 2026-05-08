@@ -165,3 +165,26 @@ def test_send_message_background_uses_running_chat_state(tmp_path: Path) -> None
 
     assert response.status_code == 202
     assert response.json()["status"] == "running_chat"
+
+
+def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
+    delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class FakeTask:
+        @staticmethod
+        def delay(*args: Any, **kwargs: Any) -> None:
+            delayed_calls.append((args, kwargs))
+
+    monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/messages?background=true",
+        json={"message": "hello"},
+    )
+
+    assert response.status_code == 202
+    assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "idle"), {})]

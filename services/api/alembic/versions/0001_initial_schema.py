@@ -60,6 +60,7 @@ def upgrade() -> None:
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["task_id"], ["tasks.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_sessions_task_id", "sessions", ["task_id"])
@@ -76,6 +77,7 @@ def upgrade() -> None:
         sa.Column("event_type", sa.String(), nullable=False),
         sa.Column("payload", postgresql.JSONB(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["session_id"], ["sessions.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_timeline_session_id", "timeline_events", ["session_id", "id"])
@@ -92,6 +94,7 @@ def upgrade() -> None:
         sa.Column("runtime", sa.String(), nullable=False),
         sa.Column("payload", postgresql.JSONB(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.ForeignKeyConstraint(["session_id"], ["sessions.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_raw_events_session_id", "raw_runtime_events", ["session_id"])

@@ -59,7 +59,13 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CONTEXT, operation, runner,
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_CONTEXT,
+                operation,
+                runner,
+                operation_name="start_loop",
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CONTEXT, lambda: adapter.start_loop(session_id),
@@ -95,6 +101,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 runner,
                 previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
                 transition_prepared=True,
+                operation_name="approve_outline",
             )
         try:
             result = adapter.approve_outline(session_id)
@@ -132,6 +139,11 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
                     runner,
                     previous_state_on_failure=previous_state, transition_prepared=True,
+                    operation_name="revise_selection",
+                    operation_kwargs={
+                        "selection": request.selected_text,
+                        "instruction": request.instruction,
+                    },
                 )
             result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
         except HTTPException:
@@ -166,7 +178,13 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CHECKLIST, operation, runner,
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_CHECKLIST,
+                operation,
+                runner,
+                operation_name="run_checklist",
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHECKLIST, lambda: adapter.run_checklist(session_id),
@@ -192,7 +210,13 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_EXPORT, operation, runner,
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_EXPORT,
+                operation,
+                runner,
+                operation_name="export_markdown",
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_EXPORT, lambda: adapter.export_markdown(session_id),
@@ -226,7 +250,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 operation = lambda: adapter.send_message(session_id, request.message)
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CHAT, operation, runner,
+                state,
+                task["id"],
+                session,
+                RuntimeSessionState.RUNNING_CHAT,
+                operation,
+                runner,
+                operation_name="send_message",
+                operation_kwargs={"message": request.message},
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,

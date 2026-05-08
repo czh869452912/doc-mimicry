@@ -32,10 +32,10 @@ def _db_isolation(pg_engine):
     yield
     os.environ.pop("DATABASE_URL", None)
     with pg_engine.connect() as conn:
-        conn.execute(text("DELETE FROM raw_runtime_events"))
-        conn.execute(text("DELETE FROM timeline_events"))
-        conn.execute(text("DELETE FROM sessions"))
-        conn.execute(text("DELETE FROM tasks"))
+        conn.execute(text(
+            "TRUNCATE raw_runtime_events, timeline_events, sessions, tasks "
+            "RESTART IDENTITY CASCADE"
+        ))
         conn.commit()
 
 

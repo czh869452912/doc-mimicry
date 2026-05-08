@@ -53,9 +53,9 @@ Add `QueryClientProvider` at the app root. Replace all imperative fetch logic wi
 | `api.listTaskSessions(taskId)` | `['sessions', taskId]` | 10s |
 | `api.getWorkspace(taskId)` | `['workspace', taskId]` | 10s |
 | draft loading + `draftReloadToken` | `['draft', taskId]` | 10s |
-| `api.getTimeline(sessionId)` initial load | `['timeline', sessionId]` | 5s |
+| `api.getTimeline(sessionId)` initial load | local timeline stream state | n/a |
 
-All queries use `placeholderData: keepPreviousData`, where `keepPreviousData` is the function imported from `@tanstack/react-query` (TanStack Query v5 API — it is a function, not a string literal):
+All server-state queries use `placeholderData: keepPreviousData`, where `keepPreviousData` is the function imported from `@tanstack/react-query` (TanStack Query v5 API — it is a function, not a string literal):
 
 ```ts
 import { keepPreviousData } from '@tanstack/react-query'
@@ -65,11 +65,12 @@ useQuery({ queryKey: ['draft', taskId], queryFn: ..., placeholderData: keepPrevi
 
 This shows stale data while the next fetch completes, eliminating blank flashes on task/session switching.
 
+Timeline is the deliberate exception: `useTimeline` owns an ordered stream snapshot in local hook state because it merges initial REST fetches, SSE messages, reconnect catch-up fetches, and non-EventSource polling fallback into one monotonic event list. There is no separate `['timeline', sessionId]` Query consumer. SSE still invalidates the Query-managed workspace, draft, and session records based on event metadata.
+
 ### SSE-Driven Invalidation
 
 The 1.5s interval effect in `AppShell` is removed entirely. Instead, the SSE event handler in `useTimeline` calls targeted `queryClient.invalidateQueries` on receiving events, based on the `paths: string[]` field of each `TimelineEvent`:
 
-- Any event → `invalidateQueries({ queryKey: ['timeline', sessionId] })`
 - Event with a path starting with `draft/` → `invalidateQueries({ queryKey: ['draft', taskId] })`
 - Event with any non-empty paths → `invalidateQueries({ queryKey: ['workspace', taskId] })`
 - Event whose `kind` indicates session status change → `invalidateQueries({ queryKey: ['sessions', taskId] })`

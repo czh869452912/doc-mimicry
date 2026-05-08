@@ -1,6 +1,9 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
+
 from docagent_api.state import DocAgentState
 from docagent_contracts import RawRuntimeEvent, RuntimeKind
 
@@ -44,6 +47,20 @@ def test_state_persists_task_and_session(tmp_path: Path) -> None:
 
 def test_state_persists_raw_runtime_events(tmp_path: Path) -> None:
     state = DocAgentState(tmp_path)
+    state.save_task({
+        "id": "task-001",
+        "doc_type_id": "prd",
+        "brief": "Draft a PRD",
+        "created_at": "2026-05-06T00:00:00Z",
+        "updated_at": "2026-05-06T00:00:00Z",
+    })
+    state.save_session({
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "idle",
+        "created_at": "2026-05-06T00:00:00Z",
+        "updated_at": "2026-05-06T00:00:00Z",
+    })
     event = RawRuntimeEvent(
         id="raw-001",
         session_id="session-001",
@@ -81,6 +98,20 @@ def test_state_persists_raw_runtime_events(tmp_path: Path) -> None:
 
 def test_state_keeps_all_concurrent_timeline_appends(tmp_path: Path) -> None:
     state = DocAgentState(tmp_path)
+    state.save_task({
+        "id": "task-001",
+        "doc_type_id": "prd",
+        "brief": "Draft a PRD",
+        "created_at": "2026-05-06T00:00:00Z",
+        "updated_at": "2026-05-06T00:00:00Z",
+    })
+    state.save_session({
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "idle",
+        "created_at": "2026-05-06T00:00:00Z",
+        "updated_at": "2026-05-06T00:00:00Z",
+    })
 
     def append_event(index: int) -> None:
         state.append_timeline_event(
@@ -142,3 +173,28 @@ def test_list_timeline_events_after(pg_state) -> None:
     first_row_id = rows[0][0]
     later = pg_state.list_timeline_events_after("s2", after_row_id=first_row_id)
     assert len(later) == 2
+
+
+def test_database_enforces_session_task_foreign_key(pg_state) -> None:
+    try:
+        pg_state.save_session({
+            "id": "orphan-session",
+            "task_id": "missing-task",
+            "status": "pending",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+        })
+    except IntegrityError:
+        return
+    raise AssertionError("expected session save to fail when task_id does not reference an existing task")
+
+
+def test_schema_has_runtime_state_foreign_keys(pg_engine) -> None:
+    inspector = inspect(pg_engine)
+    session_fks = inspector.get_foreign_keys("sessions")
+    timeline_fks = inspector.get_foreign_keys("timeline_events")
+    raw_fks = inspector.get_foreign_keys("raw_runtime_events")
+
+    assert any(fk["referred_table"] == "tasks" and fk["constrained_columns"] == ["task_id"] for fk in session_fks)
+    assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in timeline_fks)
+    assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in raw_fks)

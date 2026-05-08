@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     DateTime,
+    ForeignKey,
     Index,
     String,
     Text,
@@ -55,7 +56,7 @@ class TaskRow(Base):
 class SessionRow(Base):
     __tablename__ = "sessions"
     id = Column(String, primary_key=True)
-    task_id = Column(String, nullable=False)
+    task_id = Column(String, ForeignKey("tasks.id"), nullable=False)
     status = Column(
         String,
         CheckConstraint(f"status IN ({', '.join(repr(s) for s in VALID_SESSION_STATUSES)})"),
@@ -70,7 +71,7 @@ class SessionRow(Base):
 class TimelineEventRow(Base):
     __tablename__ = "timeline_events"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    session_id = Column(String, nullable=False)
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     event_type = Column(String, nullable=False)
     payload = Column(JSONB, nullable=False)
     created_at = Column(Text, nullable=False, server_default=func.now())
@@ -81,7 +82,7 @@ class TimelineEventRow(Base):
 class RawRuntimeEventRow(Base):
     __tablename__ = "raw_runtime_events"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    session_id = Column(String, nullable=False)
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     runtime = Column(String, nullable=False)
     payload = Column(JSONB, nullable=False)
     created_at = Column(Text, nullable=False, server_default=func.now())

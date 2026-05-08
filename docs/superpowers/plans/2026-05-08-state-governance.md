@@ -120,7 +120,7 @@ cd apps/web
 npm run build
 ```
 
-Expected: PASS. (AppShell still uses `react-router-dom` imports â€?that is expected and will be fixed in Task 6. The build succeeds because both libraries coexist temporarily.)
+Expected: PASS. (AppShell still uses `react-router-dom` imports --that is expected and will be fixed in Task 6. The build succeeds because both libraries coexist temporarily.)
 
 - [x] **Step 5: Commit**
 
@@ -183,7 +183,7 @@ cd apps/web
 npm run test:unit -- src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts
 ```
 
-Expected: FAIL â€?`TimelineEvent` has no `created_at` property.
+Expected: FAIL --`TimelineEvent` has no `created_at` property.
 
 - [x] **Step 3: Add `created_at` to `TimelineEvent` in `types.ts`**
 
@@ -579,7 +579,7 @@ git commit -m "feat: add useActiveWorkspace coordinator with TanStack Router URL
 
 ---
 
-### Task 5: Update `useTimeline` â€?add `taskId`, remove clear-before-load, add SSE invalidation and exponential backoff
+### Task 5: Update `useTimeline` --add `taskId`, remove clear-before-load, add SSE invalidation and exponential backoff
 
 **Files:**
 - Modify: `apps/web/src/shell/state/useTimeline.ts`
@@ -620,7 +620,7 @@ describe("useTimeline", () => {
     );
     // Events loaded
     await vi.waitFor(() => expect(result.current.events).toHaveLength(1));
-    // Change session â€?events must NOT be cleared to empty during refetch
+    // Change session --events must NOT be cleared to empty during refetch
     vi.mocked(api.getTimeline).mockResolvedValue([]);
     rerender({ sid: "session-2", tid: "task-1" });
     // During the brief window before the new fetch resolves, events must not be []
@@ -661,7 +661,7 @@ export function useTimeline(
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Keep previous events across session changes â€?don't clear before new load
+  // Keep previous events across session changes --don't clear before new load
   const prevSessionIdRef = useRef<string | null | undefined>(null);
 
   const loadTimeline = useCallback(
@@ -676,7 +676,7 @@ export function useTimeline(
       }
       setLoading(true);
       setError(null);
-      // No setEvents([]) here â€?leave previous events visible during fetch
+      // No setEvents([]) here --leave previous events visible during fetch
       try {
         const nextEvents = replaceWithIdDedup(await api.getTimeline(sid));
         if (shouldApply()) setEvents(nextEvents);
@@ -828,7 +828,7 @@ git commit -m "feat: update useTimeline with SSE invalidation, exponential backo
 
 ---
 
-### Task 6: Update `AppShell` to use new hooks â€?remove interval polling and `draftReloadToken`
+### Task 6: Update `AppShell` to use new hooks --remove interval polling and `draftReloadToken`
 
 **Files:**
 - Modify: `apps/web/src/shell/AppShell.tsx`
@@ -1034,7 +1034,7 @@ function tabFromWorkspaceFile(file: WorkspaceFileContent) {
 }
 ```
 
-Note: `onDraftChange` is passed as a no-op because `useDraft` now owns draft state. If the editor needs to save drafts, it calls `api.updateDraft` directly â€?that pattern is unchanged.
+Note: `onDraftChange` is passed as a no-op because `useDraft` now owns draft state. If the editor needs to save drafts, it calls `api.updateDraft` directly --that pattern is unchanged.
 
 - [x] **Step 2: Trim `useWorkspaces.ts` to re-export only the helpers still used by AppShell**
 
@@ -1043,12 +1043,12 @@ Note: `onDraftChange` is passed as a no-op because `useDraft` now owns draft sta
 Replace `apps/web/src/shell/state/useWorkspaces.ts` with:
 
 ```ts
-// Retained for re-export â€?migration target: inline callers and delete this file.
+// Retained for re-export --migration target: inline callers and delete this file.
 export { buildWorkspaceTreeData, isRunnableSession, latestByUpdatedAt } from "./useWorkspaces_helpers";
 export type { WorkspaceTreeNode, WorkspaceTreeNodeKind, CreateWorkspaceInput } from "./useWorkspaces_types";
 ```
 
-Wait â€?this creates a circular reference. Instead, move just the pure helper functions into a small file.
+Wait --this creates a circular reference. Instead, move just the pure helper functions into a small file.
 
 Replace `apps/web/src/shell/state/useWorkspaces.ts` with only the pure helpers that are still needed:
 
@@ -1279,7 +1279,7 @@ cd apps/web
 npm run test:e2e
 ```
 
-Expected: PASS. Deep-link test (`workbench-shell.spec.ts`) must pass â€?confirm it loads `?task=` and `?session=` from URL.
+Expected: PASS. Deep-link test (`workbench-shell.spec.ts`) must pass --confirm it loads `?task=` and `?session=` from URL.
 
 - [x] **Step 5: Confirm react-router-dom is no longer imported in app code**
 
@@ -1301,16 +1301,16 @@ git commit -m "chore: final cleanup and verification for state governance migrat
 ## Self-Review
 
 **Spec coverage:**
-- TanStack Router typed search params: Tasks 1â€? âœ?
-- TanStack Query data hooks: Task 3 âœ?
-- useWorkspaces dissolved: Tasks 4, 6 âœ?
-- SSE invalidation (path-based): Task 5 âœ?
-- Exponential backoff reconnect + catchup: Task 5 âœ?
-- Remove interval polling: Task 6 âœ?
-- Remove draftReloadToken: Task 6 âœ?
-- Remove clear-before-load in useTimeline: Task 5 âœ?
-- created_at in TimelineEvent + real timestamps: Task 2 âœ?
-- Test harness migration: Task 7 âœ?
+- TanStack Router typed search params: Tasks 1-- [done]
+- TanStack Query data hooks: Task 3 [done]
+- useWorkspaces dissolved: Tasks 4, 6 [done]
+- SSE invalidation (path-based): Task 5 [done]
+- Exponential backoff reconnect + catchup: Task 5 [done]
+- Remove interval polling: Task 6 [done]
+- Remove draftReloadToken: Task 6 [done]
+- Remove clear-before-load in useTimeline: Task 5 [done]
+- created_at in TimelineEvent + real timestamps: Task 2 [done]
+- Test harness migration: Task 7 [done]
 
 **Placeholder scan:** None found. All steps contain actual code.
 

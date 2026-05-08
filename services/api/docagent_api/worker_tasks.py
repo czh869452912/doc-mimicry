@@ -21,6 +21,30 @@ def _get_adapter():
     return create_runtime_adapter()
 
 
+def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
+    try:
+        adapter.get_state(session["id"])
+        return
+    except Exception:
+        pass
+
+    from docagent_api.prompts import build_prompt_bundle
+
+    repo_root = Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
+    task = state.get_task(session["task_id"])
+    if task is None:
+        raise RuntimeError(f"Task not found for session {session['id']}")
+    prompt_bundle = build_prompt_bundle(
+        repo_root,
+        Path(task["workspace_root"]),
+        task["id"],
+        session["id"],
+        task["doc_type_id"],
+    )
+    result = adapter.create_session(session["id"], prompt_bundle)
+    append_runtime_result(state, task["id"], session["id"], result)
+
+
 @celery_app.task(bind=True, max_retries=0)
 def run_session(
     self,
@@ -37,6 +61,7 @@ def run_session(
         return
 
     try:
+        _ensure_runtime_session(state, adapter, session)
         method = getattr(adapter, operation_name)
         result = method(session_id, **operation_kwargs)
         task_id = session["task_id"]
