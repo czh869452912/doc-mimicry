@@ -32,6 +32,7 @@ export interface TimelineEvent {
   summary: string;
   paths: string[];
   status: string;
+  created_at?: string;
 }
 
 export interface WorkspaceFile {

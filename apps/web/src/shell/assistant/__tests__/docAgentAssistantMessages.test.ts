@@ -109,6 +109,20 @@ describe("mapTimelineEventsToAssistantMessages", () => {
     ]);
   });
 
+  it("uses created_at when present on the event", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({ id: "evt-ts", kind: "user_message", summary: "Hi", created_at: "2026-05-08T10:00:00Z" }),
+    ]);
+    expect(messages[0].createdAt.toISOString()).toBe("2026-05-08T10:00:00.000Z");
+  });
+
+  it("falls back to epoch when created_at is absent", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({ id: "evt-no-ts", kind: "user_message", summary: "Hi" }),
+    ]);
+    expect(messages[0].createdAt.getTime()).toBe(0);
+  });
+
   it("maps timeline event status to ThreadMessage status", () => {
     const messages = mapTimelineEventsToAssistantMessages([
       event({ id: "evt-running", kind: "agent_message", summary: "Thinking...", status: "running" }),

@@ -35,7 +35,7 @@ export function mapTimelineEventsToAssistantMessages(events: TimelineEvent[]): T
 }
 
 function mapTimelineEventToAssistantMessage(event: TimelineEvent): ThreadMessage {
-  const createdAt = new Date(0);
+  const createdAt = event.created_at ? new Date(event.created_at) : new Date(0);
   const custom = { timelineEventId: event.id, timelineKind: event.kind };
 
   if (event.kind === "user_message") {
