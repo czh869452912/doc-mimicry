@@ -98,25 +98,65 @@
   width: min(100%, 560px);
 }
 
-.aui-timeline-part--card {
+.aui-timeline-part--card,
+.aui-timeline-part--tool {
   display: grid;
 }
 
-.aui-event-pill-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+.aui-tool-call {
+  display: grid;
+  gap: 4px;
+  max-width: 560px;
+  padding: 7px 9px;
   color: var(--color-body);
-  font-size: 13px;
+  background: var(--color-canvas-soft);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  font-size: 12px;
 }
 
-.aui-event-pill-row small {
+.aui-tool-call__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.aui-tool-call__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aui-tool-call__status {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.aui-tool-call__summary {
+  margin: 0;
+  color: var(--color-body);
+}
+
+.aui-tool-call__paths {
   min-width: 0;
   overflow: hidden;
   color: var(--color-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.aui-tool-call[data-status="failed"] {
+  border-color: rgb(176 57 57 / 36%);
+}
+
+.aui-tool-call[data-status="running"] .aui-tool-call__status {
+  color: var(--color-accent);
 }
 
 .aui-composer {

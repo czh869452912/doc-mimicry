@@ -32,16 +32,22 @@ function renderPart(data: DocAgentAssistantData) {
 }
 
 describe("DocAgentMessagePart", () => {
-  it("renders event pill data parts", () => {
+  it("renders tool-call data parts", () => {
     const { container } = renderPart({
-      kind: "event-pill",
-      category: "edit",
+      kind: "tool-call",
+      category: "write",
+      toolName: "build_context",
+      title: "Build context",
+      status: "succeeded",
       summary: "Built context",
-      meta: "context/brief.md",
+      paths: ["context/brief.md"],
+      pathSummary: "context/brief.md",
       event: event({ id: "evt-context", kind: "build_context", summary: "Built context" }),
     });
 
-    expect(container.querySelector(".aui-timeline-part--event")).toBeTruthy();
+    expect(container.querySelector(".aui-tool-call")).toBeTruthy();
+    expect(screen.getByText("Build context")).toBeTruthy();
+    expect(screen.getByText("succeeded")).toBeTruthy();
     expect(screen.getByText("Built context")).toBeTruthy();
     expect(screen.getByText("context/brief.md")).toBeTruthy();
   });

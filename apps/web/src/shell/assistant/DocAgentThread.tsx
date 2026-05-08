@@ -77,7 +77,7 @@ function AssistantMessage(props: MessagePartHandlerProps) {
           Text: TextPart,
           data: {
             by_name: {
-              "docagent.event-pill": (part) => <DataPart {...part} {...props} />,
+              "docagent.tool-call": (part) => <DataPart {...part} {...props} />,
               "docagent.outline-card": (part) => <DataPart {...part} {...props} />,
               "docagent.checklist-card": (part) => <DataPart {...part} {...props} />,
               "docagent.artifact-card": (part) => <DataPart {...part} {...props} />,

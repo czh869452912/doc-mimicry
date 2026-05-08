@@ -1,17 +1,30 @@
 import type { ThreadMessage } from "@assistant-ui/react";
 import type { TimelineEvent } from "../../types";
 
-export type PillCategory = "thinking" | "grep" | "read" | "edit" | "done";
+export type ToolCallCategory = "read" | "search" | "write" | "review" | "export" | "system";
+export type ToolCallDisplayStatus = "running" | "succeeded" | "failed" | "cancelled";
+
+export interface DocAgentToolCallData {
+  kind: "tool-call";
+  category: ToolCallCategory;
+  event: TimelineEvent;
+  pathSummary?: string;
+  paths: string[];
+  status: ToolCallDisplayStatus;
+  summary: string;
+  title: string;
+  toolName: string;
+}
 
 export type DocAgentAssistantData =
-  | { kind: "event-pill"; category: PillCategory; summary: string; meta?: string; event: TimelineEvent }
+  | DocAgentToolCallData
   | { kind: "outline-card"; event: TimelineEvent }
   | { kind: "checklist-card"; event: TimelineEvent }
   | { kind: "artifact-card"; event: TimelineEvent }
   | { kind: "approval-card"; event: TimelineEvent };
 
 type AssistantDataName =
-  | "docagent.event-pill"
+  | "docagent.tool-call"
   | "docagent.outline-card"
   | "docagent.checklist-card"
   | "docagent.artifact-card"
@@ -73,15 +86,50 @@ function dataPartForEvent(event: TimelineEvent): { name: AssistantDataName; data
   }
 
   return {
-    name: "docagent.event-pill",
-    data: {
-      kind: "event-pill",
-      category: categoryForKind(event.kind),
-      summary: event.summary || event.kind,
-      meta: event.paths.length > 0 ? event.paths.join(", ") : event.kind,
-      event,
-    },
+    name: "docagent.tool-call",
+    data: toolCallDataForEvent(event),
   };
+}
+
+function toolCallDataForEvent(event: TimelineEvent): DocAgentToolCallData {
+  return {
+    kind: "tool-call",
+    category: categoryForKind(event.kind),
+    event,
+    paths: event.paths,
+    pathSummary: event.paths.length > 0 ? event.paths.join(", ") : undefined,
+    status: statusForEvent(event.status),
+    summary: event.summary || event.kind,
+    title: titleForKind(event.kind),
+    toolName: event.kind,
+  };
+}
+
+function titleForKind(kind: string): string {
+  const titles: Record<string, string> = {
+    read_skill: "Read document skill",
+    analyze_examples: "Analyze examples",
+    build_context: "Build context",
+    extract_style: "Extract style notes",
+    extract_structure: "Extract structure notes",
+    generate_outline: "Generate outline",
+    update_draft: "Update draft",
+    revise_selection: "Revise selection",
+    create_checkpoint: "Create checkpoint",
+    run_checklist: "Run checklist",
+    export_markdown: "Export Markdown",
+    export_docx: "Export DOCX",
+    export_pdf: "Export PDF",
+    convert_input: "Convert input",
+  };
+  return titles[kind] ?? kind.replaceAll("_", " ");
+}
+
+function statusForEvent(status: string): ToolCallDisplayStatus {
+  if (status === "failed") return "failed";
+  if (status === "cancelled") return "cancelled";
+  if (status === "running" || status === "pending") return "running";
+  return "succeeded";
 }
 
 function assistantMetadata(custom: Record<string, unknown>) {
@@ -94,9 +142,11 @@ function assistantMetadata(custom: Record<string, unknown>) {
   };
 }
 
-function categoryForKind(kind: string): PillCategory {
+function categoryForKind(kind: string): ToolCallCategory {
   if (kind === "read_skill" || kind === "convert_input") return "read";
-  if (kind === "analyze_examples") return "grep";
+  if (kind === "analyze_examples") return "search";
+  if (kind === "run_checklist") return "review";
+  if (kind === "export_markdown" || kind === "export_docx" || kind === "export_pdf") return "export";
   if (
     kind === "build_context" ||
     kind === "extract_style" ||
@@ -107,8 +157,7 @@ function categoryForKind(kind: string): PillCategory {
     kind === "revise_selection" ||
     kind === "create_checkpoint"
   ) {
-    return "edit";
+    return "write";
   }
-  if (kind === "approve_outline" || kind === "approval_resolved") return "done";
-  return "thinking";
+  return "system";
 }

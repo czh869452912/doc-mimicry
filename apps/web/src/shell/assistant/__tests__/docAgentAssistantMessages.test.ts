@@ -62,13 +62,13 @@ describe("mapTimelineEventsToAssistantMessages", () => {
     ]);
   });
 
-  it("maps other semantic events to compact event pill data parts", () => {
+  it("maps semantic work events to assistant-ui tool-call data parts", () => {
     const messages = mapTimelineEventsToAssistantMessages([
       event({
         id: "evt-context",
         kind: "build_context",
-        summary: "Built context",
-        paths: ["context/brief.md"],
+        summary: "Built context files",
+        paths: ["context/user_intent.md", "context/doc_map.md"],
       }),
     ]);
 
@@ -78,16 +78,32 @@ describe("mapTimelineEventsToAssistantMessages", () => {
       content: [
         {
           type: "data",
-          name: "docagent.event-pill",
+          name: "docagent.tool-call",
           data: {
-            kind: "event-pill",
-            category: "edit",
-            summary: "Built context",
-            meta: "context/brief.md",
+            kind: "tool-call",
+            toolName: "build_context",
+            title: "Build context",
+            category: "write",
+            status: "succeeded",
+            summary: "Built context files",
+            paths: ["context/user_intent.md", "context/doc_map.md"],
+            pathSummary: "context/user_intent.md, context/doc_map.md",
           },
         },
       ],
       metadata: { custom: { timelineEventId: "evt-context", timelineKind: "build_context" } },
     });
+  });
+
+  it("normalizes tool-call display status from timeline status", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({ id: "evt-failed", kind: "update_draft", summary: "Draft failed", status: "failed" }),
+      event({ id: "evt-running", kind: "generate_outline", summary: "Generating", status: "running" }),
+    ]);
+
+    expect(messages.map((message) => message.content[0])).toMatchObject([
+      { type: "data", name: "docagent.tool-call", data: { status: "failed" } },
+      { type: "data", name: "docagent.tool-call", data: { status: "running" } },
+    ]);
   });
 });

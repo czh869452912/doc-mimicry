@@ -19,15 +19,16 @@ export function DocAgentMessagePart({
   onOpenPath,
   taskId,
 }: DocAgentMessagePartProps) {
-  if (data.kind === "event-pill") {
+  if (data.kind === "tool-call") {
     return (
-      <div className="aui-timeline-part aui-timeline-part--event">
-        <article className="aui-event-pill-row">
-          <span className="event-pill" data-category={data.category}>
-            {data.event.kind}
-          </span>
-          <span>{data.summary}</span>
-          {data.meta && <small>{data.meta}</small>}
+      <div className="aui-timeline-part aui-timeline-part--tool">
+        <article className="aui-tool-call" data-category={data.category} data-status={data.status}>
+          <header className="aui-tool-call__header">
+            <span className="aui-tool-call__name">{data.title}</span>
+            <span className="aui-tool-call__status">{data.status}</span>
+          </header>
+          <p className="aui-tool-call__summary">{data.summary}</p>
+          {data.pathSummary && <small className="aui-tool-call__paths">{data.pathSummary}</small>}
         </article>
       </div>
     );

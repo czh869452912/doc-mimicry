@@ -109,5 +109,6 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
   await page.getByLabel("Message").press("Enter");
   await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
   await page.getByRole("button", { name: /approve/i }).click();
-  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator(".aui-tool-call").filter({ hasText: "Update draft" })).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByRole("button", { name: /draft_ready/i })).toBeVisible({ timeout: 8_000 });
 }
