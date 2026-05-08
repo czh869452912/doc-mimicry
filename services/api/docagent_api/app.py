@@ -41,7 +41,7 @@ def create_app(
         allow_headers=["*"],
     )
     root = repo_root or Path.cwd()
-    state = DocAgentState(state_root or root / ".local" / "docagent")
+    state = DocAgentState(state_root or state_root_from_env() or root / ".local" / "docagent")
     _recover_interrupted_sessions(state)
     adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 

@@ -29,14 +29,14 @@ Resolved in follow-up:
 
 - **Local frontend dependency baseline restored.** The previous `react-router-dom`, `react-hook-form`, `@hookform/resolvers`, and `react-diff-viewer-continued` import failures were caused by dependencies not being installed on this machine after work moved from another computer. `npm install` restored `node_modules`; no package manifest or lockfile churn was required.
 - **M5 deep-linking completed and covered.** The app already had `BrowserRouter`, URL-param restoration, and URL sync; the follow-up added regression coverage for `?task=...&session=...` restoration and session-param sync.
-- **Assistant-ui Phase A boundary added.** `ConversationPane` now maps semantic timeline messages into assistant-ui's `ExternalThreadMessage` shape and applies the assistant-ui token bridge while preserving the existing slash-command flow and custom timeline cards. Full assistant-ui primitive runtime replacement remains future work because `ExternalThread` in `@assistant-ui/react@0.12.28` is a tap resource, not a JSX component.
+- **Assistant-ui preparation boundary added; integration still open.** `ConversationPane` now maps semantic timeline messages into assistant-ui's `ExternalThreadMessage` shape and applies the assistant-ui token bridge while preserving the existing slash-command flow and custom timeline cards. This is type/model preparation only: runtime assistant-ui primitives, composer, thread rendering, and assistant-ui-provided UX behaviors are still not integrated.
 - **Raw daemon-thread route launching removed.** Background runtime operations now go through `BackgroundRuntimeRunner`, which is owned by the FastAPI app lifecycle and injected into session routes.
 
 Still open and intentionally out of scope for this follow-up:
 
 - `tools/export/export_docx.py` and DOCX/PDF export.
 - Real PRD examples/specs under `doc-types/prd/examples/markdown/` and `doc-types/prd/specs/markdown/`.
-- Assistant-ui Phase B/C features: branch picker, rich tool-call cards, attachments, dictation, SelectionToolbar, and deeper theme polish.
+- Assistant-ui runtime/primitive integration: replace the hand-rolled conversation surface with assistant-ui thread/composer primitives, then add branch picker, rich tool-call cards, attachments, dictation, SelectionToolbar, and deeper theme polish.
 - Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
 
 Verification commands used in the follow-up:

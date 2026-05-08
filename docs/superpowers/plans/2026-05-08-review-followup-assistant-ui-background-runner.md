@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Resolve the actionable review follow-ups that remain after excluding DOCX export and PRD seed resources: restore frontend dependency/build baseline, complete task/session deep-linking, replace the hand-rolled conversation shell with assistant-ui primitives, and replace ad hoc daemon-thread usage with a managed background runner abstraction.
+**Goal:** Resolve the actionable review follow-ups that remain after excluding DOCX export and PRD seed resources: restore frontend dependency/build baseline, complete task/session deep-linking, add an assistant-ui message-model preparation boundary, and replace ad hoc daemon-thread usage with a managed background runner abstraction.
 
 **Architecture:** Keep the current FastAPI route modules, file-backed state, SSE timeline stream, slash-command adapter, and timeline presentation model. Add a thin assistant-ui boundary around existing semantic timeline events rather than changing backend event contracts. Add a backend `BackgroundRuntimeRunner` abstraction first, backed by in-process threads for Phase 0 but no longer launched as raw daemon threads from route helpers.
 
@@ -16,7 +16,7 @@ Included:
 
 - Restore local frontend dependencies with `npm install` or `npm ci` so package-lock, node_modules, build, and unit tests agree.
 - Finish M5 deep-linking so `?task=...&session=...` restores the intended task/session and updates when selection changes.
-- Implement assistant-ui Phase A with the smallest useful adapter: assistant-ui composer/thread primitives render existing `Presentation` objects and preserve slash commands plus existing custom cards.
+- Add assistant-ui preparation with the smallest useful adapter boundary: map existing `Presentation` message objects into assistant-ui message model types and preserve slash commands plus existing custom cards. Full assistant-ui runtime/primitive replacement remains future work.
 - Replace direct `Thread(..., daemon=True).start()` usage with a `BackgroundRuntimeRunner` service owned by the API factory.
 - Update tests and review docs to reflect actual completion state.
 
@@ -264,7 +264,7 @@ Expected: PASS.
 
 ---
 
-### Task 3: Introduce Assistant-UI Conversation Boundary
+### Task 3: Introduce Assistant-UI Message-Model Boundary
 
 **Files:**
 - Modify: `apps/web/src/shell/panes/ConversationPane.tsx`
@@ -320,7 +320,7 @@ it("runs slash commands selected from the command palette", async () => {
 });
 ```
 
-- [ ] **Step 4: Replace the internal conversation frame with assistant-ui primitives**
+- [ ] **Step 4: Add assistant-ui message-model boundary**
 
 Implementation requirements:
 
@@ -328,8 +328,8 @@ Implementation requirements:
 - Preserve `executeSlashCommand`.
 - Preserve existing `StreamItem` cards for outline/checklist/artifact/approval.
 - Keep `aria-label="Message"` on the composer control so tests and accessibility remain stable.
-- Render timeline messages through assistant-ui message/thread primitives where practical; if an assistant-ui runtime adapter is too large for Phase A, use assistant-ui visual/composer primitives first and keep the semantic event mapping local.
-- Remove the current plain `<textarea>`/send button frame once assistant-ui composer is in place.
+- Render timeline messages through assistant-ui message/thread primitives only when the installed package exposes React components that can be mounted safely. If the installed API exposes tap resources instead, keep the semantic event rendering local and map timeline messages into assistant-ui message model types as preparation.
+- Keep the current composer until a real assistant-ui runtime/composer integration is implemented.
 
 - [ ] **Step 5: Replace CSS override with token mapping**
 
@@ -558,9 +558,9 @@ Expected: PASS.
 
 Update the review document so it distinguishes:
 
-- Fixed after review: local dependency baseline restored, M5 deep-linking completed, assistant-ui Phase A completed, raw daemon-thread route launching removed.
+- Fixed after review: local dependency baseline restored, M5 deep-linking completed, assistant-ui message-model preparation boundary added, raw daemon-thread route launching removed.
 - Still open and intentionally out of scope here: DOCX export, PRD examples/specs.
-- Still future work: assistant-ui Phase B/C advanced features, durable external background job queue.
+- Still future work: assistant-ui runtime/primitive integration and Phase B/C advanced features, durable external background job queue.
 
 - [ ] **Step 2: Add verification commands**
 

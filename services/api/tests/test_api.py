@@ -84,6 +84,18 @@ def test_health_endpoint(tmp_path: Path) -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_create_app_uses_state_root_from_environment(tmp_path: Path, monkeypatch) -> None:
+    state_root = tmp_path / "env-state"
+    monkeypatch.setenv("DOCAGENT_STATE_ROOT", str(state_root))
+    client = TestClient(create_app(repo_root=Path(".")))
+
+    response = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Env state root"})
+
+    assert response.status_code == 200
+    assert state_root.exists()
+    assert Path(response.json()["workspace_root"]).is_relative_to(state_root)
+
+
 def test_doc_type_endpoints(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
 
