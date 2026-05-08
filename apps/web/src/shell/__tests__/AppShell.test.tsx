@@ -16,6 +16,7 @@ vi.mock("../../api", () => ({
     getTimeline: vi.fn(),
     getWorkspace: vi.fn(),
     getWorkspaceFile: vi.fn(),
+    importTextInput: vi.fn(),
     listDocTypes: vi.fn(),
     listTaskSessions: vi.fn(),
     listTasks: vi.fn(),
@@ -87,6 +88,15 @@ describe("AppShell", () => {
     vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-1", root: "workspace/task-1", files: [] });
     vi.mocked(api.getTimeline).mockResolvedValue([]);
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
+    vi.mocked(api.importTextInput).mockResolvedValue({
+      id: "input-scope-notes",
+      status: "converted",
+      source_path: "inputs/original/scope-notes.txt",
+      markdown_path: "inputs/markdown/scope-notes.md",
+      conversion_report_path: "inputs/reports/scope-notes.json",
+      original_filename: "scope-notes.md",
+      created_at: "2026-05-08T00:00:00Z",
+    });
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.sendMessage).mockResolvedValue({ accepted: true, status: "running_revision" });
     vi.mocked(api.reviseSelection).mockResolvedValue({ session_id: "session-1", next_state: "RUNNING_REVISION" });
@@ -445,6 +455,30 @@ describe("AppShell", () => {
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).not.toHaveBeenCalled();
     expect(await screen.findByText("Working...")).toBeTruthy();
+  });
+
+  it("imports composer text attachments before sending the message", async () => {
+    render(<MemoryRouter><AppShell /></MemoryRouter>);
+
+    await screen.findByText("Restored workspace");
+    await userEvent.click(screen.getByLabelText("Attach file"));
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).toBeTruthy();
+    await userEvent.upload(fileInput, new File(["Attachment context"], "scope-notes.md", { type: "text/markdown" }));
+    expect(await screen.findByText("scope-notes.md")).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText("Message"), "Use the attached notes");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(api.importTextInput).toHaveBeenCalledWith("task-1", "scope-notes.md", "Attachment context"),
+    );
+    await waitFor(() =>
+      expect(api.sendMessage).toHaveBeenCalledWith(
+        "session-1",
+        "Use the attached notes\nImported attachment scope-notes.md as inputs/markdown/scope-notes.md.",
+      ),
+    );
   });
 
   it("reloads an assistant message by resending the nearest previous user message", async () => {

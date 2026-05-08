@@ -1,9 +1,11 @@
 import { useExternalStoreRuntime, type AppendMessage, type ThreadMessage } from "@assistant-ui/react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { TimelineEvent } from "../../types";
+import { createDocAgentTextAttachmentAdapter } from "./docAgentAttachmentAdapter";
 import { mapTimelineEventsToAssistantMessages } from "./docAgentAssistantMessages";
 
 interface UseDocAgentAssistantRuntimeOptions {
+  activeTaskId: string | null;
   disabled: boolean;
   events: TimelineEvent[];
   isRunning: boolean;
@@ -12,6 +14,7 @@ interface UseDocAgentAssistantRuntimeOptions {
 }
 
 export function useDocAgentAssistantRuntime({
+  activeTaskId,
   disabled,
   events,
   isRunning,
@@ -19,13 +22,29 @@ export function useDocAgentAssistantRuntime({
   onSubmitInput,
 }: UseDocAgentAssistantRuntimeOptions) {
   const messages = useMemo(() => mapTimelineEventsToAssistantMessages(events), [events]);
+  const importedAttachmentReferencesRef = useRef<string[]>([]);
+  const attachmentAdapter = useMemo(
+    () =>
+      createDocAgentTextAttachmentAdapter({
+        taskId: activeTaskId,
+        onImported: (reference) => {
+          importedAttachmentReferencesRef.current = [...importedAttachmentReferencesRef.current, reference];
+        },
+      }),
+    [activeTaskId],
+  );
 
   return useExternalStoreRuntime<ThreadMessage>({
+    adapters: {
+      attachments: attachmentAdapter,
+    },
     isDisabled: disabled,
     isRunning,
     messages,
     onNew: async (message: AppendMessage) => {
-      await onSubmitInput(textFromAppendMessage(message));
+      const references = importedAttachmentReferencesRef.current;
+      importedAttachmentReferencesRef.current = [];
+      await onSubmitInput(textFromAppendMessage(message, references));
     },
     onReload: async (parentId: string | null) => {
       await onReloadInput?.(parentId);
@@ -34,9 +53,10 @@ export function useDocAgentAssistantRuntime({
   });
 }
 
-function textFromAppendMessage(message: AppendMessage): string {
-  return message.content
+function textFromAppendMessage(message: AppendMessage, attachmentReferences: string[] = []): string {
+  const contentText = message.content
     .filter((part): part is Extract<(typeof message.content)[number], { type: "text" }> => part.type === "text")
     .map((part) => part.text)
     .join("\n");
+  return [...[contentText], ...attachmentReferences].filter(Boolean).join("\n");
 }

@@ -1,5 +1,5 @@
-import { ComposerPrimitive, useAui } from "@assistant-ui/react";
-import { Send } from "lucide-react";
+import { AttachmentPrimitive, ComposerPrimitive, useAui } from "@assistant-ui/react";
+import { Paperclip, Send, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DocAgentSlashCommands } from "./DocAgentSlashCommands";
 
@@ -33,17 +33,40 @@ export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: Do
 
   return (
     <ComposerPrimitive.Root className="aui-composer" aria-disabled={disabled}>
-      <div className="aui-composer__input-wrap">
-        <ComposerPrimitive.Input
-          ref={inputRef}
-          aria-label="Message"
-          disabled={disabled}
-          placeholder="Message the agent, or type / for commands"
-          submitMode="enter"
-          onChange={(event) => setQuery(event.currentTarget.value)}
-        />
-        <DocAgentSlashCommands query={query} onSelect={selectCommand} />
-      </div>
+      <ComposerPrimitive.AttachmentDropzone className="aui-composer__dropzone">
+        <div className="aui-composer__input-wrap">
+          <ComposerPrimitive.Attachments>
+            {({ attachment }) => (
+              <AttachmentPrimitive.Root
+                className="aui-attachment-chip"
+                data-status={attachment.status.type}
+              >
+                <AttachmentPrimitive.Name />
+                <AttachmentPrimitive.Remove aria-label={`Remove ${attachment.name}`}>
+                  <X size={12} />
+                </AttachmentPrimitive.Remove>
+              </AttachmentPrimitive.Root>
+            )}
+          </ComposerPrimitive.Attachments>
+          <ComposerPrimitive.Input
+            ref={inputRef}
+            aria-label="Message"
+            disabled={disabled}
+            placeholder="Message the agent, or type / for commands"
+            submitMode="enter"
+            onChange={(event) => setQuery(event.currentTarget.value)}
+          />
+          <DocAgentSlashCommands query={query} onSelect={selectCommand} />
+        </div>
+      </ComposerPrimitive.AttachmentDropzone>
+      <ComposerPrimitive.AddAttachment
+        className="aui-attach-button"
+        disabled={disabled}
+        aria-label="Attach file"
+        multiple
+      >
+        <Paperclip size={15} />
+      </ComposerPrimitive.AddAttachment>
       <ComposerPrimitive.Send className="aui-send-button" disabled={disabled}>
         <Send size={15} />
       </ComposerPrimitive.Send>

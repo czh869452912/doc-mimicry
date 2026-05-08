@@ -43,6 +43,7 @@ export function ConversationPane({
   const eventsRef = useRef(events);
   const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
   const runtime = useDocAgentAssistantRuntime({
+    activeTaskId: activeTask?.id ?? null,
     disabled: composerDisabled,
     events,
     isRunning: Boolean(activeSession?.status?.startsWith("running")),

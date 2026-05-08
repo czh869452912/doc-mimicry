@@ -63,6 +63,30 @@ test("assistant-ui reload action resends the previous user message", async ({ pa
     .toBeGreaterThan(initialCount);
 });
 
+test("assistant-ui composer imports text attachments before sending", async ({ page }) => {
+  await page.goto("/");
+  await createWorkspace(page, `Attachment PRD ${Date.now()}`);
+
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /attach file/i }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
+    name: "scope-notes.md",
+    mimeType: "text/markdown",
+    buffer: Buffer.from("Attachment context for launch scope."),
+  });
+
+  await expect(page.getByText("scope-notes.md")).toBeVisible();
+  await page.getByLabel("Message").fill("Use the attached notes");
+  await page.getByLabel("Message").press("Enter");
+
+  await expect(page.locator(".aui-thread")).toContainText(
+    "Imported attachment scope-notes.md as inputs/markdown/scope-notes.md.",
+    { timeout: 8_000 },
+  );
+  await expect(page.getByText("scope-notes.md").first()).toBeVisible();
+});
+
 test("assistant-ui composer exposes slash command suggestions", async ({ page }) => {
   await page.goto("/");
 
@@ -109,6 +133,20 @@ test("URL params deep-link to a task and session on reload", async ({ page }) =>
 });
 
 async function createDraftReadyWorkspace(page: import("@playwright/test").Page, title: string) {
+  await createWorkspace(page, title);
+  await page.getByLabel("Message").fill("/start");
+  await page.getByLabel("Message").press("Enter");
+  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
+  const approveButton = page
+    .locator(".aui-timeline-part--card")
+    .filter({ hasText: "Outline · waiting for review" })
+    .getByRole("button", { name: /approve/i });
+  await expect(approveButton).toBeVisible({ timeout: 8_000 });
+  await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
+  await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 8_000 });
+}
+
+async function createWorkspace(page: import("@playwright/test").Page, title: string) {
   await page
     .locator(".pane-header")
     .filter({ hasText: "Workspaces" })
@@ -121,14 +159,5 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
     .filter({ has: page.getByLabel(/description/i) })
     .getByRole("button", { name: /^create workspace$/i })
     .click();
-  await page.getByLabel("Message").fill("/start");
-  await page.getByLabel("Message").press("Enter");
-  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
-  const approveButton = page
-    .locator(".aui-timeline-part--card")
-    .filter({ hasText: "Outline · waiting for review" })
-    .getByRole("button", { name: /approve/i });
-  await expect(approveButton).toBeVisible({ timeout: 8_000 });
-  await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
   await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 8_000 });
 }
