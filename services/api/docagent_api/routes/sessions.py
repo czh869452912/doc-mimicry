@@ -278,15 +278,16 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         poll_interval = float(os.environ.get("DOCAGENT_SSE_POLL_INTERVAL", "0.2"))
 
         async def generate():
-            sent = 0
-            yield ": keep-alive\n\n"
+            last_row_id = 0
             for _ in range(max_polls):
                 if await request.is_disconnected():
                     return
-                events = state.list_timeline_events(session_id)
-                for event in events[sent:]:
+                new_rows = await asyncio.to_thread(
+                    state.list_timeline_events_after, session_id, last_row_id
+                )
+                for row_id, event in new_rows:
                     yield f"data: {_json.dumps(event)}\n\n"
-                sent = len(events)
+                    last_row_id = row_id
                 await asyncio.sleep(poll_interval)
 
         return StreamingResponse(

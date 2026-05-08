@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os as _os
 from dataclasses import asdict
 from typing import Any
 from uuid import uuid4
@@ -121,32 +122,41 @@ def start_background_runtime_operation(
     runner: BackgroundRuntimeRunner,
     previous_state_on_failure: RuntimeSessionState | None = None,
     transition_prepared: bool = False,
+    operation_name: str | None = None,
+    operation_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     previous_state = previous_state_on_failure or RuntimeSessionState(session["status"])
     if not transition_prepared:
         prepare_transition(state, session, running_state)
 
-    def worker() -> None:
-        try:
-            result = operation()
-        except Exception as exc:
-            failure = manual_event(
-                task_id,
-                session["id"],
-                f"runtime-failed-{uuid4().hex[:8]}",
-                TimelineActor.SYSTEM,
-                SemanticEventKind.ERROR,
-                f"Runtime operation failed: {exc}",
-                [],
-                status=TimelineStatus.FAILED,
-            )
-            state.append_timeline_event(session["id"], asdict(failure))
-            set_session_state(state, session, previous_state)
-            return
-        append_runtime_result(state, task_id, session["id"], result)
-        set_session_state(state, session, result.next_state)
+    use_celery = _os.environ.get("DOCAGENT_QUEUE", "inline") == "celery"
 
-    runner.submit(session["id"], worker)
+    if use_celery and operation_name is not None:
+        from docagent_api.worker_tasks import run_session
+        run_session.delay(session["id"], operation_name, operation_kwargs or {})
+    else:
+        def worker() -> None:
+            try:
+                result = operation()
+            except Exception as exc:
+                failure = manual_event(
+                    task_id,
+                    session["id"],
+                    f"runtime-failed-{uuid4().hex[:8]}",
+                    TimelineActor.SYSTEM,
+                    SemanticEventKind.ERROR,
+                    f"Runtime operation failed: {exc}",
+                    [],
+                    status=TimelineStatus.FAILED,
+                )
+                state.append_timeline_event(session["id"], asdict(failure))
+                set_session_state(state, session, previous_state)
+                return
+            append_runtime_result(state, task_id, session["id"], result)
+            set_session_state(state, session, result.next_state)
+
+        runner.submit(session["id"], worker)
+
     return {"session_id": session["id"], "accepted": True, "status": running_state.value}
 
 
