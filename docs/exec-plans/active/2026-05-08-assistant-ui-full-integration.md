@@ -358,8 +358,77 @@ Get-ChildItem -Recurse -File | Select-Object FullName
 - If assistant-ui runtime API usage blocks progress, stop after the mapping layer and thread renderer tests, document the exact API mismatch, and either pin a compatible assistant-ui version or adjust to the exported v0.12.28 APIs.
 - Do not restore the hand-written composer as a long-term fallback; a temporary local revert is acceptable only for diagnosis.
 
-## Open questions
+## Remaining Advanced Capability Backlog
 
-- Should message retry call the existing `api.sendMessage` with the original user text only, or should it become a backend session-level retry endpoint later? Initial implementation should hide retry if it cannot be made semantically correct.
-- Should BranchPicker wait for backend draft/session branching semantics? Yes. Do not show it for single-branch data.
-- Should attachments be enabled in this pass? No. Keep composer attachment affordances hidden until upload-to-context behavior is designed.
+The base assistant-ui migration is complete: the center pane now uses assistant-ui runtime, thread, message, composer, custom data parts, action bar, reload affordance, text attachments, and DocAgent-specific cards. The following high-order assistant-ui capabilities remain outside the completed migration.
+
+### 1. Dictation
+
+**Current state:** Not mounted. `useExternalStoreRuntime` does not yet receive a dictation adapter, and `DocAgentComposer` does not render `ComposerPrimitive.Dictate`, `ComposerPrimitive.StopDictation`, or `ComposerPrimitive.DictationTranscript`.
+
+**Why it is still a gap:** assistant-ui can provide dictation through `WebSpeechDictationAdapter`, but Web Speech support is browser-dependent. The workbench must not show a dead microphone control in unsupported browsers or non-browser test environments.
+
+**Implementation direction:**
+
+- Configure `adapters.dictation` with `new WebSpeechDictationAdapter({ language: "zh-CN", interimResults: true })` only when `WebSpeechDictationAdapter.isSupported()` is true.
+- Render dictate and stop controls only when dictation is available.
+- Render interim transcript in the composer with `ComposerPrimitive.DictationTranscript`.
+- Add unit coverage for both supported and unsupported capability states.
+
+### 2. SelectionToolbar
+
+**Current state:** Selection behavior is functionally wired through the CodeMirror-side selection bar. Users can send selected draft text to the assistant composer or trigger `reviseSelection`.
+
+**Why it is still a gap:** The selection UI is not assistant-ui's `SelectionToolbarPrimitive`, so selection/quote behavior is not unified with the assistant-ui composer and message model.
+
+**Implementation direction:**
+
+- Keep CodeMirror as the source of selected text.
+- Replace or wrap the existing editor selection bar with assistant-ui `SelectionToolbarPrimitive`.
+- Preserve the two DocAgent commands: send selected text to composer and revise selection through the backend endpoint.
+- Add E2E coverage for both actions after the primitive replacement.
+
+### 3. Binary Attachments
+
+**Current state:** Text-like attachments are complete. The composer accepts text/Markdown/CSV/JSON/XML/CSS/HTML, imports them through `api.importTextInput`, renders attachment chips, and includes imported Markdown paths in submitted messages.
+
+**Why it is still a gap:** DOCX, PDF, images, and other binary inputs require a conversion pipeline, asset extraction policy, conversion reports, and error states. This overlaps with the Phase 0 import/export boundary work and should not be hidden behind a UI-only attachment affordance.
+
+**Implementation direction:**
+
+- Implement or reuse a backend binary import pipeline first.
+- Extend the attachment adapter with file-type routing instead of broadening the current text adapter.
+- Render conversion status and failures in assistant-ui attachment chips.
+- Add E2E coverage for at least one binary import path once the backend conversion contract exists.
+
+### 4. BranchPicker
+
+**Current state:** Not mounted. The timeline is a single linear sequence. Reload resends the nearest previous user message as a new continuation.
+
+**Why it is still a gap:** assistant-ui `BranchPickerPrimitive` needs real branch semantics: sibling responses, active branch selection, and stable parent/branch relationships. The current backend has sessions, timeline events, and draft versions, but no branch identifiers or branch-aware draft ownership.
+
+**Implementation direction:**
+
+- Design backend contracts for `parent_message_id`, `branch_id`, active branch selection, and branch-specific draft/checkpoint lineage.
+- Expose branch metadata through the frontend assistant message mapping.
+- Add assistant-ui BranchPicker only after the message repository can represent alternatives honestly.
+
+### 5. Native Reload Semantics
+
+**Current state:** Runtime `onReload` exists, and assistant messages expose a reload control inside `ActionBarPrimitive.Root`. This gives practical retry behavior by appending a new run from the previous user input.
+
+**Why it is still a gap:** Full assistant-ui reload commonly implies replaying or replacing a branch from a parent message. DocAgent currently appends to the timeline, which is correct for the existing backend but not equivalent to branch-truncating retry.
+
+**Implementation direction:**
+
+- Keep current append-based reload until branch semantics exist.
+- Once BranchPicker is implemented, decide whether reload should append, branch, or truncate a branch.
+- Revisit `ActionBarPrimitive.Reload` after the message repository has enough semantic data to support native assistant-ui behavior.
+
+### Recommended Order
+
+1. Dictation.
+2. SelectionToolbar.
+3. Binary attachments.
+4. BranchPicker.
+5. Native reload semantics.

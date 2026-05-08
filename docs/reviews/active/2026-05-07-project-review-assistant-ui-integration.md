@@ -44,6 +44,25 @@ Still open and intentionally out of scope for this follow-up:
 - Assistant-ui advanced capabilities that require additional product/backend semantics: BranchPicker, dictation, binary attachments, and assistant-ui `SelectionToolbar` replacement for the editor selection bar.
 - Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
 
+### Remaining Assistant-UI Advanced Gaps
+
+The center pane is now formally built on assistant-ui runtime and primitives, but the following advanced capabilities are still intentionally incomplete. These should be treated as product backlog items rather than defects in the completed runtime migration.
+
+| Gap | Current state | Why it remains a gap | Required next step |
+|-----|---------------|----------------------|--------------------|
+| Dictation | `ComposerPrimitive.Dictate`, `StopDictation`, and `DictationTranscript` are not mounted. No dictation adapter is configured. | Assistant-ui supports Web Speech dictation, but browser support is conditional and tests need a stable unsupported-state path. | Add `WebSpeechDictationAdapter` behind capability detection; render dictate/stop controls only when supported; add unit coverage for supported and unsupported browsers. |
+| SelectionToolbar | CodeMirror selections use the existing editor-side selection bar with "Send to chat" and "Revise selection". | The behavior is wired, but it is not using assistant-ui's `SelectionToolbarPrimitive`, so quote/selection UX is not unified with assistant-ui. | Replace or wrap the editor selection bar with assistant-ui `SelectionToolbarPrimitive` while preserving CodeMirror selection capture and the existing `reviseSelection` endpoint. |
+| BranchPicker | No `BranchPickerPrimitive` is mounted. Reload currently resends the previous user message as a new timeline continuation. | The backend timeline/session model has no branch ids, sibling response groups, or draft-version branch semantics. Showing a BranchPicker without those semantics would be misleading. | Design backend branch semantics first: parent message id, branch id, active branch selection, and draft/checkpoint ownership. Then expose branches to assistant-ui message repository/BranchPicker. |
+| Binary attachments | Text-like files are supported through assistant-ui attachments and the existing `importTextInput` API. DOCX/PDF/images are not accepted. | Binary files need import/conversion boundaries, asset extraction, and conversion reports. This overlaps with the still-open Phase 0 DOCX/PDF import/export tooling. | Implement binary import pipeline first, then extend the attachment adapter to route accepted binary types to that pipeline and render conversion status. |
+| Native reload primitive semantics | Runtime `onReload` is configured, and assistant message actions expose a DocAgent reload control inside `ActionBarPrimitive.Root`. | The current control gives practical retry behavior, but not full assistant-ui branch-truncating reload semantics. | Revisit `ActionBarPrimitive.Reload` once message repository/branch semantics exist; decide whether reload should branch, truncate, or append in DocAgent's timeline model. |
+
+Recommended order:
+
+1. **Dictation** — frontend-only, low backend risk, should be gated by Web Speech support.
+2. **SelectionToolbar** — medium risk; improves an already-working selection workflow.
+3. **Binary attachments** — depends on import/conversion tooling.
+4. **BranchPicker and native reload semantics** — highest semantic risk; should wait for explicit branch-aware backend contracts.
+
 Verification commands used in the follow-up:
 
 ```powershell
