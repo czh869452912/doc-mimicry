@@ -143,11 +143,11 @@ export function AppShell() {
               activeSession={workspaces.activeSession}
               activeTask={workspaces.activeTask}
               ensureSession={workspaces.ensureSession}
+              events={timeline.events}
               error={timeline.error}
               loading={timeline.loading}
               onOpenPath={openWorkspaceFile}
               onQueuedCommandHandled={() => setQueuedCommand(null)}
-              presentations={timeline.presentations}
               queuedCommand={queuedCommand}
               refreshTimeline={timeline.refreshTimeline}
               refreshWorkspace={async () => {
