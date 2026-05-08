@@ -5,12 +5,19 @@ requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn>=0.30.0",
+  "sqlalchemy>=2.0",
+  "psycopg2-binary>=2.9",
+  "alembic>=1.13",
+  "celery[redis]>=5.3",
+  "redis>=5.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest",
   "httpx",
+  "testcontainers[postgres]>=4.0",
+  "pytest-asyncio>=0.23",
 ]
 
 [tool.setuptools]
