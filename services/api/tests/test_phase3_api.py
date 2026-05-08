@@ -132,7 +132,9 @@ def test_cancel_completed_session_returns_409(tmp_path: Path) -> None:
     assert response.status_code == 409
 
 
-def test_startup_recovers_persisted_running_sessions(tmp_path: Path) -> None:
+def test_startup_logs_warning_for_interrupted_running_sessions(tmp_path: Path) -> None:
+    """With Celery-backed state, startup no longer force-fails running sessions.
+    It only logs a warning; Celery handles recovery. Status stays unchanged."""
     state_root = tmp_path / "state"
     client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
@@ -141,9 +143,10 @@ def test_startup_recovers_persisted_running_sessions(tmp_path: Path) -> None:
     session["status"] = "running_revision"
     state.save_session(session)
 
+    # Re-create the app — now only warns, does not force-fail sessions
     recovered_client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
 
-    assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "failed"
+    assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "running_revision"
     new_session = recovered_client.post(f"/tasks/{task['id']}/sessions").json()
     assert recovered_client.post(f"/sessions/{new_session['id']}/loop/start").status_code == 200
 

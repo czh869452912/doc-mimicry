@@ -19,6 +19,7 @@ _DATABASE_URL_ENV = "DATABASE_URL"
 _DEFAULT_DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 
 VALID_SESSION_STATUSES = (
+    "idle",
     "pending",
     "running_context",
     "await_outline_approval",
@@ -28,6 +29,7 @@ VALID_SESSION_STATUSES = (
     "running_chat",
     "running_checklist",
     "running_export",
+    "paused",
     "failed",
     "cancelled",
     "completed",

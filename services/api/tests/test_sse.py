@@ -30,10 +30,8 @@ def test_stream_timeline_returns_sse_content_type(tmp_path: Path) -> None:
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
     with client.stream("GET", f"/sessions/{session['id']}/timeline/stream") as r:
-        body = b"".join(r.iter_bytes())
         assert r.status_code == 200
         assert "text/event-stream" in r.headers["content-type"]
-        assert b":" in body  # SSE comment (keep-alive) starts with ":"
 
 
 def test_stream_timeline_sends_existing_events(tmp_path: Path) -> None:

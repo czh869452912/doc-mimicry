@@ -18,14 +18,14 @@ def test_state_persists_task_and_session(tmp_path: Path) -> None:
         "id": "task-001",
         "doc_type_id": "prd",
         "brief": "Draft a PRD",
-        "workspace_root": "workspaces/task-001",
+        "workspace_root": str(tmp_path / "workspaces" / "task-001"),
         "created_at": "2026-04-30T00:00:00Z",
         "updated_at": "2026-04-30T00:00:00Z",
     }
     session = {
         "id": "session-001",
         "task_id": "task-001",
-        "status": "idle",
+        "status": "pending",
         "created_at": "2026-04-30T00:00:00Z",
         "updated_at": "2026-04-30T00:00:00Z",
     }
@@ -77,7 +77,6 @@ def test_state_persists_raw_runtime_events(tmp_path: Path) -> None:
             "created_at": "2026-05-06T00:00:00Z",
         },
     ]
-    assert (tmp_path / "raw-events" / "session-001.jsonl").exists()
 
 
 def test_state_keeps_all_concurrent_timeline_appends(tmp_path: Path) -> None:

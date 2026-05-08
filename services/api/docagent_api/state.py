@@ -40,12 +40,19 @@ class DocAgentState:
     def list_tasks(self) -> list[dict[str, Any]]:
         with self._Session() as db:
             rows = db.query(TaskRow).all()
-            return [_normalized_task(_task_row_to_dict(r)) for r in rows]
+            tasks = [_normalized_task(_task_row_to_dict(r)) for r in rows]
+            for task in tasks:
+                task["workspace_root"] = str(self.workspace_root(task["id"]))
+            return tasks
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         with self._Session() as db:
             row = db.get(TaskRow, task_id)
-            return _normalized_task(_task_row_to_dict(row)) if row is not None else None
+            if row is None:
+                return None
+            task = _normalized_task(_task_row_to_dict(row))
+            task["workspace_root"] = str(self.workspace_root(row.id))
+            return task
 
     def save_task(self, task: dict[str, Any]) -> None:
         with self._Session() as db:

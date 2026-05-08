@@ -15,6 +15,7 @@ branch_labels = None
 depends_on = None
 
 VALID_SESSION_STATUSES = (
+    "idle",
     "pending",
     "running_context",
     "await_outline_approval",
@@ -24,6 +25,7 @@ VALID_SESSION_STATUSES = (
     "running_chat",
     "running_checklist",
     "running_export",
+    "paused",
     "failed",
     "cancelled",
     "completed",
