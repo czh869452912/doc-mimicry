@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { api } from "../../api";
 import { AppShell } from "../AppShell";
 
@@ -30,6 +31,14 @@ vi.mock("react-resizable-panels", () => ({
   Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Separator: () => <div />,
 }));
+
+function LocationProbe({ onChange }: { onChange: (search: string) => void }) {
+  const location = useLocation();
+  useEffect(() => {
+    onChange(location.search);
+  }, [location.search, onChange]);
+  return null;
+}
 
 describe("AppShell", () => {
   beforeEach(() => {
@@ -234,6 +243,125 @@ describe("AppShell", () => {
 
     await waitFor(() => expect(api.createSession).toHaveBeenCalledWith("task-1"));
     expect(await screen.findByText(/session-2/)).toBeTruthy();
+  });
+
+  it("restores task and session from URL search params", async () => {
+    vi.mocked(api.listTasks).mockResolvedValue([
+      {
+        id: "task-1",
+        doc_type_id: "prd",
+        brief: "Older task",
+        title: "Older task",
+        description: "Older task",
+        workspace_root: "workspace/task-1",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T08:00:00Z",
+      },
+      {
+        id: "task-2",
+        doc_type_id: "prd",
+        brief: "Linked task",
+        title: "Linked task",
+        description: "Linked task",
+        workspace_root: "workspace/task-2",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]);
+    vi.mocked(api.listTaskSessions).mockImplementation((taskId) =>
+      Promise.resolve(
+        taskId === "task-2"
+          ? [
+              {
+                id: "session-2",
+                task_id: "task-2",
+                status: "draft_ready",
+                created_at: "2026-05-06T09:00:00Z",
+                updated_at: "2026-05-06T09:00:00Z",
+              },
+            ]
+          : [],
+      ),
+    );
+    vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-2", root: "workspace/task-2", files: [] });
+    vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Linked draft" });
+
+    render(
+      <MemoryRouter initialEntries={["/?task=task-2&session=session-2"]}>
+        <AppShell />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Linked task")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Linked draft" })).toBeTruthy();
+    await waitFor(() => expect(api.listTaskSessions).toHaveBeenCalledWith("task-2"));
+  });
+
+  it("syncs selected task and session into URL search params", async () => {
+    const searches: string[] = [];
+    vi.mocked(api.listTasks).mockResolvedValue([
+      {
+        id: "task-1",
+        doc_type_id: "prd",
+        brief: "Task One",
+        title: "Task One",
+        description: "Task one description",
+        workspace_root: "workspace/task-1",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+      {
+        id: "task-2",
+        doc_type_id: "prd",
+        brief: "Task Two",
+        title: "Task Two",
+        description: "Task two description",
+        workspace_root: "workspace/task-2",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:30:00Z",
+      },
+    ]);
+    vi.mocked(api.listTaskSessions).mockImplementation((taskId) =>
+      Promise.resolve(
+        taskId === "task-2"
+          ? [
+              {
+                id: "session-2",
+                task_id: "task-2",
+                status: "idle",
+                created_at: "2026-05-06T10:00:00Z",
+                updated_at: "2026-05-06T10:00:00Z",
+              },
+            ]
+          : [
+              {
+                id: "session-1",
+                task_id: "task-1",
+                status: "draft_ready",
+                created_at: "2026-05-06T08:00:00Z",
+                updated_at: "2026-05-06T09:00:00Z",
+              },
+            ],
+      ),
+    );
+    vi.mocked(api.getWorkspace).mockImplementation((taskId) =>
+      Promise.resolve({ task_id: taskId, root: `workspace/${taskId}`, files: [] }),
+    );
+    vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Draft" });
+    window.localStorage.setItem("docagent:lastTaskId", "task-1");
+
+    render(
+      <MemoryRouter>
+        <LocationProbe onChange={(search) => searches.push(search)} />
+        <AppShell />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Task One");
+    fireEvent.click(screen.getByText("Task Two"));
+
+    await waitFor(() => expect(searches.at(-1)).toContain("task=task-2"));
+    await waitFor(() => expect(searches.at(-1)).toContain("session=session-2"));
   });
 
   it("opens settings and shows document type resources", async () => {

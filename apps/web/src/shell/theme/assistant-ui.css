@@ -1,5 +1,11 @@
 .aui-root,
 .aui-thread,
 .aui-composer {
+  --aui-font-family: var(--font-body);
+  --aui-color-background: var(--color-surface);
+  --aui-color-foreground: var(--color-ink);
+  --aui-color-muted: var(--color-muted);
+  --aui-color-border: var(--color-border);
+  --aui-color-primary: var(--color-accent);
   font-family: var(--font-body);
 }

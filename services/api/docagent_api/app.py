@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.response_models import HealthResponse
 from docagent_api.routes._shared import set_session_state
 from docagent_api.routes.doctypes import create_doctypes_router
@@ -23,7 +25,14 @@ def create_app(
     runtime_name: str | None = None,
     runtime_adapter: Any | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="DocAgent Workbench API")
+    runner = BackgroundRuntimeRunner()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        runner.shutdown()
+
+    app = FastAPI(title="DocAgent Workbench API", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -42,7 +51,7 @@ def create_app(
 
     app.include_router(create_doctypes_router(root))
     app.include_router(create_tasks_router(state, adapter, root))
-    app.include_router(create_sessions_router(state, adapter))
+    app.include_router(create_sessions_router(state, adapter, runner))
 
     return app
 

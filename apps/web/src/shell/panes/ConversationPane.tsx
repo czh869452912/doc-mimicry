@@ -1,3 +1,4 @@
+import type { ExternalThreadMessage } from "@assistant-ui/react";
 import { Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api";
@@ -39,6 +40,9 @@ export function ConversationPane({
   const [composer, setComposer] = useState("");
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
+  const assistantMessages: ExternalThreadMessage[] = presentations
+    .filter((presentation) => presentation.kind === "message")
+    .map(toAssistantMessage);
 
   useEffect(() => {
     if (!queuedCommand) return;
@@ -88,8 +92,11 @@ export function ConversationPane({
   }
 
   return (
-    <section className="conversation-pane">
-      <div className="conversation-stream">
+    <section className="conversation-pane aui-root">
+      <div
+        className="conversation-stream aui-thread"
+        data-assistant-ui-message-count={assistantMessages.length}
+      >
         {!activeTask && <div className="conversation-empty">Create a workspace to begin.</div>}
         {activeTask && !activeSession && (
           <div className="conversation-empty">Send a message or run /start to create a session.</div>
@@ -129,7 +136,7 @@ export function ConversationPane({
       {loading && <p className="pane-note">Refreshing timeline...</p>}
       <p className="status-line">{status}</p>
       <form
-        className="composer"
+        className="composer aui-composer"
         onSubmit={(event) => {
           event.preventDefault();
           void submitComposer();
@@ -153,6 +160,35 @@ export function ConversationPane({
       </form>
     </section>
   );
+}
+
+function toAssistantMessage(presentation: Extract<Presentation, { kind: "message" }>): ExternalThreadMessage {
+  if (presentation.role === "agent") {
+    return {
+      id: presentation.event.id,
+      role: "assistant",
+      content: [{ type: "text", text: presentation.body }],
+      createdAt: new Date(),
+      status: { type: "complete", reason: "stop" },
+      metadata: {
+        unstable_state: null,
+        unstable_annotations: [],
+        unstable_data: [],
+        steps: [],
+        custom: { timelineEventId: presentation.event.id },
+      },
+    };
+  }
+  return {
+    id: presentation.event.id,
+    role: "user",
+    content: [{ type: "text", text: presentation.body }],
+    createdAt: new Date(),
+    attachments: [],
+    metadata: {
+      custom: { timelineEventId: presentation.event.id },
+    },
+  };
 }
 
 function StreamItem({

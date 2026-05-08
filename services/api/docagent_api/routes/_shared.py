@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from threading import Thread
 from typing import Any
 from uuid import uuid4
 
 from fastapi import HTTPException
 
+from docagent_api.background import BackgroundRuntimeRunner
 from docagent_contracts import (
     RuntimeKind,
     RuntimeOperationResult,
@@ -118,6 +118,7 @@ def start_background_runtime_operation(
     session: dict[str, Any],
     running_state: RuntimeSessionState,
     operation: Any,
+    runner: BackgroundRuntimeRunner,
     previous_state_on_failure: RuntimeSessionState | None = None,
     transition_prepared: bool = False,
 ) -> dict[str, Any]:
@@ -145,7 +146,7 @@ def start_background_runtime_operation(
         append_runtime_result(state, task_id, session["id"], result)
         set_session_state(state, session, result.next_state)
 
-    Thread(target=worker, daemon=True).start()
+    runner.submit(session["id"], worker)
     return {"session_id": session["id"], "accepted": True, "status": running_state.value}
 
 

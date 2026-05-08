@@ -21,6 +21,41 @@ However, the frontend chat/timeline surface is still entirely hand-rolled despit
 
 **Partially resolved.** All Critical (C1–C5) and Important (I1–I7) issues are fixed. M1–M3 are also fixed. Remaining work: M4–M16 (minor debt), Phase 0 completion gaps, and assistant-ui integration.
 
+### 2026-05-08 Follow-up Status
+
+The 2026-05-08 review follow-up handled the actionable items that were not DOCX export or PRD seed-resource work.
+
+Resolved in follow-up:
+
+- **Local frontend dependency baseline restored.** The previous `react-router-dom`, `react-hook-form`, `@hookform/resolvers`, and `react-diff-viewer-continued` import failures were caused by dependencies not being installed on this machine after work moved from another computer. `npm install` restored `node_modules`; no package manifest or lockfile churn was required.
+- **M5 deep-linking completed and covered.** The app already had `BrowserRouter`, URL-param restoration, and URL sync; the follow-up added regression coverage for `?task=...&session=...` restoration and session-param sync.
+- **Assistant-ui Phase A boundary added.** `ConversationPane` now maps semantic timeline messages into assistant-ui's `ExternalThreadMessage` shape and applies the assistant-ui token bridge while preserving the existing slash-command flow and custom timeline cards. Full assistant-ui primitive runtime replacement remains future work because `ExternalThread` in `@assistant-ui/react@0.12.28` is a tap resource, not a JSX component.
+- **Raw daemon-thread route launching removed.** Background runtime operations now go through `BackgroundRuntimeRunner`, which is owned by the FastAPI app lifecycle and injected into session routes.
+
+Still open and intentionally out of scope for this follow-up:
+
+- `tools/export/export_docx.py` and DOCX/PDF export.
+- Real PRD examples/specs under `doc-types/prd/examples/markdown/` and `doc-types/prd/specs/markdown/`.
+- Assistant-ui Phase B/C features: branch picker, rich tool-call cards, attachments, dictation, SelectionToolbar, and deeper theme polish.
+- Durable external job execution with a database-backed queue or worker system. The new runner centralizes in-process lifecycle but is not a distributed job queue.
+
+Verification commands used in the follow-up:
+
+```powershell
+.local\dev\.venv\Scripts\python.exe -m pytest -q
+cd apps\web
+npm run test:unit
+npm run build
+```
+
+Focused checks also included:
+
+```powershell
+cd apps\web
+npm run test:unit -- src/shell/__tests__/AppShell.test.tsx src/shell/__tests__/useWorkspaces.test.tsx
+.local\dev\.venv\Scripts\python.exe -m pytest services/api/tests/test_background_runner.py services/api/tests/test_api.py services/api/tests/test_sse.py -q
+```
+
 ---
 
 ## Confirmed Correct
