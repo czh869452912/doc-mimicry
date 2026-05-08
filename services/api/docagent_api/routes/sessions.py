@@ -11,6 +11,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 
+from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.request_models import (
     ApproveOutlineRequest,
     ReviseSelectionRequest,
@@ -34,7 +35,7 @@ from docagent_api.state import DocAgentState
 from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
 
 
-def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
+def create_sessions_router(state: DocAgentState, adapter: Any, runner: BackgroundRuntimeRunner) -> APIRouter:
     router = APIRouter()
 
     @router.get("/sessions/{session_id}", response_model=SessionResponse)
@@ -58,7 +59,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CONTEXT, operation,
+                state, task["id"], session, RuntimeSessionState.RUNNING_CONTEXT, operation, runner,
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CONTEXT, lambda: adapter.start_loop(session_id),
@@ -91,6 +92,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
             response.status_code = 202
             return start_background_runtime_operation(
                 state, task["id"], session, RuntimeSessionState.RUNNING_DRAFT, operation,
+                runner,
                 previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
                 transition_prepared=True,
             )
@@ -128,6 +130,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
                 response.status_code = 202
                 return start_background_runtime_operation(
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
+                    runner,
                     previous_state_on_failure=previous_state, transition_prepared=True,
                 )
             result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
@@ -163,7 +166,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CHECKLIST, operation,
+                state, task["id"], session, RuntimeSessionState.RUNNING_CHECKLIST, operation, runner,
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHECKLIST, lambda: adapter.run_checklist(session_id),
@@ -189,7 +192,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
             )
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_EXPORT, operation,
+                state, task["id"], session, RuntimeSessionState.RUNNING_EXPORT, operation, runner,
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_EXPORT, lambda: adapter.export_markdown(session_id),
@@ -223,7 +226,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any) -> APIRouter:
                 operation = lambda: adapter.send_message(session_id, request.message)
             response.status_code = 202
             return start_background_runtime_operation(
-                state, task["id"], session, RuntimeSessionState.RUNNING_CHAT, operation,
+                state, task["id"], session, RuntimeSessionState.RUNNING_CHAT, operation, runner,
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,

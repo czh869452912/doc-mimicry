@@ -176,7 +176,7 @@ $apiJob = Start-Job -Name "docagent-api" -ScriptBlock {
     if (-not [string]::IsNullOrWhiteSpace($openHandsBaseUrl)) {
         $env:OPENHANDS_BASE_URL = $openHandsBaseUrl
     }
-    & $venvPython -m uvicorn docagent_api.app:app --host 127.0.0.1 --port 8000 *>> $apiLog
+    & $venvPython -m uvicorn --factory docagent_api.app:create_app --host 127.0.0.1 --port 8000 *>> $apiLog
 } -ArgumentList $repoRoot, $pythonPath, $apiLog, $venvPython, $Runtime, $OpenHandsBaseUrl
 
 $webJob = Start-Job -Name "docagent-web" -ScriptBlock {

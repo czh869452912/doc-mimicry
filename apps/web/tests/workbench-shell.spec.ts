@@ -31,8 +31,8 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
   await expect(page.getByText("Workspace files")).toBeVisible();
 });
 
-test("URL deep-links restore the active task and session", async ({ page }) => {
-  const title = `Deep-link PRD ${Date.now()}`;
+test("URL params deep-link to a task and session on reload", async ({ page }) => {
+  const title = `Deep link test ${Date.now()}`;
 
   await page.goto("/");
   await page
@@ -41,7 +41,7 @@ test("URL deep-links restore the active task and session", async ({ page }) => {
     .getByRole("button", { name: /create workspace/i })
     .click();
   await page.getByLabel(/title/i).fill(title);
-  await page.getByLabel(/description/i).fill("Deep-link restoration test.");
+  await page.getByLabel(/description/i).fill("Deep link test workspace.");
   await page
     .locator("form")
     .filter({ has: page.getByLabel(/description/i) })
@@ -50,14 +50,18 @@ test("URL deep-links restore the active task and session", async ({ page }) => {
 
   await expect(page.getByText(title).first()).toBeVisible();
 
-  // After creation, the URL must contain the task query parameter
+  // After creation, the URL must contain both task and session query parameters.
   await expect.poll(() => new URL(page.url()).searchParams.get("task")).not.toBeNull();
+  await expect.poll(() => new URL(page.url()).searchParams.get("session")).not.toBeNull();
   const deepLinkUrl = page.url();
   const taskId = new URL(deepLinkUrl).searchParams.get("task");
+  const sessionId = new URL(deepLinkUrl).searchParams.get("session");
   expect(taskId).not.toBeNull();
+  expect(sessionId).not.toBeNull();
 
   // Reload via the deep-link URL — state must be restored
   await page.goto(deepLinkUrl);
-  await expect(page.getByText(title).first()).toBeVisible();
+  await expect(page.getByText(title).first()).toBeVisible({ timeout: 5_000 });
   expect(new URL(page.url()).searchParams.get("task")).toBe(taskId);
+  expect(new URL(page.url()).searchParams.get("session")).toBe(sessionId);
 });
