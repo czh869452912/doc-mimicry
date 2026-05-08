@@ -142,7 +142,7 @@ function assistantMetadata(custom: Record<string, unknown>) {
   };
 }
 
-function threadStatusForEvent(status: string): ThreadMessage["status"] {
+function threadStatusForEvent(status: string): NonNullable<ThreadMessage["status"]> {
   if (status === "running" || status === "pending") return { type: "running" };
   if (status === "failed") return { type: "incomplete", reason: "error" };
   if (status === "cancelled") return { type: "incomplete", reason: "cancelled" };
