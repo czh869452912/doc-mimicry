@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.response_models import HealthResponse
-from docagent_api.routes._shared import set_session_state
 from docagent_api.routes.doctypes import create_doctypes_router
 from docagent_api.routes.sessions import create_sessions_router
 from docagent_api.routes.tasks import create_tasks_router
@@ -46,8 +45,11 @@ def create_app(
         allow_headers=["*"],
     )
     root = repo_root or Path.cwd()
-    state = DocAgentState(state_root or state_root_from_env() or root / ".local" / "docagent")
-    _recover_interrupted_sessions(state)
+    state = DocAgentState(
+        state_root or state_root_from_env() or root / ".local" / "docagent",
+        database_url=os.environ.get("DATABASE_URL"),
+    )
+    _warn_interrupted_sessions(state)
     adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 
     @app.get("/health", response_model=HealthResponse)
@@ -61,7 +63,9 @@ def create_app(
     return app
 
 
-def _recover_interrupted_sessions(state: DocAgentState) -> None:
+def _warn_interrupted_sessions(state: DocAgentState) -> None:
+    """Log a warning for sessions left in running states (Celery will recover them)."""
+    import logging
     running_states = {
         RuntimeSessionState.RUNNING_CONTEXT.value,
         RuntimeSessionState.RUNNING_DRAFT.value,
@@ -70,9 +74,11 @@ def _recover_interrupted_sessions(state: DocAgentState) -> None:
         RuntimeSessionState.RUNNING_CHECKLIST.value,
         RuntimeSessionState.RUNNING_EXPORT.value,
     }
-    for session in state.list_sessions():
-        if session["status"] in running_states:
-            set_session_state(state, session, RuntimeSessionState.FAILED)
+    logger = logging.getLogger(__name__)
+    interrupted = [s for s in state.list_sessions() if s["status"] in running_states]
+    if interrupted:
+        ids = ", ".join(s["id"] for s in interrupted)
+        logger.warning("Sessions left in running state (will be recovered by worker): %s", ids)
 
 
 def state_root_from_env() -> Path | None:
