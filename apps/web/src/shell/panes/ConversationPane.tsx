@@ -102,12 +102,19 @@ export function ConversationPane({
     onSubmitInput: submitInput,
   });
 
+  const queuedCommandHandlingRef = useRef(false);
   useEffect(() => {
-    if (!queuedCommand) return;
+    if (!queuedCommand || queuedCommandHandlingRef.current) return;
+    queuedCommandHandlingRef.current = true;
     void submitInput(queuedCommand).finally(() => {
+      queuedCommandHandlingRef.current = false;
       onQueuedCommandHandled?.();
     });
-  }, [queuedCommand, submitInput, onQueuedCommandHandled]);
+    // Intentionally omit submitInput — we only want to fire once per queuedCommand value.
+    // submitInput identity changes on every session update (via ensureSession), but the
+    // command is already captured in the closure when the effect first runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedCommand, onQueuedCommandHandled]);
 
   return (
     <section className="conversation-pane aui-root">
