@@ -74,7 +74,7 @@ class TimelineEventRow(Base):
     session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     event_type = Column(String, nullable=False)
     payload = Column(JSONB, nullable=False)
-    created_at = Column(Text, nullable=False, server_default=func.now())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (Index("idx_timeline_session_id", "session_id", "id"),)
 
@@ -85,7 +85,7 @@ class RawRuntimeEventRow(Base):
     session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
     runtime = Column(String, nullable=False)
     payload = Column(JSONB, nullable=False)
-    created_at = Column(Text, nullable=False, server_default=func.now())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (Index("idx_raw_events_session_id", "session_id"),)
 
