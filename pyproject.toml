@@ -19,6 +19,12 @@ dev = [
   "testcontainers[postgres]>=4.0",
   "pytest-asyncio>=0.23",
 ]
+openhands = [
+  "openhands-agent-server>=1.20.1",
+  "openhands-sdk>=1.20.1",
+  "openhands-tools>=1.20.1",
+  "openhands-workspace>=1.20.1",
+]
 
 [tool.setuptools]
 packages = []

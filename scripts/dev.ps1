@@ -2,6 +2,7 @@ param(
     [ValidateSet("mock", "openhands")]
     [string]$Runtime = $env:DOCAGENT_RUNTIME,
     [string]$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL,
+    [string]$OpenHandsContainerBaseUrl = $env:OPENHANDS_CONTAINER_BASE_URL,
     [int]$OpenHandsPort = 8001,
     [switch]$NoBrowser
 )
@@ -138,6 +139,9 @@ Import-LocalEnv (Join-Path $repoRoot ".env.local")
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
     $Runtime = "mock"
 }
+if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
+    $OpenHandsContainerBaseUrl = "http://host.docker.internal:$OpenHandsPort"
+}
 if (-not (Test-Command "docker")) {
     throw "Docker is required for the local dev stack. Install Docker Desktop and start it before running start-dev.cmd."
 }
@@ -152,6 +156,9 @@ try {
     $env:DOCAGENT_REPO_ROOT = "/app"
     if (-not [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
         $env:OPENHANDS_BASE_URL = $OpenHandsBaseUrl
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
+        $env:OPENHANDS_CONTAINER_BASE_URL = $OpenHandsContainerBaseUrl
     }
 
     # BuildKit derives its gRPC session key from the working directory path.
