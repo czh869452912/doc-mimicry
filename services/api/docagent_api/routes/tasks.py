@@ -128,7 +128,11 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
                 status_code=422,
                 detail=f"Cannot create session: missing skill or system prompt file — {exc}",
             ) from exc
-        result = adapter.create_session(session_id, prompt_bundle)
+        try:
+            result = adapter.create_session(session_id, prompt_bundle)
+        except Exception as exc:
+            state.delete_session(session_id)
+            raise HTTPException(status_code=502, detail=f"Runtime session creation failed: {exc}") from exc
         append_runtime_result(state, task["id"], session_id, result)
         return record
 

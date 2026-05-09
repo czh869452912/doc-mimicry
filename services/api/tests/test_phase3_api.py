@@ -66,6 +66,23 @@ class FailingSendAdapter:
         return RuntimeSessionState.IDLE
 
 
+class FailingCreateAdapter(FailingSendAdapter):
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        raise RuntimeError("OpenHands Agent Server is unreachable")
+
+
+def test_create_session_runtime_failure_returns_502_and_deletes_session(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingCreateAdapter())
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+
+    response = client.post(f"/tasks/{task['id']}/sessions")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Runtime session creation failed: OpenHands Agent Server is unreachable"
+    assert client.get(f"/tasks/{task['id']}/sessions").json() == []
+
+
 def test_runtime_error_rolls_session_back_to_previous_state(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingSendAdapter())
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))

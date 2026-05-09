@@ -34,6 +34,9 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "host.docker.internal" in dev_script
     assert "docagent-openhands" in dev_script
     assert "openhands.agent_server" in dev_script
+    assert "Start-Process" in dev_script
+    assert "openhands.err.log" in dev_script
+    assert "Start-Job -Name \"docagent-openhands\"" not in dev_script
     assert "Import-LocalEnv" in dev_script
     assert "LLM_API_KEY" in dev_script
     assert "LLM_MODEL" in dev_script
