@@ -53,7 +53,9 @@ export function AppShell() {
     ? "running"
     : workspaces.activeSession?.status === "failed"
       ? "failed"
-      : "idle";
+      : workspaces.activeSession?.status === "await_outline_approval"
+        ? "waiting"
+        : "idle";
 
   return (
     <main className="docagent-shell" onKeyDown={handleKeyDown}>

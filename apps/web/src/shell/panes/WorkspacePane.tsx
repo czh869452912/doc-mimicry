@@ -55,7 +55,10 @@ export function WorkspacePane({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [docTypeId, setDocTypeId] = useState(docTypes[0]?.id ?? "prd");
   const selectedId = activeTask ? `task:${activeTask.id}` : undefined;
-  const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), [nodes]);
+  // react-arborist only reads initialOpenState on first mount — recomputing on every
+  // nodes change is wasteful and has no effect after the initial render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialOpenState = useMemo(() => Object.fromEntries(nodes.map((node) => [node.id, true])), []);
 
   const {
     register,
@@ -65,8 +68,8 @@ export function WorkspacePane({
   } = useForm<z.infer<typeof createWorkspaceSchema>>({
     resolver: zodResolver(createWorkspaceSchema),
     defaultValues: {
-      title: "First usable imitation loop PRD",
-      description: "Write a PRD for the first usable document imitation loop.",
+      title: "",
+      description: "",
     },
   });
 

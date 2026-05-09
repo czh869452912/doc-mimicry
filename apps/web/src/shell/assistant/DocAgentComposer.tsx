@@ -67,7 +67,7 @@ export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: Do
       >
         <Paperclip size={15} />
       </ComposerPrimitive.AddAttachment>
-      <ComposerPrimitive.Send className="aui-send-button" disabled={disabled}>
+      <ComposerPrimitive.Send className="aui-send-button" disabled={disabled} onClick={() => setQuery("")}>
         <Send size={15} />
       </ComposerPrimitive.Send>
     </ComposerPrimitive.Root>

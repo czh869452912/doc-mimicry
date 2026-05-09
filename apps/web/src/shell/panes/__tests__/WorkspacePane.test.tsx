@@ -102,6 +102,7 @@ describe("WorkspacePane creation form", () => {
     await user.click(openButtons[0]);
 
     const form = screen.getByRole("form", { name: /create workspace/i });
+    await user.type(within(form).getByLabelText(/description/i), "A test workspace description");
     await user.click(within(form).getByRole("button", { name: /create workspace/i }));
 
     await waitFor(() => {
