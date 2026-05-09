@@ -11,7 +11,6 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     RuntimeSessionState.IDLE: {
         RuntimeSessionState.RUNNING_CONTEXT,
         RuntimeSessionState.RUNNING_REVISION,
-        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.RUNNING_CONTEXT: {

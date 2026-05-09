@@ -163,13 +163,17 @@ export function ConversationPane({
 
 function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecord | null) {
   if (!activeTask) return "Create a workspace to begin.";
-  if (!activeSession) return "Send a message or run /start to create a session.";
+  if (!activeSession) return "Send a message to create a session, or type /start to begin the outline loop.";
+  if (activeSession.status === "idle") return "Session is ready. Type /start to begin the outline loop.";
+  if (activeSession.status === "await_outline_approval") return "Review and approve the outline above to continue.";
+  if (activeSession.status === "completed") return "Session complete. Create a new session to start again.";
+  if (activeSession.status === "cancelled") return "Session was cancelled. Create a new session to start again.";
   return null;
 }
 
 function canSubmitComposerInput(activeSession: SessionRecord | null) {
-  if (!activeSession) return true;
-  return ["idle", "draft_ready", "paused", "failed"].includes(activeSession.status);
+  if (!activeSession) return true; // no session yet — first message creates one via ensureSession
+  return ["draft_ready", "paused", "failed"].includes(activeSession.status);
 }
 
 function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {

@@ -24,7 +24,7 @@ const task = {
 const session = {
   id: "session-1",
   task_id: "task-1",
-  status: "idle",
+  status: "draft_ready",
   created_at: "2026-05-06T08:00:00Z",
   updated_at: "2026-05-06T08:00:00Z",
 };
