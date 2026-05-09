@@ -17,7 +17,6 @@ interface DocAgentThreadProps {
   taskId: string | null;
   onApproved: () => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
-  onReloadMessage: (messageId: string | null) => Promise<void>;
 }
 
 const DocAgentThreadContext = createContext<{
@@ -25,7 +24,6 @@ const DocAgentThreadContext = createContext<{
   taskId: string | null;
   onApproved: () => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
-  onReloadMessage: (messageId: string | null) => Promise<void>;
 } | null>(null);
 
 function useDocAgentThreadContext() {
@@ -41,7 +39,6 @@ export function DocAgentThread({
   isRunning,
   onApproved,
   onOpenPath,
-  onReloadMessage,
   taskId,
 }: DocAgentThreadProps) {
   return (
@@ -51,7 +48,6 @@ export function DocAgentThread({
         taskId,
         onApproved,
         onOpenPath,
-        onReloadMessage,
       }}
     >
       <ThreadPrimitive.Root className="aui-thread">
@@ -90,7 +86,7 @@ function UserMessage() {
 type MessagePartHandlerProps = Omit<DocAgentThreadProps, "emptyMessage" | "isLoading" | "isRunning">;
 
 function AssistantMessage() {
-  const { activeSessionId, taskId, onApproved, onOpenPath, onReloadMessage } = useDocAgentThreadContext();
+  const { activeSessionId, taskId, onApproved, onOpenPath } = useDocAgentThreadContext();
 
   return (
     <MessagePrimitive.Root className="aui-message aui-message--assistant">

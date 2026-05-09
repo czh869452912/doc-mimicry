@@ -157,7 +157,6 @@ export function ConversationPane({
             await refreshTimeline();
           }}
           onOpenPath={onOpenPath}
-          onReloadMessage={reloadInput}
         />
         {showHelp && (
           <article className="inline-card">

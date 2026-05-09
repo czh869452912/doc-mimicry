@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 @pytest.fixture(autouse=True)
 def _short_sse_polls(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -15,7 +17,7 @@ def _short_sse_polls(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    return TestClient(create_app(state_root=tmp_path / "state", repo_root=REPO_ROOT))
 
 
 def test_stream_timeline_unknown_session_returns_404(tmp_path: Path) -> None:
