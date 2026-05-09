@@ -35,6 +35,42 @@ The script must not:
 - hide API or web logs from developers;
 - require a manually installed local Python virtualenv.
 
+## OpenHands Python Venv
+
+When `-Runtime openhands` is selected, the script manages a Python virtual environment at `.local/dev/.venv` (gitignored via `.local/`).
+
+### Auto-creation
+
+If `.local/dev/.venv/Scripts/python.exe` does not exist, the script creates the venv automatically:
+
+1. **Preferred**: uses `uv` (`uv venv` + `uv pip install -r`).
+2. **Fallback**: uses `python -m venv` + `pip install -r` if `uv` is not on PATH.
+3. **Error**: if neither `uv` nor `python` is found, the script aborts with an actionable message.
+
+### Dependencies
+
+All packages required by the OpenHands runtime are listed in:
+
+```
+scripts/requirements-openhands.txt
+```
+
+Add any new runtime dependency there. The venv is only created once; to force a reinstall after editing the file, delete `.local/dev/.venv` and re-run the script.
+
+### Manual venv setup
+
+```powershell
+uv venv .local/dev/.venv
+uv pip install --python .local/dev/.venv/Scripts/python.exe -r scripts/requirements-openhands.txt
+```
+
+or without `uv`:
+
+```powershell
+python -m venv .local/dev/.venv
+.local/dev/.venv/Scripts/python.exe -m pip install -r scripts/requirements-openhands.txt
+```
+
 ## Manual Fallback
 
 To start with the OpenHands adapter selected:

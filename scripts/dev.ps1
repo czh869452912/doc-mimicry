@@ -11,6 +11,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $logRoot = Join-Path $repoRoot ".local\dev"
 $openHandsLog = Join-Path $logRoot "openhands.log"
+$venvPython    = Join-Path $logRoot ".venv\Scripts\python.exe"
+$openHandsReqs = Join-Path $PSScriptRoot "requirements-openhands.txt"
 
 function Test-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -54,6 +56,48 @@ function Test-HttpReady {
     return $false
 }
 
+function Ensure-OpenHandsVenv {
+    if (Test-Path $venvPython) { return }
+
+    $venvDir = Join-Path $logRoot ".venv"
+    $uv      = Get-Command uv     -ErrorAction SilentlyContinue
+    $py      = Get-Command python -ErrorAction SilentlyContinue
+
+    if ($null -eq $uv -and $null -eq $py) {
+        throw (
+            "Cannot auto-create the OpenHands venv at '$venvDir': " +
+            "neither 'uv' nor 'python' was found on PATH. " +
+            "Install uv (https://github.com/astral-sh/uv) or Python 3.11+, then retry."
+        )
+    }
+
+    Write-Host "OpenHands venv not found — creating at $venvDir ..."
+    if ($null -ne $uv) {
+        Write-Host "  Using uv to create venv ..."
+        & $uv.Source venv $venvDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "uv venv creation failed (exit $LASTEXITCODE). See output above."
+        }
+        Write-Host "  Installing from $openHandsReqs via uv pip ..."
+        & $uv.Source pip install --python $venvPython -r $openHandsReqs
+        if ($LASTEXITCODE -ne 0) {
+            throw "uv pip install -r requirements-openhands.txt failed (exit $LASTEXITCODE). See output above."
+        }
+    } else {
+        Write-Host "  uv not found — falling back to python -m venv ..."
+        & $py.Source -m venv $venvDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "python -m venv creation failed (exit $LASTEXITCODE). See output above."
+        }
+        Write-Host "  Installing from $openHandsReqs via pip ..."
+        & $venvPython -m pip install -r $openHandsReqs
+        if ($LASTEXITCODE -ne 0) {
+            throw "pip install -r requirements-openhands.txt failed (exit $LASTEXITCODE). See output above."
+        }
+    }
+    Write-Host "OpenHands venv ready."
+}
+
 function Start-OpenHandsIfNeeded {
     if ($Runtime -ne "openhands") {
         return $null
@@ -73,16 +117,13 @@ function Start-OpenHandsIfNeeded {
         return $null
     }
     catch {
-        $python = Get-Command python -ErrorAction SilentlyContinue
-        if ($null -eq $python) {
-            throw "OpenHands runtime needs python on PATH when no OpenHands server is already running."
-        }
+        Ensure-OpenHandsVenv
         $job = Start-Job -Name "docagent-openhands" -ScriptBlock {
-            param($repoRoot, $openHandsLog, $openHandsPort)
+            param($repoRoot, $openHandsLog, $openHandsPort, $venvPython)
             Set-Location $repoRoot
             $env:OPENHANDS_SUPPRESS_BANNER = "1"
-            python -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
-        } -ArgumentList $repoRoot, $openHandsLog, $OpenHandsPort
+            & $venvPython -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
+        } -ArgumentList $repoRoot, $openHandsLog, $OpenHandsPort, $venvPython
         if (-not (Test-HttpReady "$OpenHandsBaseUrl/docs" 45)) {
             Receive-Job $job -Keep | Write-Host
             throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog."
