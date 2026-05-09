@@ -23,7 +23,7 @@ export function TopBar({
       <span className="status-dot" data-status={status} aria-label={`Session status: ${status}`} />
       <span className="topbar__spacer" />
       <button className="command-chip" type="button" onClick={onOpenCommandPalette}>
-        Ctrl K
+        Ctrl+Shift+P
       </button>
       <button className="icon-button" type="button" aria-label="Open settings" onClick={onOpenSettings}>
         <Settings size={15} />

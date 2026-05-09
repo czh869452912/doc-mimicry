@@ -83,6 +83,8 @@ export const api = {
         body: JSON.stringify({ message }),
       },
     ),
+  cancelSession: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
   getTimeline: (sessionId: string) => request<TimelineEvent[]>(`/sessions/${sessionId}/timeline`),
   getDraft: (taskId: string) => request<{ markdown: string }>(`/tasks/${taskId}/draft`),
   updateDraft: (taskId: string, markdown: string) =>

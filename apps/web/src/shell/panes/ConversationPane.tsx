@@ -41,15 +41,27 @@ export function ConversationPane({
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const eventsRef = useRef(events);
+  const isRunning = Boolean(activeSession?.status?.startsWith("running"));
 
   useEffect(() => {
     eventsRef.current = events;
   }, [events]);
 
-  const submitInput = useCallback(
+  const submitOrCancel = useCallback(
     async (rawInput: string) => {
       const input = rawInput.trimEnd();
       if (!input) return;
+
+      if (isRunning && activeSession) {
+        try {
+          await api.cancelSession(activeSession.id);
+          await refreshTimeline();
+          setStatus("Cancelled.");
+        } catch (caught) {
+          setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
+        }
+        return;
+      }
 
       try {
         const commandResult = await executeSlashCommand(input, {
@@ -60,24 +72,30 @@ export function ConversationPane({
           refreshTimeline,
           refreshWorkspace,
         });
-        if (!commandResult.handled) {
-          const session = await ensureSession();
-          if (!session) {
-            setStatus("Create a workspace first.");
-            return;
-          }
-          await api.sendMessage(session.id, input);
-          await refreshTimeline();
-          await refreshWorkspace();
-          setStatus("");
+        if (commandResult.handled) {
+          setStatus(commandResult.message ?? "");
           return;
         }
-        setStatus(commandResult.message ?? "");
+        // Free-form message: backend doesn't allow chat from idle/await/completed/cancelled.
+        // Surface a friendly hint instead of a raw 409.
+        if (activeSession && !["draft_ready", "paused", "failed"].includes(activeSession.status)) {
+          setStatus(idleSubmitHint(activeSession.status));
+          return;
+        }
+        const session = await ensureSession();
+        if (!session) {
+          setStatus("Create a workspace first.");
+          return;
+        }
+        await api.sendMessage(session.id, input);
+        await refreshTimeline();
+        await refreshWorkspace();
+        setStatus("");
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
       }
     },
-    [activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace],
+    [isRunning, activeSession, activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace],
   );
 
   const reloadInput = useCallback(
@@ -87,33 +105,41 @@ export function ConversationPane({
         setStatus("No previous user message to reload.");
         return;
       }
-      await submitInput(input);
+      await submitOrCancel(input);
     },
-    [submitInput],
+    [submitOrCancel],
   );
 
-  const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
-  const composerHint = composerHintFor(activeSession, composerDisabled);
+  const cancelActiveSession = useCallback(async () => {
+    if (!activeSession) return;
+    try {
+      await api.cancelSession(activeSession.id);
+      await refreshTimeline();
+      setStatus("Cancelled.");
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
+    }
+  }, [activeSession, refreshTimeline]);
+
+  const composerDisabled = !activeTask;
+  const composerHint = composerHintFor(activeSession);
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
     disabled: composerDisabled,
     events,
-    isRunning: Boolean(activeSession?.status?.startsWith("running")),
+    isRunning,
     onReloadInput: reloadInput,
-    onSubmitInput: submitInput,
+    onSubmitInput: submitOrCancel,
   });
 
   const queuedCommandHandlingRef = useRef(false);
   useEffect(() => {
     if (!queuedCommand || queuedCommandHandlingRef.current) return;
     queuedCommandHandlingRef.current = true;
-    void submitInput(queuedCommand).finally(() => {
+    void submitOrCancel(queuedCommand).finally(() => {
       queuedCommandHandlingRef.current = false;
       onQueuedCommandHandled?.();
     });
-    // Intentionally omit submitInput — we only want to fire once per queuedCommand value.
-    // submitInput identity changes on every session update (via ensureSession), but the
-    // command is already captured in the closure when the effect first runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queuedCommand, onQueuedCommandHandled]);
 
@@ -124,7 +150,7 @@ export function ConversationPane({
           activeSessionId={activeSession?.id ?? null}
           emptyMessage={emptyMessage(activeTask, activeSession)}
           isLoading={loading}
-          isRunning={Boolean(activeSession?.status?.startsWith("running"))}
+          isRunning={isRunning}
           taskId={activeTask?.id ?? null}
           onApproved={async () => {
             await refreshWorkspace();
@@ -153,6 +179,8 @@ export function ConversationPane({
         <DocAgentComposer
           disabled={composerDisabled}
           draftText={queuedComposerDraft}
+          isRunning={isRunning}
+          onCancel={cancelActiveSession}
           onDraftTextApplied={onQueuedComposerDraftHandled}
         />
       </AssistantRuntimeProvider>
@@ -173,18 +201,20 @@ function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecor
   return null;
 }
 
-function canSubmitComposerInput(activeSession: SessionRecord | null) {
-  if (!activeSession) return true; // no session yet — first message creates one via ensureSession
-  return ["draft_ready", "paused", "failed"].includes(activeSession.status);
+function composerHintFor(activeSession: SessionRecord | null): string | null {
+  if (!activeSession) return null;
+  if (activeSession.status === "await_outline_approval") {
+    return "The outline above needs your approval before the agent can continue.";
+  }
+  return null;
 }
 
-function composerHintFor(activeSession: SessionRecord | null, composerDisabled: boolean): string | null {
-  if (!composerDisabled || !activeSession) return null;
-  if (activeSession.status === "idle") return "Session is idle — press Ctrl+K and run /start to begin the outline loop.";
-  if (activeSession.status === "await_outline_approval") return "Approve the outline above to continue.";
-  if (activeSession.status === "completed") return "Session complete — create a new session to continue writing.";
-  if (activeSession.status === "cancelled") return "Session was cancelled — create a new session to continue.";
-  return null;
+function idleSubmitHint(status: string): string {
+  if (status === "idle") return "Type /start to begin the outline loop, or use a slash command.";
+  if (status === "await_outline_approval") return "Approve the outline above to continue the loop.";
+  if (status === "completed") return "Session is complete. Create a new session to continue writing.";
+  if (status === "cancelled") return "Session was cancelled. Create a new session to continue.";
+  return `Cannot send chat while session is ${status}. Try a slash command.`;
 }
 
 function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {

@@ -296,6 +296,16 @@
   border-radius: var(--radius-md);
 }
 
+.aui-send-button--stop {
+  color: var(--color-surface-card);
+  background: var(--color-error, #dc2626);
+  border-color: var(--color-error, #dc2626);
+}
+
+.aui-send-button--stop:hover {
+  filter: brightness(0.92);
+}
+
 .aui-attach-button {
   display: inline-flex;
   height: 34px;

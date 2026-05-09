@@ -130,7 +130,7 @@ describe("AppShell", () => {
     renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("Restored workspace");
-    await userEvent.click(screen.getByText("Ctrl K"));
+    await userEvent.click(screen.getByText("Ctrl+Shift+P"));
     await userEvent.click(screen.getByText("/help"));
 
     expect(await screen.findByText("Slash commands")).toBeTruthy();

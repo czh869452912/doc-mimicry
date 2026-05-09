@@ -1,15 +1,23 @@
 import { AttachmentPrimitive, ComposerPrimitive, useAui } from "@assistant-ui/react";
-import { Paperclip, Send, X } from "lucide-react";
+import { Paperclip, Send, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DocAgentSlashCommands } from "./DocAgentSlashCommands";
 
 interface DocAgentComposerProps {
   disabled: boolean;
   draftText?: string | null;
+  isRunning?: boolean;
+  onCancel?: () => void;
   onDraftTextApplied?: () => void;
 }
 
-export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: DocAgentComposerProps) {
+export function DocAgentComposer({
+  disabled,
+  draftText,
+  isRunning = false,
+  onCancel,
+  onDraftTextApplied,
+}: DocAgentComposerProps) {
   const aui = useAui();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [query, setQuery] = useState("");
@@ -52,7 +60,7 @@ export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: Do
             ref={inputRef}
             aria-label="Message"
             disabled={disabled}
-            placeholder="Message the agent, or type / for commands"
+            placeholder={isRunning ? "Agent is working — type to queue, or stop to interrupt" : "Message the agent, or type / for commands"}
             submitMode="enter"
             onChange={(event) => setQuery(event.currentTarget.value)}
           />
@@ -67,9 +75,20 @@ export function DocAgentComposer({ disabled, draftText, onDraftTextApplied }: Do
       >
         <Paperclip size={15} />
       </ComposerPrimitive.AddAttachment>
-      <ComposerPrimitive.Send className="aui-send-button" disabled={disabled} onClick={() => setQuery("")}>
-        <Send size={15} />
-      </ComposerPrimitive.Send>
+      {isRunning ? (
+        <button
+          type="button"
+          className="aui-send-button aui-send-button--stop"
+          aria-label="Stop the running agent"
+          onClick={() => onCancel?.()}
+        >
+          <Square size={13} />
+        </button>
+      ) : (
+        <ComposerPrimitive.Send className="aui-send-button" disabled={disabled} onClick={() => setQuery("")}>
+          <Send size={15} />
+        </ComposerPrimitive.Send>
+      )}
     </ComposerPrimitive.Root>
   );
 }

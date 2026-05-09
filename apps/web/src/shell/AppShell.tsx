@@ -163,7 +163,7 @@ export function AppShell() {
   );
 
   function handleKeyDown(event: React.KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "p") {
       event.preventDefault();
       setCommandOpen(true);
     }
