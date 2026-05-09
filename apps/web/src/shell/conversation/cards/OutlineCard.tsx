@@ -17,10 +17,20 @@ export function OutlineCard({ event, onApproved, onOpenPath, sessionId, taskId }
 
   useEffect(() => {
     if (!taskId) return;
+    let cancelled = false;
+
     api
       .getWorkspaceFile(taskId, outlinePath)
-      .then((file) => setOutline(file.content))
-      .catch(() => setOutline(event.summary));
+      .then((file) => {
+        if (!cancelled) setOutline(file.content);
+      })
+      .catch(() => {
+        if (!cancelled) setOutline(event.summary);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [event.summary, outlinePath, taskId]);
 
   async function approve() {
