@@ -67,6 +67,7 @@ export function useTimeline(
     let pollId: ReturnType<typeof window.setInterval> | undefined;
     let reconnectId: ReturnType<typeof window.setTimeout> | undefined;
     let backoffMs = SSE_BACKOFF_BASE_MS;
+    let closeCurrentSource: (() => void) | undefined;
 
     function invalidateRelatedQueries(event: TimelineEvent) {
       // Note: timeline data is managed directly by this hook (useState + SSE),
@@ -101,12 +102,17 @@ export function useTimeline(
       }, TIMELINE_POLL_INTERVAL_MS);
     }
 
-    function connect(): (() => void) | undefined {
+    function connect() {
+      // Close any previously opened source before creating a new one
+      closeCurrentSource?.();
+      closeCurrentSource = undefined;
+
       if (!("EventSource" in window)) {
         startPolling();
-        return undefined;
+        return;
       }
       const source = new EventSource(streamTimelineUrl(currentSessionId));
+      closeCurrentSource = () => source.close();
 
       source.onmessage = (ev: MessageEvent) => {
         if (cancelled) return;
@@ -121,7 +127,8 @@ export function useTimeline(
       };
 
       source.onerror = () => {
-        source.close();
+        closeCurrentSource?.();
+        closeCurrentSource = undefined;
         if (cancelled) return;
         // Re-fetch timeline to catch up on missed events
         void api.getTimeline(currentSessionId).then((nextEvents) => {
@@ -133,15 +140,13 @@ export function useTimeline(
         }, backoffMs);
         backoffMs = Math.min(backoffMs * 2, SSE_BACKOFF_MAX_MS);
       };
-
-      return () => source.close();
     }
 
-    const cleanup = connect();
+    connect();
 
     return () => {
       cancelled = true;
-      cleanup?.();
+      closeCurrentSource?.();
       if (pollId !== undefined) window.clearInterval(pollId);
       if (reconnectId !== undefined) window.clearTimeout(reconnectId);
     };
