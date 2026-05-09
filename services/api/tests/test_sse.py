@@ -26,7 +26,7 @@ def test_stream_timeline_unknown_session_returns_404(tmp_path: Path) -> None:
 
 def test_stream_timeline_returns_sse_content_type(tmp_path: Path) -> None:
     client = _client(tmp_path)
-    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE test"}).json()
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE test", "title": "SSE test", "description": "SSE test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
     with client.stream("GET", f"/sessions/{session['id']}/timeline/stream") as r:
@@ -38,7 +38,7 @@ def test_stream_timeline_sends_existing_events(tmp_path: Path) -> None:
     import json
 
     client = _client(tmp_path)
-    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE events test"}).json()
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE events test", "title": "SSE test", "description": "SSE test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
     session_id = session["id"]
 
