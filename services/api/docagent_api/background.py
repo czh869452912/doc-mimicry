@@ -45,5 +45,10 @@ class BackgroundRuntimeRunner:
         with self._lock:
             return set(self._running)
 
+    def is_running(self, session_id: str) -> bool:
+        with self._lock:
+            future = self._running.get(session_id)
+            return future is not None and not future.done()
+
     def shutdown(self) -> None:
         self._executor.shutdown(wait=True, cancel_futures=False)

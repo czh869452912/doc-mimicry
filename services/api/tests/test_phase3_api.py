@@ -72,12 +72,21 @@ def test_runtime_error_rolls_session_back_to_previous_state(tmp_path: Path, monk
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
+    # Reach draft_ready before sending a message (FailingSendAdapter supports this workflow)
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+
     response = client.post(f"/sessions/{session['id']}/messages", json={"message": "hello"})
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Runtime operation failed: runtime session is not available"
-    assert client.get(f"/sessions/{session['id']}").json()["status"] == "idle"
-    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    # Session must roll back to draft_ready (the state before the failed send_message)
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "draft_ready"
+    # Confirm the session is still usable from draft_ready
+    assert client.post(f"/sessions/{session['id']}/checklist/run").status_code == 200
 
 
 class FailingStreamAdapter:
@@ -181,10 +190,18 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
+    # Reach draft_ready via sync calls (Celery only applies to the message dispatch below)
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+
     response = client.post(
         f"/sessions/{session['id']}/messages?background=true",
         json={"message": "hello"},
     )
 
     assert response.status_code == 202
-    assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "idle"), {})]
+    # previous_state is draft_ready (the state before transitioning to running_chat)
+    assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "draft_ready"), {})]

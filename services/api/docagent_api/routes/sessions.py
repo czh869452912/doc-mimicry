@@ -87,7 +87,9 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         outline_text = request.outline_markdown
         if not outline_text.endswith("\n"):
             outline_text = f"{outline_text}\n"
-        (Path(task["workspace_root"]) / "draft" / "outline.md").write_text(outline_text, encoding="utf-8")
+        outline_path = Path(task["workspace_root"]) / "draft" / "outline.md"
+        outline_path.parent.mkdir(parents=True, exist_ok=True)
+        outline_path.write_text(outline_text, encoding="utf-8")
         if background:
             operation = stream_or_sync(
                 adapter,

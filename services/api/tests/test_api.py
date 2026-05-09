@@ -120,22 +120,25 @@ def test_task_session_message_timeline_and_draft_roundtrip(tmp_path: Path) -> No
     assert session_response.status_code == 200
     session = session_response.json()
 
+    # Reach draft_ready via the proper workflow before sending a chat message
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+
     message_response = client.post(
         f"/sessions/{session['id']}/messages",
-        json={"message": "Start the PRD"},
+        json={"message": "Revise the draft"},
     )
     assert message_response.status_code == 200
-    assert message_response.json()["event_count"] == 6
+    # Revise path returns 3 events (user_message, create_checkpoint, update_draft)
+    assert message_response.json()["event_count"] == 3
 
     timeline = client.get(f"/sessions/{session['id']}/timeline").json()
-    assert [event["kind"] for event in timeline] == [
-        "user_message",
-        "read_skill",
-        "extract_style",
-        "extract_structure",
-        "generate_outline",
-        "update_draft",
-    ]
+    timeline_kinds = [event["kind"] for event in timeline]
+    assert "user_message" in timeline_kinds
+    assert "update_draft" in timeline_kinds
 
     draft = client.get(f"/tasks/{task['id']}/draft").json()
     assert "# PRD Draft" in draft["markdown"]
@@ -151,6 +154,13 @@ def test_background_message_streams_partial_timeline_before_completion(tmp_path:
 
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build billing controls"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    # Reach draft_ready before sending a message (send_message requires non-idle session)
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
 
     response = client.post(
         f"/sessions/{session['id']}/messages?background=true",

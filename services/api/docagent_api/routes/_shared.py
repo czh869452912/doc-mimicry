@@ -125,6 +125,12 @@ def start_background_runtime_operation(
     operation_name: str | None = None,
     operation_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    session_id = session["id"]
+    if runner.is_running(session_id):
+        raise HTTPException(
+            status_code=409,
+            detail=f"A background operation is already running for session {session_id}",
+        )
     previous_state = previous_state_on_failure or RuntimeSessionState(session["status"])
     if not transition_prepared:
         prepare_transition(state, session, running_state)

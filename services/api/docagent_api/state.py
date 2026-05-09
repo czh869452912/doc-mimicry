@@ -104,6 +104,13 @@ class DocAgentState:
                 existing.updated_at = _parse_iso(session.get("updated_at")) or datetime.now(timezone.utc)
             db.commit()
 
+    def delete_session(self, session_id: str) -> None:
+        with self._Session() as db:
+            row = db.get(SessionRow, session_id)
+            if row is not None:
+                db.delete(row)
+                db.commit()
+
     # ── timeline events ───────────────────────────────────────────────────────
 
     def append_timeline_event(self, session_id: str, event: dict[str, Any]) -> None:

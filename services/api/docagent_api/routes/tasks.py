@@ -114,13 +114,20 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
             "updated_at": created_at,
         }
         state.save_session(record)
-        prompt_bundle = build_prompt_bundle(
-            root,
-            Path(task["workspace_root"]),
-            task["id"],
-            session_id,
-            task["doc_type_id"],
-        )
+        try:
+            prompt_bundle = build_prompt_bundle(
+                root,
+                Path(task["workspace_root"]),
+                task["id"],
+                session_id,
+                task["doc_type_id"],
+            )
+        except FileNotFoundError as exc:
+            state.delete_session(session_id)
+            raise HTTPException(
+                status_code=422,
+                detail=f"Cannot create session: missing skill or system prompt file — {exc}",
+            ) from exc
         result = adapter.create_session(session_id, prompt_bundle)
         append_runtime_result(state, task["id"], session_id, result)
         return record
