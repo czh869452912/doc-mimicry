@@ -38,23 +38,15 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
 
   if (command === "/start") {
     await api.startLoop(session.id);
-    await context.refreshWorkspace();
-    await context.refreshTimeline();
-    return { handled: true, message: "Outline loop started." };
+    return { handled: true, message: "Outline loop starting…" };
   }
   if (command === "/check") {
     await api.runChecklist(session.id);
-    await context.refreshWorkspace();
-    await context.refreshTimeline();
-    return { handled: true, message: "Checklist run finished." };
+    return { handled: true, message: "Checklist running…" };
   }
   if (command === "/export") {
-    const result = await api.exportMarkdown(session.id);
-    await context.refreshWorkspace();
-    await context.refreshTimeline();
-    const artifactPath = result.artifact_path ?? "artifacts/prd-draft.md";
-    await context.openArtifact(artifactPath);
-    return { handled: true, message: "Markdown artifact exported." };
+    await api.exportMarkdown(session.id);
+    return { handled: true, message: "Export started. Open the artifact from the workspace tree when it appears." };
   }
 
   return { handled: false };

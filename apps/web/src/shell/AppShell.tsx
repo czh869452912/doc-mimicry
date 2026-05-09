@@ -180,9 +180,7 @@ export function AppShell() {
       selectedText,
       "Please revise the selected passage while preserving its meaning.",
     );
-    await timeline.refreshTimeline();
-    await queryClient.invalidateQueries({ queryKey: ["workspace", workspaces.activeTask?.id] });
-    await queryClient.invalidateQueries({ queryKey: ["draft", workspaces.activeTask?.id] });
+    // SSE will push workspace/draft invalidation when the worker completes
   }
 }
 
