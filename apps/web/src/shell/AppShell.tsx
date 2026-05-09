@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { WorkspaceFileContent } from "../types";
@@ -23,6 +23,7 @@ export function AppShell() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [queuedComposerDraft, setQueuedComposerDraft] = useState<string | null>(null);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
+  const [localDraft, setLocalDraft] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const workspaces = useActiveWorkspace();
@@ -32,7 +33,12 @@ export function AppShell() {
   const collapse = useCollapse();
   const timeline = useTimeline(workspaces.activeSession?.id, workspaces.activeTask?.id);
 
-  const draft = draftQuery.data?.markdown ?? "";
+  const activeTaskId = workspaces.activeTask?.id;
+  useEffect(() => {
+    setLocalDraft(null);
+  }, [activeTaskId]);
+
+  const draft = localDraft ?? draftQuery.data?.markdown ?? "";
   const draftTaskId = draftQuery.isSuccess ? (workspaces.activeTask?.id ?? null) : null;
 
   const treeData = buildWorkspaceTreeData(
@@ -133,7 +139,7 @@ export function AppShell() {
                 tabs={editorTabs.tabs}
                 taskId={workspaces.activeTask?.id ?? null}
                 onCloseTab={editorTabs.removeTab}
-                onDraftChange={() => {}}
+                onDraftChange={setLocalDraft}
                 onReviseSelection={reviseSelectedText}
                 onSendSelectionToChat={(selectedText) => {
                   setQueuedComposerDraft(selectionPrompt(selectedText));
