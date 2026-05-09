@@ -2,7 +2,6 @@ import {
   ActionBarPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
-  useAuiState,
   type DataMessagePartProps,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
@@ -109,7 +108,7 @@ function AssistantMessage() {
           },
         }}
       />
-      <MessageActions canReload onReloadMessage={onReloadMessage} />
+      <MessageActions canReload />
     </MessagePrimitive.Root>
   );
 }
@@ -138,30 +137,18 @@ function DataPart({
 
 function MessageActions({
   canReload = false,
-  onReloadMessage,
 }: {
   canReload?: boolean;
-  onReloadMessage?: (messageId: string | null) => Promise<void>;
 }) {
-  const messageId = useAuiState((state) => state.message.id);
-
   return (
     <ActionBarPrimitive.Root className="aui-message-actions">
       <ActionBarPrimitive.Copy className="aui-message-action" aria-label="Copy text">
         Copy
       </ActionBarPrimitive.Copy>
       {canReload && (
-        <button
-          className="aui-message-action"
-          type="button"
-          aria-label="Reload response"
-          onClick={(event) => {
-            event.preventDefault();
-            void onReloadMessage?.(messageId ?? null);
-          }}
-        >
+        <ActionBarPrimitive.Reload className="aui-message-action" aria-label="Reload response">
           Reload
-        </button>
+        </ActionBarPrimitive.Reload>
       )}
     </ActionBarPrimitive.Root>
   );
