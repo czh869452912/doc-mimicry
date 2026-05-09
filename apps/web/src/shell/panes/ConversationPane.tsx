@@ -217,7 +217,7 @@ function idleSubmitHint(status: string): string {
   return `Cannot send chat while session is ${status}. Try a slash command.`;
 }
 
-function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {
+export function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {
   const parentIndex = parentMessageId
     ? events.findIndex((event) => event.id === parentMessageId)
     : events.length;
