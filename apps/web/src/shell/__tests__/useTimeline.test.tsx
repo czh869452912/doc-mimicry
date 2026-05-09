@@ -26,8 +26,11 @@ const eventOne: TimelineEvent = {
   actor: "agent",
   kind: "generate_outline",
   paths: [],
+  raw_event_id: null,
+  session_id: "session-1",
   status: "succeeded",
   summary: "Outlined",
+  task_id: "task-1",
 };
 
 function Harness({
@@ -183,8 +186,11 @@ describe("useTimeline", () => {
       actor: "agent",
       kind: "update_draft",
       paths: ["draft/draft.md"],
+      raw_event_id: null,
+      session_id: "session-1",
       status: "succeeded",
       summary: "SSE delivered",
+      task_id: "task-1",
     };
 
     let latest!: ReturnType<typeof useTimeline>;

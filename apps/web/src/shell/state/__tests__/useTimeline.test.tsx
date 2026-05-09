@@ -21,7 +21,7 @@ describe("useTimeline", () => {
 
   it("does not clear events when session changes (keepPreviousData)", async () => {
     vi.mocked(api.getTimeline).mockResolvedValue([
-      { id: "e1", actor: "agent", kind: "user_message", summary: "Hi", paths: [], status: "done" },
+      { id: "e1", actor: "agent", kind: "user_message", summary: "Hi", paths: [], status: "done", session_id: "session-1", task_id: "task-1", raw_event_id: null },
     ]);
     const { result, rerender } = renderHook(
       ({ sid, tid }: { sid: string; tid: string }) => useTimeline(sid, tid),

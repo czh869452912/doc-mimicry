@@ -76,7 +76,7 @@ export const api = {
   exportMarkdown: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown?background=true`, { method: "POST" }),
   sendMessage: (sessionId: string, message: string) =>
-    request<{ accepted?: boolean; event_count?: number; status?: string }>(
+    request<LoopActionResult>(
       `/sessions/${sessionId}/messages?background=true`,
       {
         method: "POST",

@@ -14,7 +14,10 @@ function event(overrides: Partial<TimelineEvent> & Pick<TimelineEvent, "id" | "k
   return {
     actor: "agent",
     paths: [],
+    raw_event_id: null,
+    session_id: "test-session",
     status: "succeeded",
+    task_id: "test-task",
     ...overrides,
   };
 }

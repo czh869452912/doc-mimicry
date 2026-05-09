@@ -107,7 +107,7 @@ describe("AppShell", () => {
       created_at: "2026-05-08T00:00:00Z",
     });
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
-    vi.mocked(api.sendMessage).mockResolvedValue({ accepted: true, status: "running_revision" });
+    vi.mocked(api.sendMessage).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_revision" });
     vi.mocked(api.reviseSelection).mockResolvedValue({ session_id: "session-1", next_state: "RUNNING_REVISION" });
   });
 
@@ -483,17 +483,23 @@ describe("AppShell", () => {
         id: "user-1",
         actor: "user",
         kind: "user_message",
+        raw_event_id: null,
+        session_id: "session-1",
         summary: "Revise the launch scope",
         paths: [],
         status: "succeeded",
+        task_id: "task-1",
       },
       {
         id: "agent-1",
         actor: "agent",
         kind: "agent_message",
+        raw_event_id: null,
+        session_id: "session-1",
         summary: "I updated the launch scope.",
         paths: [],
         status: "succeeded",
+        task_id: "task-1",
       },
     ]);
 

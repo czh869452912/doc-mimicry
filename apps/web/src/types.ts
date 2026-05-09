@@ -27,8 +27,11 @@ export interface SessionRecord {
 
 export interface TimelineEvent {
   id: string;
+  session_id: string;
+  task_id: string;
   actor: string;
   kind: string;
+  raw_event_id: string | null;
   summary: string;
   paths: string[];
   status: string;
@@ -65,8 +68,11 @@ export interface ImportedInput {
 
 export interface LoopActionResult {
   session_id: string;
-  next_state?: string;
-  event_count?: number;
-  paths?: string[];
-  artifact_path?: string;
+  next_state?: string | null;
+  event_count?: number | null;
+  raw_event_count?: number | null;
+  paths?: string[] | null;
+  artifact_path?: string | null;
+  accepted?: boolean | null;
+  status?: string | null;
 }

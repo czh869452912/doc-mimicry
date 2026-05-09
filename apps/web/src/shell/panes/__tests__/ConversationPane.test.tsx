@@ -31,12 +31,15 @@ const session = {
 
 const events: TimelineEvent[] = [
   {
-      id: "evt-user",
-      actor: "user",
-      kind: "user_message",
-      summary: "Write a launch PRD",
-      paths: [],
-      status: "succeeded",
+    id: "evt-user",
+    actor: "user",
+    kind: "user_message",
+    raw_event_id: null,
+    session_id: "session-1",
+    summary: "Write a launch PRD",
+    paths: [],
+    status: "succeeded",
+    task_id: "task-1",
   },
 ];
 
@@ -98,7 +101,7 @@ describe("ConversationPane", () => {
   });
 
   it("submits plain text through the existing DocAgent send message API", async () => {
-    vi.mocked(api.sendMessage).mockResolvedValue({ accepted: true, status: "running_chat" });
+    vi.mocked(api.sendMessage).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_chat" });
     renderPane();
 
     await userEvent.type(screen.getByLabelText("Message"), "Revise this section");

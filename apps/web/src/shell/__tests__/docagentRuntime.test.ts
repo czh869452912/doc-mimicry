@@ -8,8 +8,11 @@ function event(id: string, summary = id): TimelineEvent {
     id,
     kind: "agent_message",
     paths: [],
+    raw_event_id: null,
+    session_id: "test-session",
     status: "succeeded",
     summary,
+    task_id: "test-task",
   };
 }
 
