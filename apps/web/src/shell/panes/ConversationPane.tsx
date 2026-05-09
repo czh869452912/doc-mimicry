@@ -169,7 +169,9 @@ function inputForReload(events: TimelineEvent[], parentMessageId: string | null)
   const parentIndex = parentMessageId
     ? events.findIndex((event) => event.id === parentMessageId)
     : events.length;
-  if (parentIndex >= 0) {
+  // When parentMessageId is null, parentIndex === events.length (intentionally out of bounds)
+  // When parentMessageId refers to a message not found, parentIndex === -1
+  if (parentIndex >= 0 && parentIndex < events.length) {
     const parentEvent = events[parentIndex];
     if (parentEvent.kind === "user_message" && parentEvent.summary.trim()) return parentEvent.summary;
   }
