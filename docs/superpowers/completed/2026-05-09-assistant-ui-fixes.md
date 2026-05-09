@@ -1,5 +1,7 @@
 # Assistant-UI 集成修复计划
 
+**Status:** Completed and archived on 2026-05-09.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 修复 assistant-ui 全链路接入中的 9 个已知问题，确保前端组件正确性、后端 API 契约一致性、以及测试可靠性。
