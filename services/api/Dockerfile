@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
     PYTHONPATH=/app/services/api:/app/packages/contracts:/app/packages/workspace:/app/packages/timeline:/app/tools/import:/app/agent/runtime-adapters/mock:/app/agent/runtime-adapters/openhands
 
 WORKDIR /app
