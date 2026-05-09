@@ -103,7 +103,7 @@ function Start-OpenHandsIfNeeded {
         return $null
     }
     if ([string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
-        $OpenHandsBaseUrl = "http://127.0.0.1:$OpenHandsPort"
+        $script:OpenHandsBaseUrl = "http://127.0.0.1:$OpenHandsPort"
     }
     foreach ($requiredName in @("LLM_API_KEY", "LLM_MODEL", "LLM_BASE_URL")) {
         if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($requiredName, "Process"))) {
@@ -152,6 +152,21 @@ try {
     $env:DOCAGENT_REPO_ROOT = "/app"
     if (-not [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
         $env:OPENHANDS_BASE_URL = $OpenHandsBaseUrl
+    }
+
+    # BuildKit derives its gRPC session key from the working directory path.
+    # Non-ASCII characters (e.g. the Chinese project directory) produce
+    # non-printable bytes in that key, causing "non-printable ASCII characters"
+    # errors. Disable BuildKit to use the legacy builder instead.
+    $env:DOCKER_BUILDKIT = "0"
+
+    # Docker's context walker on Windows calls Lstat on every directory entry
+    # before checking .dockerignore; with non-ASCII paths this stat can fail
+    # and abort the build. pytest.ini redirects the cache to .local/pytest-cache,
+    # so .pytest_cache at the repo root is always stale and safe to remove.
+    $stalePytestCache = Join-Path $repoRoot ".pytest_cache"
+    if (Test-Path $stalePytestCache) {
+        Remove-Item $stalePytestCache -Recurse -Force
     }
 
     docker compose up -d --build postgres redis api worker web

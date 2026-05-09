@@ -14,6 +14,8 @@ COPY pyproject.toml README.md ARCHITECTURE.md ./
 COPY services/api ./services/api
 COPY packages ./packages
 COPY agent/runtime-adapters ./agent/runtime-adapters
+COPY agent/system-prompts ./agent/system-prompts
+COPY agent/skills ./agent/skills
 COPY tools ./tools
 COPY doc-types ./doc-types
 

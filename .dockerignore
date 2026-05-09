@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local dev artifacts
+.local/
+workspace/
+.worktrees/
+.worktree/
+
+# Node
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+dist/
+
+# Editor / tooling
+.claude/
+.superpowers/
+.git/
+.gitignore
+.dockerignore
+
+# Secrets / config
+.env.local
+
+# Docs and non-build source
+docs/
+reference/
+scripts/
+tests/

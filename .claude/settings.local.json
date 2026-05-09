@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests -q)",
+      "Bash(python -m pytest --version)",
+      "Bash(py -m pytest --version)",
+      "Bash(\"C:\\\\Users\\\\fai_l\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\python\\\\python.exe\" -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests -q)",
+      "Bash(\"C:\\\\Users\\\\fai_l\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\python\\\\python.exe\" -m pytest services/api/tests/test_state.py -q)",
+      "Bash(\"C:\\\\Users\\\\fai_l\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\python\\\\python.exe\" -m pytest packages/contracts/tests packages/timeline/tests -q)",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python -m pytest services/api/tests/test_phase2_api.py agent/runtime-adapters/mock/tests packages/workspace/tests -q)",
+      "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(where python *)",
+      "Bash(which python *)",
+      "Bash(py -3 -m pytest services/api/tests/test_phase2_api.py agent/runtime-adapters/mock/tests packages/workspace/tests -q)",
+      "Bash(ls .venv/Scripts/)",
+      "Bash(ls .venv/bin/)",
+      "Bash(/c/Users/fai_l/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/Scripts/pytest.exe services/api/tests/test_phase2_api.py agent/runtime-adapters/mock/tests packages/workspace/tests -q)",
+      "Bash(git ls-tree *)",
+      "Bash(grep -n \"pytest-version\\\\|pytest>=\\\\|pytest==\" pyproject.toml)",
+      "Bash(grep -n \"pytest\\\\|httpx\" pyproject.toml)",
+      "Bash(\"C:\\\\Users\\\\fai_l\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\python\\\\python.exe\" -m pytest packages/contracts/tests packages/timeline/tests agent/runtime-adapters/mock/tests/test_authoring_loop.py agent/runtime-adapters/mock/tests/test_adapter.py -q)",
+      "Bash(\"C:\\\\Users\\\\fai_l\\\\.cache\\\\codex-runtimes\\\\codex-primary-runtime\\\\dependencies\\\\python\\\\python.exe\" -m pytest agent/runtime-adapters/mock/tests/test_authoring_loop.py::test_revise_selection_raises_when_selected_text_is_missing -q)",
+      "Bash(.local\\\\dev\\\\.venv\\\\Scripts\\\\python.exe -m pytest packages/timeline/tests/test_openhands_mapper.py -v)",
+      "Bash(npx vitest *)",
+      "Bash(.local\\\\dev\\\\.venv\\\\Scripts\\\\python.exe -m pytest -q)",
+      "PowerShell(& \"D:\\\\Project\\\\文档仿写平台\\\\.local\\\\dev\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest -q 2>&1 | Select-Object -Last 5)",
+      "PowerShell(& \"D:\\\\Project\\\\文档仿写平台\\\\.local\\\\dev\\\\.venv\\\\Scripts\\\\python.exe\" -m pytest agent/runtime-adapters/mock/tests/test_authoring_loop.py -q 2>&1 | Select-Object -First 30)",
+      "Bash(docker compose *)",
+      "Bash(Get-ChildItem \"D:\\\\Project\\\\文档仿写平台\\\\agent\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
+    ]
+  }
+}
