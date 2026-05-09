@@ -54,6 +54,7 @@ OpenHands opt-in:
 When running API or worker directly on the host, use `OPENHANDS_BASE_URL=http://127.0.0.1:8001`.
 When running through Docker Compose, the containers must reach the host server through
 `OPENHANDS_CONTAINER_BASE_URL=http://host.docker.internal:8001`; `start-dev.cmd` sets this
-default for the compose stack.
+default for the compose stack. The API and worker image uses Python 3.12 because the OpenHands
+SDK packages require Python 3.12 or newer.
 
 Normal CI and local development should keep `mock` unless OpenHands Agent Server is configured and running.

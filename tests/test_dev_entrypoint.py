@@ -46,6 +46,9 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert compose_override.count("LLM_MODEL") >= 2
     assert compose_override.count("LLM_BASE_URL") >= 2
 
+    assert "FROM python:3.12-slim" in dockerfile
     assert 'pip install --no-cache-dir -e ".[openhands]"' in dockerfile
     assert "openhands = [" in pyproject
-    assert "openhands-sdk>=1.20.1" in pyproject
+    assert "openhands-sdk==1.20.1" in pyproject
+    assert "opentelemetry-instrumentation==0.60b1" in pyproject
+    assert "opentelemetry-sdk==1.39.1" in pyproject
