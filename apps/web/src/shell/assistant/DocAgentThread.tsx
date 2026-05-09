@@ -6,7 +6,7 @@ import {
   type DataMessagePartProps,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
-import { useMemo } from "react";
+import { createContext, useContext } from "react";
 import type { DocAgentAssistantData } from "./docAgentAssistantMessages";
 import { DocAgentMessagePart } from "./DocAgentMessageParts";
 
@@ -21,6 +21,20 @@ interface DocAgentThreadProps {
   onReloadMessage: (messageId: string | null) => Promise<void>;
 }
 
+const DocAgentThreadContext = createContext<{
+  activeSessionId: string | null;
+  taskId: string | null;
+  onApproved: () => Promise<void>;
+  onOpenPath: (path: string) => Promise<void>;
+  onReloadMessage: (messageId: string | null) => Promise<void>;
+} | null>(null);
+
+function useDocAgentThreadContext() {
+  const ctx = useContext(DocAgentThreadContext);
+  if (!ctx) throw new Error("DocAgentThreadContext not found");
+  return ctx;
+}
+
 export function DocAgentThread({
   activeSessionId,
   emptyMessage,
@@ -31,43 +45,37 @@ export function DocAgentThread({
   onReloadMessage,
   taskId,
 }: DocAgentThreadProps) {
-  const AssistantMessageComponent = useMemo(
-    () =>
-      function AssistantMessageComponent() {
-        return (
-          <AssistantMessage
-            activeSessionId={activeSessionId}
-            taskId={taskId}
-            onApproved={onApproved}
-            onOpenPath={onOpenPath}
-            onReloadMessage={onReloadMessage}
-          />
-        );
-      },
-    [activeSessionId, taskId, onApproved, onOpenPath, onReloadMessage],
-  );
-
   return (
-    <ThreadPrimitive.Root className="aui-thread">
-      <ThreadPrimitive.Viewport className="aui-thread-viewport">
-        {emptyMessage && (
-          <ThreadPrimitive.Empty>
-            <div className="conversation-empty">{emptyMessage}</div>
-          </ThreadPrimitive.Empty>
-        )}
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage: UserMessage,
-            AssistantMessage: AssistantMessageComponent,
-          }}
-        />
-        {(isLoading || isRunning) && (
-          <div className="aui-thread-status" role="status">
-            {isRunning ? "Agent is working..." : "Refreshing timeline..."}
-          </div>
-        )}
-      </ThreadPrimitive.Viewport>
-    </ThreadPrimitive.Root>
+    <DocAgentThreadContext.Provider
+      value={{
+        activeSessionId,
+        taskId,
+        onApproved,
+        onOpenPath,
+        onReloadMessage,
+      }}
+    >
+      <ThreadPrimitive.Root className="aui-thread">
+        <ThreadPrimitive.Viewport className="aui-thread-viewport">
+          {emptyMessage && (
+            <ThreadPrimitive.Empty>
+              <div className="conversation-empty">{emptyMessage}</div>
+            </ThreadPrimitive.Empty>
+          )}
+          <ThreadPrimitive.Messages
+            components={{
+              UserMessage: UserMessage,
+              AssistantMessage: AssistantMessage,
+            }}
+          />
+          {(isLoading || isRunning) && (
+            <div className="aui-thread-status" role="status">
+              {isRunning ? "Agent is working..." : "Refreshing timeline..."}
+            </div>
+          )}
+        </ThreadPrimitive.Viewport>
+      </ThreadPrimitive.Root>
+    </DocAgentThreadContext.Provider>
   );
 }
 
@@ -82,7 +90,9 @@ function UserMessage() {
 
 type MessagePartHandlerProps = Omit<DocAgentThreadProps, "emptyMessage" | "isLoading" | "isRunning">;
 
-function AssistantMessage(props: MessagePartHandlerProps) {
+function AssistantMessage() {
+  const { activeSessionId, taskId, onApproved, onOpenPath, onReloadMessage } = useDocAgentThreadContext();
+
   return (
     <MessagePrimitive.Root className="aui-message aui-message--assistant">
       <MessagePrimitive.Content
@@ -90,16 +100,16 @@ function AssistantMessage(props: MessagePartHandlerProps) {
           Text: TextPart,
           data: {
             by_name: {
-              "docagent.tool-call": (part) => <DataPart {...part} {...props} />,
-              "docagent.outline-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.checklist-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.artifact-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.approval-card": (part) => <DataPart {...part} {...props} />,
+              "docagent.tool-call": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.outline-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.checklist-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.artifact-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.approval-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
             },
           },
         }}
       />
-      <MessageActions canReload onReloadMessage={props.onReloadMessage} />
+      <MessageActions canReload onReloadMessage={onReloadMessage} />
     </MessagePrimitive.Root>
   );
 }
