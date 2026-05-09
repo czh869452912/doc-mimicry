@@ -93,6 +93,7 @@ export function ConversationPane({
   );
 
   const composerDisabled = !activeTask || !canSubmitComposerInput(activeSession);
+  const composerHint = composerHintFor(activeSession, composerDisabled);
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
     disabled: composerDisabled,
@@ -155,6 +156,7 @@ export function ConversationPane({
           onDraftTextApplied={onQueuedComposerDraftHandled}
         />
       </AssistantRuntimeProvider>
+      {composerHint && <p className="pane-note pane-note--hint">{composerHint}</p>}
       {error && <p className="pane-note pane-note--error">{error}</p>}
       <p className="status-line">{status}</p>
     </section>
@@ -174,6 +176,15 @@ function emptyMessage(activeTask: TaskRecord | null, activeSession: SessionRecor
 function canSubmitComposerInput(activeSession: SessionRecord | null) {
   if (!activeSession) return true; // no session yet — first message creates one via ensureSession
   return ["draft_ready", "paused", "failed"].includes(activeSession.status);
+}
+
+function composerHintFor(activeSession: SessionRecord | null, composerDisabled: boolean): string | null {
+  if (!composerDisabled || !activeSession) return null;
+  if (activeSession.status === "idle") return "Session is idle — press Ctrl+K and run /start to begin the outline loop.";
+  if (activeSession.status === "await_outline_approval") return "Approve the outline above to continue.";
+  if (activeSession.status === "completed") return "Session complete — create a new session to continue writing.";
+  if (activeSession.status === "cancelled") return "Session was cancelled — create a new session to continue.";
+  return null;
 }
 
 function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {

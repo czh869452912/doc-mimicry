@@ -166,6 +166,11 @@
   color: var(--color-error);
 }
 
+.pane-note--hint {
+  color: var(--color-fg-secondary, #6b7280);
+  font-style: italic;
+}
+
 .empty-card {
   min-height: 84px;
   color: var(--color-muted);
