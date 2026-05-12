@@ -274,7 +274,11 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CHAT,
                 operation,
                 runner,
-                operation_name="send_message",
+                operation_name=(
+                    "send_message_stream"
+                    if callable(getattr(adapter, "send_message_stream", None))
+                    else "send_message"
+                ),
                 operation_kwargs={"message": runtime_message},
             )
         result = run_runtime_operation(

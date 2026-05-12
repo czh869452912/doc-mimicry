@@ -25,6 +25,7 @@ from docagent_api.routes._shared import (
     manual_event,
     require_task,
 )
+from docagent_api.session_state import RUNNING_STATES
 from docagent_api.state import DocAgentState
 from docagent_api.time import utc_now
 from docagent_api.workspace_files import list_workspace_files, read_workspace_text_file
@@ -35,16 +36,6 @@ from docagent_workspace import create_workspace
 def _title_from_description(description: str) -> str:
     first_line = next((line.strip() for line in description.splitlines() if line.strip()), "Untitled workspace")
     return first_line[:80]
-
-
-RUNNING_STATES = {
-    RuntimeSessionState.RUNNING_CONTEXT.value,
-    RuntimeSessionState.RUNNING_DRAFT.value,
-    RuntimeSessionState.RUNNING_REVISION.value,
-    RuntimeSessionState.RUNNING_CHAT.value,
-    RuntimeSessionState.RUNNING_CHECKLIST.value,
-    RuntimeSessionState.RUNNING_EXPORT.value,
-}
 
 
 def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRouter:

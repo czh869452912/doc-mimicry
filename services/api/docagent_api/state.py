@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import update
+
 from docagent_contracts import RawRuntimeEvent
 from docagent_api.db import (
     RawRuntimeEventRow,
@@ -135,13 +137,14 @@ class DocAgentState:
 
     def acquire_operation_lease(self, session_id: str, celery_task_id: str) -> bool:
         with self._Session() as db:
-            row = db.get(SessionRow, session_id)
-            if row is None or row.celery_task_id:
-                return False
-            row.celery_task_id = celery_task_id
-            row.updated_at = datetime.now(timezone.utc)
+            result = db.execute(
+                update(SessionRow)
+                .where(SessionRow.id == session_id)
+                .where(SessionRow.celery_task_id.is_(None))
+                .values(celery_task_id=celery_task_id, updated_at=datetime.now(timezone.utc))
+            )
             db.commit()
-            return True
+            return result.rowcount == 1
 
     def release_operation_lease(self, session_id: str, celery_task_id: str | None = None) -> None:
         with self._Session() as db:

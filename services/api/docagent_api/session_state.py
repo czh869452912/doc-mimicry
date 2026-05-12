@@ -7,6 +7,16 @@ class InvalidSessionTransition(ValueError):
     pass
 
 
+RUNNING_STATES: frozenset[str] = frozenset({
+    RuntimeSessionState.RUNNING_CONTEXT.value,
+    RuntimeSessionState.RUNNING_DRAFT.value,
+    RuntimeSessionState.RUNNING_REVISION.value,
+    RuntimeSessionState.RUNNING_CHAT.value,
+    RuntimeSessionState.RUNNING_CHECKLIST.value,
+    RuntimeSessionState.RUNNING_EXPORT.value,
+})
+
+
 ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     RuntimeSessionState.IDLE: {
         RuntimeSessionState.RUNNING_CONTEXT,

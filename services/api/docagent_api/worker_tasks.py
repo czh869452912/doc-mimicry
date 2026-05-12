@@ -7,17 +7,8 @@ from typing import Any
 
 from docagent_api.celery_app import celery_app
 from docagent_api.routes._shared import append_runtime_result, runtime_event_sink, set_session_state
+from docagent_api.session_state import RUNNING_STATES
 from docagent_contracts import RuntimeSessionState
-
-
-RUNNING_STATES = {
-    RuntimeSessionState.RUNNING_CONTEXT.value,
-    RuntimeSessionState.RUNNING_DRAFT.value,
-    RuntimeSessionState.RUNNING_REVISION.value,
-    RuntimeSessionState.RUNNING_CHAT.value,
-    RuntimeSessionState.RUNNING_CHECKLIST.value,
-    RuntimeSessionState.RUNNING_EXPORT.value,
-}
 
 
 def _runtime_state_or_default(value: str | None, default: RuntimeSessionState) -> RuntimeSessionState:

@@ -303,6 +303,58 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
     assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "draft_ready"), {})]
 
 
+def test_background_message_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
+    delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class FakeTask:
+        @staticmethod
+        def delay(*args: Any, **kwargs: Any) -> None:
+            delayed_calls.append((args, kwargs))
+
+    class FakeStreamingChatAdapter(FailingStreamAdapter):
+        def start_loop(self, session_id: str) -> RuntimeOperationResult:
+            return RuntimeOperationResult(
+                session_id=session_id,
+                next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+            )
+
+        def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+            return RuntimeOperationResult(
+                session_id=session_id,
+                next_state=RuntimeSessionState.DRAFT_READY,
+            )
+
+        def send_message_stream(self, session_id: str, message: str, sink: Any) -> RuntimeOperationResult:
+            return RuntimeOperationResult(
+                session_id=session_id,
+                next_state=RuntimeSessionState.DRAFT_READY,
+            )
+
+    monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=FakeStreamingChatAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+
+    response = client.post(
+        f"/sessions/{session['id']}/messages?background=true",
+        json={"message": "hello"},
+    )
+
+    assert response.status_code == 202
+    assert delayed_calls == [((session["id"], "send_message_stream", {"message": "hello"}, "draft_ready"), {})]
+
+
 def test_background_start_loop_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
     delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
