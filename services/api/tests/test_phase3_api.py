@@ -83,6 +83,31 @@ def test_create_session_runtime_failure_returns_502_and_deletes_session(tmp_path
     assert client.get(f"/tasks/{task['id']}/sessions").json() == []
 
 
+def test_create_task_rejects_malicious_doc_type_id(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+
+    response = client.post("/tasks", json={"doc_type_id": "%2e%2e%2fprd", "brief": "test"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Document type not found"
+
+
+def test_create_app_reads_repo_root_from_env(tmp_path: Path, monkeypatch: Any) -> None:
+    repo = tmp_path / "repo"
+    (repo / "agent" / "system-prompts").mkdir(parents=True)
+    (repo / "doc-types" / "custom").mkdir(parents=True)
+    (repo / "agent" / "system-prompts" / "docagent-core.md").write_text("Core prompt", encoding="utf-8")
+    (repo / "doc-types" / "custom" / "SKILL.md").write_text("# Custom Skill", encoding="utf-8")
+    monkeypatch.setenv("DOCAGENT_REPO_ROOT", str(repo))
+
+    client = TestClient(create_app(state_root=tmp_path / "state", runtime_name="mock"))
+
+    response = client.post("/tasks", json={"doc_type_id": "custom", "brief": "test"})
+
+    assert response.status_code == 200
+    assert response.json()["doc_type_id"] == "custom"
+
+
 def test_runtime_error_rolls_session_back_to_previous_state(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingSendAdapter())
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))

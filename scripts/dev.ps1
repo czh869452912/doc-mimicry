@@ -69,7 +69,7 @@ function Ensure-OpenHandsVenv {
         throw (
             "Cannot auto-create the OpenHands venv at '$venvDir': " +
             "neither 'uv' nor 'python' was found on PATH. " +
-            "Install uv (https://github.com/astral-sh/uv) or Python 3.11+, then retry."
+            "Install uv (https://github.com/astral-sh/uv) or Python 3.12+, then retry."
         )
     }
 
@@ -146,6 +146,9 @@ if ([string]::IsNullOrWhiteSpace($Runtime)) {
 }
 if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
     $OpenHandsContainerBaseUrl = "http://host.docker.internal:$OpenHandsPort"
+}
+if ($Runtime -ne "openhands") {
+    $OpenHandsContainerBaseUrl = ""
 }
 if (-not (Test-Command "docker")) {
     throw "Docker is required for the local dev stack. Install Docker Desktop and start it before running start-dev.cmd."

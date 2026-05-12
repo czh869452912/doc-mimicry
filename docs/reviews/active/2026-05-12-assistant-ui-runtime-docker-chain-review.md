@@ -657,3 +657,22 @@ No functional breakage for the mock adapter. The environment is misleading durin
 Suggested fix:
 
 Make the runtime-specific env contract explicit: either leave `OPENHANDS_BASE_URL` blank when `DOCAGENT_RUNTIME=mock`, or document that it is harmless. If keeping direct `scripts/dev.ps1` use supported, clear `OPENHANDS_CONTAINER_BASE_URL` when runtime is not `openhands`.
+
+### Finding 33: Project Python version range conflicts with OpenHands extra
+
+Severity: Medium
+
+Evidence:
+
+- `pyproject.toml` declared `requires-python = ">=3.11"`.
+- The OpenHands packages pinned in `[project.optional-dependencies].openhands` require Python 3.12 or newer.
+- Running `uv run python -m pytest ...` attempted to resolve the project including supported Python 3.11 and failed because `openhands-agent-server==1.20.1` cannot satisfy Python 3.11.
+- `services/api/Dockerfile` already uses `FROM python:3.12-slim`, and `services/api/README.md` says the API and worker image uses Python 3.12 because the OpenHands SDK packages require it.
+
+Impact:
+
+Local and CI dependency resolution can fail even before tests run, depending on the resolver and whether optional dependency metadata is considered. This undermines the OpenHands-capable image/development path even though the runtime image itself is Python 3.12.
+
+Suggested fix:
+
+Align the project metadata with the runtime contract by setting `requires-python = ">=3.12"` and updating startup guidance that still mentions Python 3.11.

@@ -1,4 +1,6 @@
 from pathlib import Path
+import os
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,3 +63,52 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "set $api_upstream api:8000" in nginx_conf
     assert "rewrite ^/api/(.*)$ /$1 break" in nginx_conf
     assert "proxy_pass http://$api_upstream" in nginx_conf
+
+
+def test_compose_override_interpolates_repo_root() -> None:
+    compose_override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
+
+    assert "DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}" in compose_override
+    assert "DOCAGENT_REPO_ROOT: /app" not in compose_override
+
+
+def test_local_development_documents_runtime_env_contract() -> None:
+    dev_docs = (ROOT / "docs" / "quality" / "local-development.md").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "docker-compose.override.yml" in dev_docs
+    assert "base compose" in dev_docs
+    assert "OPENHANDS_CONTAINER_BASE_URL" in dev_docs
+    assert "OPENHANDS_CONTAINER_BASE_URL" in env_example
+    assert "DOCAGENT_RUNTIME" in env_example
+
+
+def test_compose_merged_config_passes_runtime_env_to_api_and_worker() -> None:
+    env = os.environ.copy()
+    env.update(
+        {
+            "DOCAGENT_RUNTIME": "openhands",
+            "OPENHANDS_CONTAINER_BASE_URL": "http://host.docker.internal:8001",
+            "LLM_API_KEY": "dummy-key",
+            "LLM_MODEL": "dummy-model",
+            "LLM_BASE_URL": "http://llm.example",
+        }
+    )
+
+    result = subprocess.run(
+        ["docker", "compose", "config"],
+        cwd=ROOT,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    config = result.stdout
+    for service in ("api:", "worker:"):
+        assert service in config
+    assert config.count("DOCAGENT_RUNTIME: openhands") >= 2
+    assert config.count("OPENHANDS_BASE_URL: http://host.docker.internal:8001") >= 2
+    assert config.count("LLM_API_KEY: dummy-key") >= 2
+    assert config.count("LLM_MODEL: dummy-model") >= 2
+    assert config.count("LLM_BASE_URL: http://llm.example") >= 2

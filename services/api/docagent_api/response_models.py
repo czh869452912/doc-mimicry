@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class HealthResponse(BaseModel):
     status: str
+    runtime: str
 
 
 class DocTypeSummaryResponse(BaseModel):

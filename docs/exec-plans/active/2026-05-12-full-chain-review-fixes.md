@@ -41,7 +41,7 @@ Resolve the findings in `docs/reviews/active/2026-05-12-assistant-ui-runtime-doc
 | Frontend interaction and refresh | 6, 7, 10, 19, 25 |
 | Draft/editing and attachment safety | 12, 13, 15, 24 |
 | Path/SSE/performance hardening | 11, 18, 21, 26 |
-| Low-severity ops / compat | 30 |
+| Low-severity ops / compat | 30, 33 |
 
 ## Current Baseline After 2026-05-12 Merge
 
@@ -60,7 +60,7 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 - `docker-compose.override.yml`: current dev-path runtime/OpenHands env injection, container-safe host URL, and repo-root override.
 - `scripts/dev.ps1`: translate host OpenHands URL for containers; pass env into compose reliably.
 - `.env.example`: document runtime envs and container-safe OpenHands URL.
-- `pyproject.toml`: add OpenHands optional dependency extra or runtime dependency grouping.
+- `pyproject.toml`: add OpenHands optional dependency extra or runtime dependency grouping; keep `requires-python` compatible with OpenHands packages.
 - `services/api/Dockerfile`: install optional OpenHands dependencies when requested.
 - `services/api/docagent_api/db.py`: add runtime session binding and active operation tables/columns if needed.
 - `services/api/alembic/versions/*`: add migration for runtime binding/operation lease if schema changes are used.
@@ -94,17 +94,18 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 
 ### Phase 1: Verify And Harden Runtime Configuration In Docker
 
-- [ ] **[Security — Finding 20, do first]** Validate `doc_type_id` in `get_doc_type()` (`doctypes.py`) and `build_prompt_bundle()` (`prompts.py`): reject any value containing `..`, `/`, `\`, or URL-encoded equivalents before constructing the path. Add tests for traversal attempts via `/doc-types/{id}` and `POST /tasks`.
-- [ ] Replace the old compose-string tests with a merged-config assertion: run or parse `docker compose config` with `DOCAGENT_RUNTIME=openhands` and dummy LLM env, and assert `api` and `worker` receive `DOCAGENT_RUNTIME`, container-safe `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL`.
-- [ ] Decide whether base `docker-compose.yml` should also include runtime/OpenHands env keys, or whether the supported contract is "dev/runtime env lives in `docker-compose.override.yml`". Document the decision in `docs/quality/local-development.md` and tests.
-- [ ] Verify `scripts/dev.ps1` continues translating host-side `http://127.0.0.1:8001` to container-side `http://host.docker.internal:8001`; keep this covered by `tests/test_dev_entrypoint.py`.
-- [ ] **[Finding 32]** Decide and document the mock-runtime OpenHands env contract: either leave `OPENHANDS_BASE_URL` blank when `DOCAGENT_RUNTIME=mock`, or explicitly document why the compose default is harmless. If direct `scripts/dev.ps1` use remains supported, clear `OPENHANDS_CONTAINER_BASE_URL` when runtime is not `openhands`.
-- [ ] Update `.env.example` with comments distinguishing host `OPENHANDS_BASE_URL` from container `OPENHANDS_CONTAINER_BASE_URL`, if the file does not already reflect the merged behavior.
-- [ ] **[Finding 23]** Update `create_app()` to read `DOCAGENT_REPO_ROOT` when `repo_root` is not explicitly passed: `root = repo_root or Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))`.
-- [ ] **[Finding 27]** Change `DOCAGENT_REPO_ROOT: /app` in `docker-compose.override.yml` (both `api` and `worker`) to `DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}` for consistency with other interpolated vars.
-- [ ] Keep the current OpenHands dependency strategy (`pyproject.toml` `[project.optional-dependencies].openhands` plus Dockerfile `.[openhands]`) unless image size or CI runtime proves it needs split image targets.
-- [ ] **[Finding 30]** Add an import-time smoke for the OpenHands-capable image: run `python -c "import lmnr"` inside Docker build or CI. Treat this as a smoke gap; only repin/upgrade `lmnr==0.7.51` if the smoke fails on Python 3.12.
-- [ ] Add an API health/runtime diagnostics test that confirms selected runtime is visible without exposing secrets.
+- [x] **[Security — Finding 20, do first]** Validate `doc_type_id` in `get_doc_type()` (`doctypes.py`) and `build_prompt_bundle()` (`prompts.py`): reject any value containing `..`, `/`, `\`, or URL-encoded equivalents before constructing the path. Add tests for traversal attempts via `/doc-types/{id}` and `POST /tasks`.
+- [x] Replace the old compose-string tests with a merged-config assertion: run or parse `docker compose config` with `DOCAGENT_RUNTIME=openhands` and dummy LLM env, and assert `api` and `worker` receive `DOCAGENT_RUNTIME`, container-safe `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL`.
+- [x] Decide whether base `docker-compose.yml` should also include runtime/OpenHands env keys, or whether the supported contract is "dev/runtime env lives in `docker-compose.override.yml`". Document the decision in `docs/quality/local-development.md` and tests.
+- [x] Verify `scripts/dev.ps1` continues translating host-side `http://127.0.0.1:8001` to container-side `http://host.docker.internal:8001`; keep this covered by `tests/test_dev_entrypoint.py`.
+- [x] **[Finding 32]** Decide and document the mock-runtime OpenHands env contract: either leave `OPENHANDS_BASE_URL` blank when `DOCAGENT_RUNTIME=mock`, or explicitly document why the compose default is harmless. If direct `scripts/dev.ps1` use remains supported, clear `OPENHANDS_CONTAINER_BASE_URL` when runtime is not `openhands`.
+- [x] Update `.env.example` with comments distinguishing host `OPENHANDS_BASE_URL` from container `OPENHANDS_CONTAINER_BASE_URL`, if the file does not already reflect the merged behavior.
+- [x] **[Finding 23]** Update `create_app()` to read `DOCAGENT_REPO_ROOT` when `repo_root` is not explicitly passed: `root = repo_root or Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))`.
+- [x] **[Finding 27]** Change `DOCAGENT_REPO_ROOT: /app` in `docker-compose.override.yml` (both `api` and `worker`) to `DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}` for consistency with other interpolated vars.
+- [x] Keep the current OpenHands dependency strategy (`pyproject.toml` `[project.optional-dependencies].openhands` plus Dockerfile `.[openhands]`) unless image size or CI runtime proves it needs split image targets.
+- [x] **[Finding 33]** Align `pyproject.toml` `requires-python` with the OpenHands dependency floor and Docker runtime by requiring Python 3.12+.
+- [x] **[Finding 30]** Add an import-time smoke for the OpenHands-capable image: run `python -c "import lmnr"` inside Docker build or CI. Treat this as a smoke gap; only repin/upgrade `lmnr==0.7.51` if the smoke fails on Python 3.12.
+- [x] Add an API health/runtime diagnostics test that confirms selected runtime is visible without exposing secrets.
 - [ ] Verification: run `python -m pytest tests/test_dev_entrypoint.py services/api/tests/test_runtime_factory.py -q`.
 - [ ] Verification: run `docker compose config` and inspect that `api` and `worker` contain the runtime env keys.
 

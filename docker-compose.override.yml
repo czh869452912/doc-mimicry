@@ -3,7 +3,7 @@ services:
   api:
     command: uvicorn --factory docagent_api.app:create_app --host 0.0.0.0 --port 8000 --reload
     environment:
-      DOCAGENT_REPO_ROOT: /app
+      DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
       OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://host.docker.internal:8001}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -19,7 +19,7 @@ services:
 
   worker:
     environment:
-      DOCAGENT_REPO_ROOT: /app
+      DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
       OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://host.docker.internal:8001}
       LLM_API_KEY: ${LLM_API_KEY:-}

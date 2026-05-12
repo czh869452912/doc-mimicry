@@ -21,6 +21,19 @@ def test_reads_prd_doc_type_detail() -> None:
     assert "checklists" in detail["resource_groups"]
 
 
+def test_rejects_doc_type_traversal(tmp_path: Path) -> None:
+    root = tmp_path / "doc-types"
+    (root / "prd").mkdir(parents=True)
+    (root / "prd" / "SKILL.md").write_text("# PRD", encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "SKILL.md").write_text("# Outside", encoding="utf-8")
+
+    assert get_doc_type(root, "../outside") is None
+    assert get_doc_type(root, "%2e%2e%2foutside") is None
+    assert get_doc_type(root, r"..\outside") is None
+
+
 def test_doc_type_detail_groups_markdown_and_reports() -> None:
     detail = get_doc_type(Path("doc-types"), "prd")
 

@@ -44,7 +44,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    root = repo_root or Path.cwd()
+    root = repo_root or Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
     state = DocAgentState(
         state_root or state_root_from_env() or root / ".local" / "docagent",
         database_url=os.environ.get("DATABASE_URL"),
@@ -54,7 +54,7 @@ def create_app(
 
     @app.get("/health", response_model=HealthResponse)
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "runtime": runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock")}
 
     app.include_router(create_doctypes_router(root))
     app.include_router(create_tasks_router(state, adapter, root))

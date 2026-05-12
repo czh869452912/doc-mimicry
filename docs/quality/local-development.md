@@ -35,6 +35,26 @@ The script must not:
 - hide API or web logs from developers;
 - require a manually installed local Python virtualenv.
 
+## Compose Runtime Environment Contract
+
+The base compose file keeps the default stack mock-safe: `docker-compose.yml`
+defines the database, queue, API, worker, and web services without selecting a
+real agent runtime.
+
+Runtime-specific environment is supplied by `docker-compose.override.yml` and
+the startup script. The override passes `DOCAGENT_RUNTIME`, `LLM_API_KEY`,
+`LLM_MODEL`, `LLM_BASE_URL`, and a container-safe `OPENHANDS_BASE_URL` to both
+the API and worker. It also interpolates `DOCAGENT_REPO_ROOT`, defaulting to
+`/app` inside the image.
+
+Use `OPENHANDS_BASE_URL` for host-side processes. Use
+`OPENHANDS_CONTAINER_BASE_URL` when Docker Compose services need to reach a
+host OpenHands Agent Server; on Docker Desktop this is normally
+`http://host.docker.internal:8001`. `start-dev.cmd -Runtime openhands` sets this
+container URL automatically. When `DOCAGENT_RUNTIME=mock`, the startup script
+clears the container OpenHands URL so mock runs do not carry a misleading
+runtime endpoint.
+
 ## OpenHands Python Venv
 
 When `-Runtime openhands` is selected, the script manages a Python virtual environment at `.local/dev/.venv` (gitignored via `.local/`).

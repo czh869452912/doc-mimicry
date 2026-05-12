@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 
 RESOURCE_GROUPS = ["examples", "specs", "checklists", "export-references"]
+
+
+def is_valid_doc_type_id(doc_type_id: str) -> bool:
+    decoded = unquote(doc_type_id)
+    return bool(decoded) and all(part not in decoded for part in ("..", "/", "\\"))
 
 
 def list_doc_types(root: Path) -> list[dict[str, Any]]:
@@ -14,6 +20,8 @@ def list_doc_types(root: Path) -> list[dict[str, Any]]:
 
 
 def get_doc_type(root: Path, doc_type_id: str) -> dict[str, Any] | None:
+    if not is_valid_doc_type_id(doc_type_id):
+        return None
     path = root / doc_type_id
     if not path.exists() or not path.is_dir():
         return None

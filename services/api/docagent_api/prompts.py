@@ -4,6 +4,8 @@ from pathlib import Path
 
 from docagent_contracts import PromptBundle
 
+from docagent_api.doctypes import is_valid_doc_type_id
+
 
 def build_prompt_bundle(
     repo_root: Path,
@@ -12,6 +14,8 @@ def build_prompt_bundle(
     session_id: str,
     doc_type_id: str,
 ) -> PromptBundle:
+    if not is_valid_doc_type_id(doc_type_id):
+        raise ValueError("Invalid document type id")
     system_prompt_path = repo_root / "agent" / "system-prompts" / "docagent-core.md"
     skill_path = repo_root / "doc-types" / doc_type_id / "SKILL.md"
     system_prompt = system_prompt_path.read_text(encoding="utf-8")
