@@ -1,7 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
     PYTHONPATH=/app/services/api:/app/packages/contracts:/app/packages/workspace:/app/packages/timeline:/app/tools/import:/app/agent/runtime-adapters/mock:/app/agent/runtime-adapters/openhands
 
 WORKDIR /app
@@ -19,6 +20,6 @@ COPY agent/skills ./agent/skills
 COPY tools ./tools
 COPY doc-types ./doc-types
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e ".[openhands]"
 
 CMD ["uvicorn", "--factory", "docagent_api.app:create_app", "--host", "0.0.0.0", "--port", "8000"]

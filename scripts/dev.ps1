@@ -2,6 +2,7 @@ param(
     [ValidateSet("mock", "openhands")]
     [string]$Runtime = $env:DOCAGENT_RUNTIME,
     [string]$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL,
+    [string]$OpenHandsContainerBaseUrl = $env:OPENHANDS_CONTAINER_BASE_URL,
     [int]$OpenHandsPort = 8001,
     [switch]$NoBrowser
 )
@@ -11,6 +12,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $logRoot = Join-Path $repoRoot ".local\dev"
 $openHandsLog = Join-Path $logRoot "openhands.log"
+$openHandsErrLog = Join-Path $logRoot "openhands.err.log"
 $venvPython    = Join-Path $logRoot ".venv\Scripts\python.exe"
 $openHandsReqs = Join-Path $PSScriptRoot "requirements-openhands.txt"
 
@@ -118,17 +120,21 @@ function Start-OpenHandsIfNeeded {
     }
     catch {
         Ensure-OpenHandsVenv
-        $job = Start-Job -Name "docagent-openhands" -ScriptBlock {
-            param($repoRoot, $openHandsLog, $openHandsPort, $venvPython)
-            Set-Location $repoRoot
-            $env:OPENHANDS_SUPPRESS_BANNER = "1"
-            & $venvPython -m openhands.agent_server --port $openHandsPort *>> $openHandsLog
-        } -ArgumentList $repoRoot, $openHandsLog, $OpenHandsPort, $venvPython
+        # docagent-openhands: keep the runtime server alive after this script exits.
+        $env:OPENHANDS_SUPPRESS_BANNER = "1"
+        $process = Start-Process -FilePath $venvPython -ArgumentList @(
+            "-m",
+            "openhands.agent_server",
+            "--port",
+            "$OpenHandsPort"
+        ) -WorkingDirectory $repoRoot -RedirectStandardOutput $openHandsLog -RedirectStandardError $openHandsErrLog -WindowStyle Hidden -PassThru
         if (-not (Test-HttpReady "$OpenHandsBaseUrl/docs" 45)) {
-            Receive-Job $job -Keep | Write-Host
-            throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog."
+            if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+            throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog and $openHandsErrLog."
         }
-        return $job
+        return $process
     }
 }
 
@@ -138,20 +144,26 @@ Import-LocalEnv (Join-Path $repoRoot ".env.local")
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
     $Runtime = "mock"
 }
+if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
+    $OpenHandsContainerBaseUrl = "http://host.docker.internal:$OpenHandsPort"
+}
 if (-not (Test-Command "docker")) {
     throw "Docker is required for the local dev stack. Install Docker Desktop and start it before running start-dev.cmd."
 }
 
-$openHandsJob = $null
+$openHandsProcess = $null
 Push-Location $repoRoot
 try {
-    $openHandsJob = Start-OpenHandsIfNeeded
+    $openHandsProcess = Start-OpenHandsIfNeeded
 
     $env:DOCAGENT_RUNTIME = $Runtime
     $env:DOCAGENT_QUEUE = "celery"
     $env:DOCAGENT_REPO_ROOT = "/app"
     if (-not [string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
         $env:OPENHANDS_BASE_URL = $OpenHandsBaseUrl
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
+        $env:OPENHANDS_CONTAINER_BASE_URL = $OpenHandsContainerBaseUrl
     }
 
     # BuildKit derives its gRPC session key from the working directory path.
@@ -196,7 +208,7 @@ try {
 }
 finally {
     Pop-Location
-    if ($null -ne $openHandsJob -and $openHandsJob.State -in @("Failed", "Stopped", "Completed")) {
-        Remove-Job $openHandsJob -Force -ErrorAction SilentlyContinue
+    if ($null -ne $openHandsProcess -and $openHandsProcess.HasExited) {
+        Write-Warning "OpenHands Agent Server exited during startup. Check $openHandsLog and $openHandsErrLog."
     }
 }

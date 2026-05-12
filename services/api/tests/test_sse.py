@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 
 @pytest.fixture(autouse=True)
 def _short_sse_polls(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -15,7 +17,7 @@ def _short_sse_polls(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _client(tmp_path: Path) -> TestClient:
-    return TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    return TestClient(create_app(state_root=tmp_path / "state", repo_root=REPO_ROOT))
 
 
 def test_stream_timeline_unknown_session_returns_404(tmp_path: Path) -> None:
@@ -26,7 +28,7 @@ def test_stream_timeline_unknown_session_returns_404(tmp_path: Path) -> None:
 
 def test_stream_timeline_returns_sse_content_type(tmp_path: Path) -> None:
     client = _client(tmp_path)
-    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE test"}).json()
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE test", "title": "SSE test", "description": "SSE test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
     with client.stream("GET", f"/sessions/{session['id']}/timeline/stream") as r:
@@ -38,7 +40,7 @@ def test_stream_timeline_sends_existing_events(tmp_path: Path) -> None:
     import json
 
     client = _client(tmp_path)
-    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE events test"}).json()
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE events test", "title": "SSE test", "description": "SSE test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
     session_id = session["id"]
 

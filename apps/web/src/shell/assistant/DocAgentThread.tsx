@@ -2,11 +2,10 @@ import {
   ActionBarPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
-  useAuiState,
   type DataMessagePartProps,
   type TextMessagePartProps,
 } from "@assistant-ui/react";
-import { useMemo } from "react";
+import { createContext, useContext } from "react";
 import type { DocAgentAssistantData } from "./docAgentAssistantMessages";
 import { DocAgentMessagePart } from "./DocAgentMessageParts";
 
@@ -18,7 +17,19 @@ interface DocAgentThreadProps {
   taskId: string | null;
   onApproved: () => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
-  onReloadMessage: (messageId: string | null) => Promise<void>;
+}
+
+const DocAgentThreadContext = createContext<{
+  activeSessionId: string | null;
+  taskId: string | null;
+  onApproved: () => Promise<void>;
+  onOpenPath: (path: string) => Promise<void>;
+} | null>(null);
+
+function useDocAgentThreadContext() {
+  const ctx = useContext(DocAgentThreadContext);
+  if (!ctx) throw new Error("DocAgentThreadContext not found");
+  return ctx;
 }
 
 export function DocAgentThread({
@@ -28,46 +39,38 @@ export function DocAgentThread({
   isRunning,
   onApproved,
   onOpenPath,
-  onReloadMessage,
   taskId,
 }: DocAgentThreadProps) {
-  const AssistantMessageComponent = useMemo(
-    () =>
-      function AssistantMessageComponent() {
-        return (
-          <AssistantMessage
-            activeSessionId={activeSessionId}
-            taskId={taskId}
-            onApproved={onApproved}
-            onOpenPath={onOpenPath}
-            onReloadMessage={onReloadMessage}
-          />
-        );
-      },
-    [activeSessionId, taskId, onApproved, onOpenPath, onReloadMessage],
-  );
-
   return (
-    <ThreadPrimitive.Root className="aui-thread">
-      <ThreadPrimitive.Viewport className="aui-thread-viewport">
-        {emptyMessage && (
-          <ThreadPrimitive.Empty>
-            <div className="conversation-empty">{emptyMessage}</div>
-          </ThreadPrimitive.Empty>
-        )}
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage: UserMessage,
-            AssistantMessage: AssistantMessageComponent,
-          }}
-        />
-        {(isLoading || isRunning) && (
-          <div className="aui-thread-status" role="status">
-            {isRunning ? "Agent is working..." : "Refreshing timeline..."}
-          </div>
-        )}
-      </ThreadPrimitive.Viewport>
-    </ThreadPrimitive.Root>
+    <DocAgentThreadContext.Provider
+      value={{
+        activeSessionId,
+        taskId,
+        onApproved,
+        onOpenPath,
+      }}
+    >
+      <ThreadPrimitive.Root className="aui-thread">
+        <ThreadPrimitive.Viewport className="aui-thread-viewport">
+          {emptyMessage && (
+            <ThreadPrimitive.Empty>
+              <div className="conversation-empty">{emptyMessage}</div>
+            </ThreadPrimitive.Empty>
+          )}
+          <ThreadPrimitive.Messages
+            components={{
+              UserMessage: UserMessage,
+              AssistantMessage: AssistantMessage,
+            }}
+          />
+          {(isLoading || isRunning) && (
+            <div className="aui-thread-status" role="status">
+              {isRunning ? "Agent is working..." : "Refreshing timeline..."}
+            </div>
+          )}
+        </ThreadPrimitive.Viewport>
+      </ThreadPrimitive.Root>
+    </DocAgentThreadContext.Provider>
   );
 }
 
@@ -82,7 +85,9 @@ function UserMessage() {
 
 type MessagePartHandlerProps = Omit<DocAgentThreadProps, "emptyMessage" | "isLoading" | "isRunning">;
 
-function AssistantMessage(props: MessagePartHandlerProps) {
+function AssistantMessage() {
+  const { activeSessionId, taskId, onApproved, onOpenPath } = useDocAgentThreadContext();
+
   return (
     <MessagePrimitive.Root className="aui-message aui-message--assistant">
       <MessagePrimitive.Content
@@ -90,16 +95,16 @@ function AssistantMessage(props: MessagePartHandlerProps) {
           Text: TextPart,
           data: {
             by_name: {
-              "docagent.tool-call": (part) => <DataPart {...part} {...props} />,
-              "docagent.outline-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.checklist-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.artifact-card": (part) => <DataPart {...part} {...props} />,
-              "docagent.approval-card": (part) => <DataPart {...part} {...props} />,
+              "docagent.tool-call": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.outline-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.checklist-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.artifact-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
+              "docagent.approval-card": (part) => <DataPart {...part} activeSessionId={activeSessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />,
             },
           },
         }}
       />
-      <MessageActions canReload onReloadMessage={props.onReloadMessage} />
+      <MessageActions canReload />
     </MessagePrimitive.Root>
   );
 }
@@ -128,30 +133,18 @@ function DataPart({
 
 function MessageActions({
   canReload = false,
-  onReloadMessage,
 }: {
   canReload?: boolean;
-  onReloadMessage?: (messageId: string | null) => Promise<void>;
 }) {
-  const messageId = useAuiState((state) => state.message.id);
-
   return (
     <ActionBarPrimitive.Root className="aui-message-actions">
       <ActionBarPrimitive.Copy className="aui-message-action" aria-label="Copy text">
         Copy
       </ActionBarPrimitive.Copy>
       {canReload && (
-        <button
-          className="aui-message-action"
-          type="button"
-          aria-label="Reload response"
-          onClick={(event) => {
-            event.preventDefault();
-            void onReloadMessage?.(messageId ?? null);
-          }}
-        >
+        <ActionBarPrimitive.Reload className="aui-message-action" aria-label="Reload response">
           Reload
-        </button>
+        </ActionBarPrimitive.Reload>
       )}
     </ActionBarPrimitive.Root>
   );

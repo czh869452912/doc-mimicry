@@ -1,6 +1,6 @@
-import { AttachmentPrimitive, ComposerPrimitive, useAui } from "@assistant-ui/react";
+import { AttachmentPrimitive, ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { Paperclip, Send, Square, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { DocAgentSlashCommands } from "./DocAgentSlashCommands";
 
 interface DocAgentComposerProps {
@@ -20,13 +20,12 @@ export function DocAgentComposer({
 }: DocAgentComposerProps) {
   const aui = useAui();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const [query, setQuery] = useState("");
+  const query = useAuiState((state) => state.composer.text);
 
   useEffect(() => {
     if (!draftText) return;
     aui.composer().setText(draftText);
     inputRef.current?.focus();
-    setQuery(draftText);
     onDraftTextApplied?.();
   }, [aui, draftText, onDraftTextApplied]);
 
@@ -36,7 +35,6 @@ export function DocAgentComposer({
     const nextValue = `${command} `;
     aui.composer().setText(nextValue);
     input.focus();
-    setQuery(nextValue);
   }
 
   return (
@@ -62,7 +60,6 @@ export function DocAgentComposer({
             disabled={disabled}
             placeholder={isRunning ? "Agent is working — type to queue, or stop to interrupt" : "Message the agent, or type / for commands"}
             submitMode="enter"
-            onChange={(event) => setQuery(event.currentTarget.value)}
           />
           <DocAgentSlashCommands query={query} onSelect={selectCommand} />
         </div>
@@ -85,7 +82,7 @@ export function DocAgentComposer({
           <Square size={13} />
         </button>
       ) : (
-        <ComposerPrimitive.Send className="aui-send-button" disabled={disabled} onClick={() => setQuery("")}>
+        <ComposerPrimitive.Send className="aui-send-button" disabled={disabled}>
           <Send size={15} />
         </ComposerPrimitive.Send>
       )}
