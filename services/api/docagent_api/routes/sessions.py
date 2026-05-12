@@ -280,6 +280,8 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
+        state.release_operation_lease(session_id)
+        session.pop("celery_task_id", None)
         prepare_transition(state, session, RuntimeSessionState.CANCELLED)
         try:
             result = adapter.cancel(session_id)

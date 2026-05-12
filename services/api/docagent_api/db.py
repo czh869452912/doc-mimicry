@@ -64,6 +64,9 @@ class SessionRow(Base):
     )
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    runtime = Column(String, nullable=True)
+    runtime_session_id = Column(String, nullable=True)
+    celery_task_id = Column(String, nullable=True)
 
     __table_args__ = (Index("idx_sessions_task_id", "task_id"),)
 

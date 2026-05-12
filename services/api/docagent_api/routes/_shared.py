@@ -72,6 +72,8 @@ def append_runtime_result(
 ) -> None:
     append_events(state, session_id, result.events)
     for raw_event in result.raw_events:
+        if raw_event.runtime_session_id:
+            state.bind_runtime_session(session_id, raw_event.runtime.value, raw_event.runtime_session_id)
         state.append_raw_runtime_event(session_id, raw_event)
         if raw_event.runtime is RuntimeKind.OPENHANDS:
             semantic = map_openhands_raw_event(raw_event, task_id)
@@ -132,19 +134,40 @@ def start_background_runtime_operation(
             detail=f"A background operation is already running for session {session_id}",
         )
     previous_state = previous_state_on_failure or RuntimeSessionState(session["status"])
-    if not transition_prepared:
-        prepare_transition(state, session, running_state)
-
     use_celery = _os.environ.get("DOCAGENT_QUEUE", "inline") == "celery"
+    lease_id: str | None = None
+    if use_celery and operation_name is not None:
+        lease_id = f"celery-{uuid4().hex[:12]}"
+        if not state.acquire_operation_lease(session_id, lease_id):
+            raise HTTPException(
+                status_code=409,
+                detail=f"A background operation is already running for session {session_id}",
+            )
+
+    if not transition_prepared:
+        try:
+            prepare_transition(state, session, running_state)
+        except Exception:
+            if lease_id:
+                state.release_operation_lease(session_id, lease_id)
+            raise
 
     if use_celery and operation_name is not None:
         from docagent_api.worker_tasks import run_session
-        run_session.delay(
-            session["id"],
-            operation_name,
-            operation_kwargs or {},
-            previous_state.value,
-        )
+        try:
+            delayed = run_session.delay(
+                session["id"],
+                operation_name,
+                operation_kwargs or {},
+                previous_state.value,
+            )
+        except Exception:
+            state.release_operation_lease(session_id, lease_id)
+            raise
+        task_id_value = getattr(delayed, "id", None)
+        if task_id_value:
+            state.release_operation_lease(session_id, lease_id)
+            state.acquire_operation_lease(session_id, str(task_id_value))
     else:
         def worker() -> None:
             try:

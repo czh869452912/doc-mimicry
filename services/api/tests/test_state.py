@@ -45,6 +45,101 @@ def test_state_persists_task_and_session(tmp_path: Path) -> None:
     assert reloaded.get_session("session-001") == session
 
 
+def test_state_persists_runtime_binding_and_operation_metadata(tmp_path: Path) -> None:
+    state = DocAgentState(tmp_path)
+    state.save_task({
+        "id": "task-001",
+        "doc_type_id": "prd",
+        "brief": "Draft a PRD",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+    state.save_session({
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "idle",
+        "runtime": "openhands",
+        "runtime_session_id": "oh-001",
+        "celery_task_id": "celery-001",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+
+    reloaded = DocAgentState(tmp_path)
+
+    assert reloaded.get_session("session-001") == {
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "idle",
+        "runtime": "openhands",
+        "runtime_session_id": "oh-001",
+        "celery_task_id": "celery-001",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    }
+
+
+def test_state_acquires_and_releases_operation_lease(tmp_path: Path) -> None:
+    state = DocAgentState(tmp_path)
+    state.save_task({
+        "id": "task-001",
+        "doc_type_id": "prd",
+        "brief": "Draft a PRD",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+    state.save_session({
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "idle",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+
+    assert state.acquire_operation_lease("session-001", "celery-001") is True
+    assert state.acquire_operation_lease("session-001", "celery-002") is False
+
+    state.release_operation_lease("session-001", "celery-001")
+
+    assert state.acquire_operation_lease("session-001", "celery-002") is True
+
+
+def test_state_lists_sessions_by_task_and_status_and_marks_stale(tmp_path: Path) -> None:
+    state = DocAgentState(tmp_path)
+    for task_id in ("task-001", "task-002"):
+        state.save_task({
+            "id": task_id,
+            "doc_type_id": "prd",
+            "brief": "Draft a PRD",
+            "created_at": "2026-05-12T00:00:00Z",
+            "updated_at": "2026-05-12T00:00:00Z",
+        })
+    state.save_session({
+        "id": "session-001",
+        "task_id": "task-001",
+        "status": "running_chat",
+        "celery_task_id": "celery-001",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+    state.save_session({
+        "id": "session-002",
+        "task_id": "task-002",
+        "status": "idle",
+        "created_at": "2026-05-12T00:00:00Z",
+        "updated_at": "2026-05-12T00:00:00Z",
+    })
+
+    assert [s["id"] for s in state.list_sessions_by_task("task-001")] == ["session-001"]
+    assert [s["id"] for s in state.list_sessions_by_status(["running_chat"])] == ["session-001"]
+
+    state.mark_stale_operations(["running_chat"], "failed")
+
+    stale = state.get_session("session-001")
+    assert stale["status"] == "failed"
+    assert "celery_task_id" not in stale
+
+
 def test_state_persists_raw_runtime_events(tmp_path: Path) -> None:
     state = DocAgentState(tmp_path)
     state.save_task({
@@ -191,10 +286,12 @@ def test_database_enforces_session_task_foreign_key(pg_state) -> None:
 
 def test_schema_has_runtime_state_foreign_keys(pg_engine) -> None:
     inspector = inspect(pg_engine)
+    session_columns = {column["name"] for column in inspector.get_columns("sessions")}
     session_fks = inspector.get_foreign_keys("sessions")
     timeline_fks = inspector.get_foreign_keys("timeline_events")
     raw_fks = inspector.get_foreign_keys("raw_runtime_events")
 
+    assert {"runtime", "runtime_session_id", "celery_task_id"}.issubset(session_columns)
     assert any(fk["referred_table"] == "tasks" and fk["constrained_columns"] == ["task_id"] for fk in session_fks)
     assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in timeline_fks)
     assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in raw_fks)

@@ -59,6 +59,18 @@ def test_openhands_adapter_reports_missing_runtime_session() -> None:
         raise AssertionError("Expected missing runtime session to fail clearly")
 
 
+def test_openhands_adapter_uses_persisted_runtime_session_id() -> None:
+    client = FakeOpenHandsClient()
+    adapter = OpenHandsRuntimeAdapter(client)
+
+    adapter.bind_runtime_session("session-001", "openhands-session-001", RuntimeSessionState.DRAFT_READY)
+    result = adapter.send_message("session-001", "Revise")
+
+    assert result.next_state == RuntimeSessionState.DRAFT_READY
+    assert result.raw_events[0].runtime_session_id == "openhands-session-001"
+    assert client.messages == ["Revise"]
+
+
 def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:
     adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
     adapter.create_session("session-001", _prompt_bundle(tmp_path))

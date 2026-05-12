@@ -37,6 +37,22 @@ def test_cancel_running_session_returns_cancelled(tmp_path: Path) -> None:
     assert client.get(f"/sessions/{session['id']}").json()["status"] == "cancelled"
 
 
+def test_cancel_running_session_releases_operation_lease(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    db = DocAgentState(state_root)
+    assert db.acquire_operation_lease(session["id"], "celery-001") is True
+    session["status"] = "running_chat"
+    db.save_session(session)
+
+    response = client.post(f"/sessions/{session['id']}/cancel")
+
+    assert response.status_code == 200
+    assert "celery_task_id" not in DocAgentState(state_root).get_session(session["id"])
+
+
 class FailingSendAdapter:
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
@@ -247,3 +263,23 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
     assert response.status_code == 202
     # previous_state is draft_ready (the state before transitioning to running_chat)
     assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "draft_ready"), {})]
+
+
+def test_background_operation_rejects_concurrent_session_operation(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
+
+    class FakeTask:
+        @staticmethod
+        def delay(*args: Any, **kwargs: Any) -> None:
+            return None
+
+    monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    first = client.post(f"/sessions/{session['id']}/loop/start?background=true")
+    second = client.post(f"/sessions/{session['id']}/messages?background=true", json={"message": "hello"})
+
+    assert first.status_code == 202
+    assert second.status_code == 409

@@ -75,7 +75,7 @@ def _warn_interrupted_sessions(state: DocAgentState) -> None:
         RuntimeSessionState.RUNNING_EXPORT.value,
     }
     logger = logging.getLogger(__name__)
-    interrupted = [s for s in state.list_sessions() if s["status"] in running_states]
+    interrupted = state.list_sessions_by_status(running_states)
     if interrupted:
         ids = ", ".join(s["id"] for s in interrupted)
         logger.warning("Sessions left in running state (will be recovered by worker): %s", ids)

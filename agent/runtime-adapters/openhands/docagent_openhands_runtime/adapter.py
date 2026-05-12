@@ -39,6 +39,15 @@ class OpenHandsRuntimeAdapter:
             ],
         )
 
+    def bind_runtime_session(
+        self,
+        session_id: str,
+        runtime_session_id: str,
+        state: RuntimeSessionState = RuntimeSessionState.IDLE,
+    ) -> None:
+        self._runtime_session_ids[session_id] = runtime_session_id
+        self._states[session_id] = state
+
     def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
         raw_payloads = self.client.send_message(self._runtime_session_id(session_id), message)
         next_state = RuntimeSessionState.DRAFT_READY

@@ -83,6 +83,16 @@ class DocAgentState:
             rows = db.query(SessionRow).all()
             return [_session_row_to_dict(r) for r in rows]
 
+    def list_sessions_by_task(self, task_id: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = db.query(SessionRow).filter(SessionRow.task_id == task_id).all()
+            return [_session_row_to_dict(r) for r in rows]
+
+    def list_sessions_by_status(self, statuses: list[str] | set[str]) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = db.query(SessionRow).filter(SessionRow.status.in_(list(statuses))).all()
+            return [_session_row_to_dict(r) for r in rows]
+
     def get_session(self, session_id: str) -> dict[str, Any] | None:
         with self._Session() as db:
             row = db.get(SessionRow, session_id)
@@ -96,13 +106,65 @@ class DocAgentState:
                     id=session["id"],
                     task_id=session["task_id"],
                     status=session["status"],
+                    runtime=session.get("runtime"),
+                    runtime_session_id=session.get("runtime_session_id"),
+                    celery_task_id=session.get("celery_task_id"),
                     created_at=_parse_iso(session.get("created_at")) or datetime.now(timezone.utc),
                     updated_at=_parse_iso(session.get("updated_at")) or datetime.now(timezone.utc),
                 ))
             else:
                 existing.status = session["status"]
+                if "runtime" in session:
+                    existing.runtime = session.get("runtime")
+                if "runtime_session_id" in session:
+                    existing.runtime_session_id = session.get("runtime_session_id")
+                if "celery_task_id" in session:
+                    existing.celery_task_id = session.get("celery_task_id")
                 existing.updated_at = _parse_iso(session.get("updated_at")) or datetime.now(timezone.utc)
             db.commit()
+
+    def bind_runtime_session(self, session_id: str, runtime: str, runtime_session_id: str) -> None:
+        with self._Session() as db:
+            row = db.get(SessionRow, session_id)
+            if row is None:
+                return
+            row.runtime = runtime
+            row.runtime_session_id = runtime_session_id
+            row.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def acquire_operation_lease(self, session_id: str, celery_task_id: str) -> bool:
+        with self._Session() as db:
+            row = db.get(SessionRow, session_id)
+            if row is None or row.celery_task_id:
+                return False
+            row.celery_task_id = celery_task_id
+            row.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            return True
+
+    def release_operation_lease(self, session_id: str, celery_task_id: str | None = None) -> None:
+        with self._Session() as db:
+            row = db.get(SessionRow, session_id)
+            if row is None:
+                return
+            if celery_task_id is not None and row.celery_task_id != celery_task_id:
+                return
+            row.celery_task_id = None
+            row.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def mark_stale_operations(self, running_statuses: list[str] | set[str], next_status: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = db.query(SessionRow).filter(SessionRow.status.in_(list(running_statuses))).all()
+            stale: list[dict[str, Any]] = []
+            for row in rows:
+                row.status = next_status
+                row.celery_task_id = None
+                row.updated_at = datetime.now(timezone.utc)
+                stale.append(_session_row_to_dict(row))
+            db.commit()
+            return stale
 
     def delete_session(self, session_id: str) -> None:
         with self._Session() as db:
@@ -191,13 +253,20 @@ def _task_row_to_dict(row: TaskRow) -> dict[str, Any]:
 
 
 def _session_row_to_dict(row: SessionRow) -> dict[str, Any]:
-    return {
+    result = {
         "id": row.id,
         "task_id": row.task_id,
         "status": row.status,
         "created_at": _format_iso(row.created_at),
         "updated_at": _format_iso(row.updated_at),
     }
+    if row.runtime is not None:
+        result["runtime"] = row.runtime
+    if row.runtime_session_id is not None:
+        result["runtime_session_id"] = row.runtime_session_id
+    if row.celery_task_id is not None:
+        result["celery_task_id"] = row.celery_task_id
+    return result
 
 
 def _parse_iso(dt_str: str | None) -> datetime | None:

@@ -10,6 +10,23 @@ from docagent_api.routes._shared import append_runtime_result, set_session_state
 from docagent_contracts import RuntimeSessionState
 
 
+RUNNING_STATES = {
+    RuntimeSessionState.RUNNING_CONTEXT.value,
+    RuntimeSessionState.RUNNING_DRAFT.value,
+    RuntimeSessionState.RUNNING_REVISION.value,
+    RuntimeSessionState.RUNNING_CHAT.value,
+    RuntimeSessionState.RUNNING_CHECKLIST.value,
+    RuntimeSessionState.RUNNING_EXPORT.value,
+}
+
+
+def _runtime_state_or_default(value: str | None, default: RuntimeSessionState) -> RuntimeSessionState:
+    try:
+        return RuntimeSessionState(value)
+    except ValueError:
+        return default
+
+
 def _get_state():
     from docagent_api.state import DocAgentState
     root = Path(os.environ.get("DOCAGENT_STATE_ROOT", ".local/docagent"))
@@ -22,6 +39,16 @@ def _get_adapter():
 
 
 def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
+    runtime_session_id = session.get("runtime_session_id")
+    bind_runtime_session = getattr(adapter, "bind_runtime_session", None)
+    if runtime_session_id and callable(bind_runtime_session):
+        bind_runtime_session(
+            session["id"],
+            runtime_session_id,
+            _runtime_state_or_default(session.get("status"), RuntimeSessionState.IDLE),
+        )
+        return
+
     try:
         adapter.get_state(session["id"])
         return
@@ -42,6 +69,13 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
         task["doc_type_id"],
     )
     result = adapter.create_session(session["id"], prompt_bundle)
+    for raw_event in result.raw_events:
+        runtime_session_id = raw_event.runtime_session_id
+        if runtime_session_id:
+            state.bind_runtime_session(session["id"], raw_event.runtime.value, runtime_session_id)
+            session["runtime"] = raw_event.runtime.value
+            session["runtime_session_id"] = runtime_session_id
+            break
     append_runtime_result(state, task["id"], session["id"], result)
 
 
@@ -67,6 +101,7 @@ def run_session(
         task_id = session["task_id"]
         append_runtime_result(state, task_id, session_id, result)
         set_session_state(state, session, result.next_state)
+        state.release_operation_lease(session_id)
     except Exception as exc:
         from docagent_api.routes._shared import manual_event
         from docagent_contracts import SemanticEventKind, TimelineActor, TimelineStatus
@@ -80,7 +115,10 @@ def run_session(
             status=TimelineStatus.FAILED,
         )
         state.append_timeline_event(session_id, asdict(failure))
-        # Use the state captured before the transition (passed from the dispatcher),
-        # falling back to the current DB status only if not provided.
-        rollback = RuntimeSessionState(previous_state_on_failure or session["status"])
+        # Use the state captured before the transition. If it is missing and the
+        # current state is still running, fail closed instead of preserving a stale
+        # running_* state forever.
+        fallback = RuntimeSessionState.FAILED.value if session["status"] in RUNNING_STATES else session["status"]
+        rollback = _runtime_state_or_default(previous_state_on_failure or fallback, RuntimeSessionState.FAILED)
         set_session_state(state, session, rollback)
+        state.release_operation_lease(session_id)

@@ -139,7 +139,7 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
     @router.get("/tasks/{task_id}/sessions", response_model=list[SessionResponse])
     def list_task_sessions(task_id: str) -> list[dict[str, Any]]:
         require_task(state, task_id)
-        return [s for s in state.list_sessions() if s["task_id"] == task_id]
+        return state.list_sessions_by_task(task_id)
 
     @router.post("/tasks/{task_id}/inputs/text", response_model=ImportedInputResponse)
     def add_text_input(task_id: str, request: ImportTextRequest) -> dict[str, Any]:
@@ -150,7 +150,7 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
             request.content,
             utc_now(),
         )
-        sessions = [s for s in state.list_sessions() if s["task_id"] == task_id]
+        sessions = state.list_sessions_by_task(task_id)
         if sessions:
             latest = max(sessions, key=lambda s: s.get("updated_at", ""))
             event = manual_event(
