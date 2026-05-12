@@ -29,6 +29,34 @@ def test_maps_openhands_artifact_path_to_export_markdown() -> None:
     assert event.kind is SemanticEventKind.EXPORT_MARKDOWN
 
 
+def test_maps_absolute_container_workspace_path_to_relative_path() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-011", "file_written", {
+            "path": "/workspace/state/workspaces/task-001/versions/checkpoint.md",
+            "workspace_root": "/workspace/state/workspaces/task-001",
+        }),
+        task_id="task-001",
+    )
+
+    assert event is not None
+    assert event.kind is SemanticEventKind.CREATE_CHECKPOINT
+    assert event.paths == ["versions/checkpoint.md"]
+
+
+def test_maps_windows_workspace_path_to_relative_path() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-012", "file_written", {
+            "file_path": r"D:\Project\doc-mimicry\.local\docagent\workspaces\task-001\draft\draft.md",
+            "workspace_root": r"D:\Project\doc-mimicry\.local\docagent\workspaces\task-001",
+        }),
+        task_id="task-001",
+    )
+
+    assert event is not None
+    assert event.kind is SemanticEventKind.UPDATE_DRAFT
+    assert event.paths == ["draft/draft.md"]
+
+
 def test_skips_session_created_event() -> None:
     event = map_openhands_raw_event(
         _raw("raw-003", "session_created", {"workspace_root": "/some/path", "doc_type_id": "prd"}),

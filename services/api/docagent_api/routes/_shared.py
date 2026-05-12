@@ -41,22 +41,36 @@ def prepare_transition(
     state: DocAgentState,
     session: dict[str, Any],
     next_state: RuntimeSessionState,
+    task_id: str | None = None,
 ) -> None:
     try:
         require_transition(session["status"], next_state)
     except InvalidSessionTransition as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    set_session_state(state, session, next_state)
+    set_session_state(state, session, next_state, task_id=task_id)
 
 
 def set_session_state(
     state: DocAgentState,
     session: dict[str, Any],
     next_state: RuntimeSessionState,
+    task_id: str | None = None,
 ) -> None:
     session["status"] = next_state.value
     session["updated_at"] = utc_now()
     state.save_session(session)
+    if task_id is not None:
+        event = manual_event(
+            task_id,
+            session["id"],
+            f"status-{uuid4().hex[:8]}",
+            TimelineActor.SYSTEM,
+            SemanticEventKind.SESSION_STATUS,
+            f"Session status changed to {next_state.value}",
+            [],
+            status=TimelineStatus.SUCCEEDED,
+        )
+        state.append_timeline_event(session["id"], asdict(event))
 
 
 def append_events(state: DocAgentState, session_id: str, events: list[SemanticTimelineEvent]) -> None:
@@ -103,15 +117,16 @@ def run_runtime_operation(
     session: dict[str, Any],
     running_state: RuntimeSessionState,
     operation: Any,
+    task_id: str | None = None,
 ) -> RuntimeOperationResult:
     previous_state = RuntimeSessionState(session["status"])
-    prepare_transition(state, session, running_state)
+    prepare_transition(state, session, running_state, task_id=task_id)
     try:
         return operation()
     except HTTPException:
         raise
     except Exception as exc:
-        set_session_state(state, session, previous_state)
+        set_session_state(state, session, previous_state, task_id=task_id)
         raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
 
 
@@ -146,7 +161,7 @@ def start_background_runtime_operation(
 
     if not transition_prepared:
         try:
-            prepare_transition(state, session, running_state)
+            prepare_transition(state, session, running_state, task_id=task_id)
         except Exception:
             if lease_id:
                 state.release_operation_lease(session_id, lease_id)
@@ -184,10 +199,10 @@ def start_background_runtime_operation(
                     status=TimelineStatus.FAILED,
                 )
                 state.append_timeline_event(session["id"], asdict(failure))
-                set_session_state(state, session, previous_state)
+                set_session_state(state, session, previous_state, task_id=task_id)
                 return
             append_runtime_result(state, task_id, session["id"], result)
-            set_session_state(state, session, result.next_state)
+            set_session_state(state, session, result.next_state, task_id=task_id)
 
         runner.submit(session["id"], worker)
 

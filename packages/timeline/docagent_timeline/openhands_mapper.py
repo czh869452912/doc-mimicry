@@ -87,4 +87,18 @@ def _path(raw_event: RawRuntimeEvent) -> str | None:
     value = raw_event.payload.get("path") or raw_event.payload.get("file_path")
     if value is None:
         return None
-    return str(value).replace("\\", "/")
+    path = str(value).replace("\\", "/")
+    workspace_root = raw_event.payload.get("workspace_root")
+    if isinstance(workspace_root, str) and workspace_root:
+        root = workspace_root.replace("\\", "/").rstrip("/")
+        if path == root:
+            return ""
+        prefix = f"{root}/"
+        if path.startswith(prefix):
+            return path[len(prefix):]
+    marker = "/workspaces/"
+    if marker in path:
+        parts = path.split(marker, 1)[1].split("/", 1)
+        if len(parts) == 2:
+            return parts[1]
+    return path

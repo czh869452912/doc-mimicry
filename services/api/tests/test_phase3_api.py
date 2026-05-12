@@ -234,6 +234,21 @@ def test_send_message_background_uses_running_chat_state(tmp_path: Path) -> None
     assert response.json()["status"] == "running_chat"
 
 
+def test_session_state_changes_emit_status_events(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    client.post(f"/sessions/{session['id']}/loop/start")
+
+    events = client.get(f"/sessions/{session['id']}/timeline").json()
+    status_events = [event for event in events if event["kind"] == "session_status"]
+    assert [event["summary"] for event in status_events] == [
+        "Session status changed to running_context",
+        "Session status changed to await_outline_approval",
+    ]
+
+
 def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
     delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
@@ -263,6 +278,37 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
     assert response.status_code == 202
     # previous_state is draft_ready (the state before transitioning to running_chat)
     assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "draft_ready"), {})]
+
+
+def test_background_start_loop_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
+    delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class FakeTask:
+        @staticmethod
+        def delay(*args: Any, **kwargs: Any) -> None:
+            delayed_calls.append((args, kwargs))
+
+    monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
+    class FakeStreamingAdapter(FailingStreamAdapter):
+        def start_loop_stream(self, session_id: str, sink: Any) -> RuntimeOperationResult:
+            return RuntimeOperationResult(
+                session_id=session_id,
+                next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+            )
+
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=FakeStreamingAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/loop/start?background=true")
+
+    assert response.status_code == 202
+    assert delayed_calls == [((session["id"], "start_loop_stream", {}, "idle"), {})]
 
 
 def test_background_operation_rejects_concurrent_session_operation(tmp_path: Path, monkeypatch: Any) -> None:

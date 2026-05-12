@@ -127,17 +127,17 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 
 ### Phase 3: Restore Streaming And Timeline State Semantics
 
-- [ ] Add a regression test for the current half-wired Celery streaming path: with `DOCAGENT_QUEUE=celery` and a fake adapter that implements `start_loop_stream`, assert the queued task receives/uses the streaming method rather than `start_loop`.
-- [ ] **Streaming dispatch — decide and implement one approach:** (A) Route layer passes `operation_name="start_loop_stream"` when `use_celery=True` and streaming method exists; worker calls it directly with a local `runtime_event_sink()`. (B) Worker auto-detects `f"{operation_name}_stream"` and calls it if present. Approach A is simpler since `stream_or_sync()` logic already exists in the route layer.
-- [ ] Update `worker_tasks.run_session()` so streaming methods receive a `runtime_event_sink(state, task_id, session_id)` and persist raw/semantic events before operation completion. Keep sync fallback behavior for adapters without stream methods.
-- [ ] Add a fake streaming adapter test with `DOCAGENT_QUEUE=celery` proving a timeline event is persisted before the operation completes.
-- [ ] Add `SESSION_STATUS` to `SemanticEventKind` or introduce a documented status event mechanism.
-- [ ] **`set_session_state()` signature change required:** to emit a `SESSION_STATUS` timeline event, add optional `task_id: str | None = None` parameter. When `task_id` is present, emit the status event. Update all ~10 call sites (routes/sessions.py, routes/tasks.py, worker_tasks.py) to pass `task_id` where available. List all call sites in the PR description.
-- [ ] Emit a session status event whenever `set_session_state()` is called with a non-None `task_id`.
-- [ ] Update `useTimeline.ts` to invalidate sessions on real status events and errors.
-- [ ] Add SSE `id:` fields based on timeline row id and honor `Last-Event-ID` in `/timeline/stream`.
-- [ ] Keep full timeline fetch on frontend SSE error as a recovery path, but avoid normal full replay on reconnect.
-- [ ] Normalize OpenHands paths relative to `workspace_root` before mapping; support absolute container paths, Windows paths, and relative paths.
+- [x] Add a regression test for the current half-wired Celery streaming path: with `DOCAGENT_QUEUE=celery` and a fake adapter that implements `start_loop_stream`, assert the queued task receives/uses the streaming method rather than `start_loop`.
+- [x] **Streaming dispatch — decide and implement one approach:** use Approach A. The route layer passes `operation_name="*_stream"` when `use_celery=True` and the streaming method exists; the worker calls it with a local `runtime_event_sink()`.
+- [x] Update `worker_tasks.run_session()` so streaming methods receive a `runtime_event_sink(state, task_id, session_id)` and persist raw/semantic events before operation completion. Keep sync fallback behavior for adapters without stream methods.
+- [x] Add a fake streaming adapter test with `DOCAGENT_QUEUE=celery` proving a timeline event is persisted before the operation completes.
+- [x] Add `SESSION_STATUS` to `SemanticEventKind` or introduce a documented status event mechanism.
+- [x] **`set_session_state()` signature change required:** to emit a `SESSION_STATUS` timeline event, add optional `task_id: str | None = None` parameter. When `task_id` is present, emit the status event. Update all ~10 call sites (routes/sessions.py, routes/tasks.py, worker_tasks.py) to pass `task_id` where available. List all call sites in the PR description.
+- [x] Emit a session status event whenever `set_session_state()` is called with a non-None `task_id`.
+- [x] Update `useTimeline.ts` to invalidate sessions on real status events and errors.
+- [x] Add SSE `id:` fields based on timeline row id and honor `Last-Event-ID` in `/timeline/stream`.
+- [x] Keep full timeline fetch on frontend SSE error as a recovery path, but avoid normal full replay on reconnect. Browser EventSource automatically sends `Last-Event-ID` after receiving server `id:` fields; no manual frontend header is required.
+- [x] Normalize OpenHands paths relative to `workspace_root` before mapping; support absolute container paths, Windows paths, and relative paths.
 - [ ] Verification: run `python -m pytest services/api/tests/test_sse.py packages/timeline/tests/test_openhands_mapper.py -q`.
 - [ ] Verification: run `cd apps/web; npm run test:unit -- useTimeline`.
 

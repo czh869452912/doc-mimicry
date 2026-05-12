@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from docagent_api.worker_tasks import run_session
+from docagent_contracts import RawRuntimeEvent, RuntimeKind, RuntimeOperationResult, RuntimeSessionState
 
 
 def test_run_session_calls_runtime_adapter(tmp_path):
@@ -78,3 +79,36 @@ def test_run_session_missing_previous_state_fails_running_session(tmp_path):
         run_session("s1", "send_message", {"message": "Hello"})
 
     assert saved_statuses[-1] == "failed"
+
+
+def test_run_session_uses_streaming_method_with_runtime_event_sink(tmp_path):
+    mock_state = MagicMock()
+    mock_state.get_session.return_value = {"id": "s1", "task_id": "t1", "status": "running_context"}
+    streamed_event = RawRuntimeEvent(
+        id="raw-001",
+        session_id="s1",
+        runtime=RuntimeKind.OPENHANDS,
+        runtime_session_id="oh-001",
+        kind="file_written",
+        payload={"path": "draft/outline.md"},
+        created_at="2026-05-12T00:00:00Z",
+    )
+
+    class StreamingAdapter:
+        def get_state(self, session_id):
+            return RuntimeSessionState.RUNNING_CONTEXT
+
+        def start_loop_stream(self, session_id, sink):
+            sink(streamed_event)
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+
+        def start_loop(self, session_id):
+            raise AssertionError("sync method should not be used when stream method exists")
+
+    with patch("docagent_api.worker_tasks._get_state", return_value=mock_state), \
+         patch("docagent_api.worker_tasks._get_adapter", return_value=StreamingAdapter()):
+        run_session("s1", "start_loop_stream", {})
+
+    mock_state.append_raw_runtime_event.assert_called_once_with("s1", streamed_event)
+    saved_statuses = [call.args[0]["status"] for call in mock_state.save_session.call_args_list]
+    assert saved_statuses[-1] == "await_outline_approval"

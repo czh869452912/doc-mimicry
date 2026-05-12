@@ -65,13 +65,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CONTEXT,
                 operation,
                 runner,
-                operation_name="start_loop",
+                operation_name="start_loop_stream" if callable(getattr(adapter, "start_loop_stream", None)) else "start_loop",
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CONTEXT, lambda: adapter.start_loop(session_id),
+            task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return runtime_result_response(result)
 
     @router.post("/sessions/{session_id}/outline/approve", response_model=LoopActionResponse)
@@ -83,7 +84,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
-        prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT)
+        prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT, task_id=task["id"])
         outline_text = request.outline_markdown
         if not outline_text.endswith("\n"):
             outline_text = f"{outline_text}\n"
@@ -103,15 +104,15 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 runner,
                 previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
                 transition_prepared=True,
-                operation_name="approve_outline",
+                operation_name="approve_outline_stream" if callable(getattr(adapter, "approve_outline_stream", None)) else "approve_outline",
             )
         try:
             result = adapter.approve_outline(session_id)
         except Exception as exc:
-            set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+            set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL, task_id=task["id"])
             raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return runtime_result_response(result)
 
     @router.post("/sessions/{session_id}/revision/selection", response_model=LoopActionResponse)
@@ -125,7 +126,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         task = require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
         try:
-            prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION)
+            prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
             if background:
                 operation = stream_or_sync(
                     adapter,
@@ -141,7 +142,11 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
                     runner,
                     previous_state_on_failure=previous_state, transition_prepared=True,
-                    operation_name="revise_selection",
+                    operation_name=(
+                        "revise_selection_stream"
+                        if callable(getattr(adapter, "revise_selection_stream", None))
+                        else "revise_selection"
+                    ),
                     operation_kwargs={
                         "selection": request.selected_text,
                         "instruction": request.instruction,
@@ -151,16 +156,16 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         except HTTPException:
             raise
         except FileNotFoundError as exc:
-            set_session_state(state, session, previous_state)
+            set_session_state(state, session, previous_state, task_id=task["id"])
             raise HTTPException(status_code=400, detail="Draft does not exist. Approve the outline first.") from exc
         except ValueError as exc:
-            set_session_state(state, session, previous_state)
+            set_session_state(state, session, previous_state, task_id=task["id"])
             raise HTTPException(status_code=422, detail="Selected text not found in draft.") from exc
         except Exception as exc:
-            set_session_state(state, session, previous_state)
+            set_session_state(state, session, previous_state, task_id=task["id"])
             raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return {"session_id": session_id, "paths": result.changed_paths}
 
     @router.post("/sessions/{session_id}/checklist/run", response_model=LoopActionResponse)
@@ -186,13 +191,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CHECKLIST,
                 operation,
                 runner,
-                operation_name="run_checklist",
+                operation_name="run_checklist_stream" if callable(getattr(adapter, "run_checklist_stream", None)) else "run_checklist",
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHECKLIST, lambda: adapter.run_checklist(session_id),
+            task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return {"session_id": session_id, "paths": result.changed_paths}
 
     @router.post("/sessions/{session_id}/artifacts/export-markdown", response_model=LoopActionResponse)
@@ -218,13 +224,18 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_EXPORT,
                 operation,
                 runner,
-                operation_name="export_markdown",
+                operation_name=(
+                    "export_markdown_stream"
+                    if callable(getattr(adapter, "export_markdown_stream", None))
+                    else "export_markdown"
+                ),
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_EXPORT, lambda: adapter.export_markdown(session_id),
+            task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
 
     @router.post("/sessions/{session_id}/messages", response_model=LoopActionResponse)
@@ -264,6 +275,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,
             lambda: adapter.send_message(session_id, request.message),
+            task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
         if not result.events:
@@ -272,7 +284,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 TimelineActor.USER, SemanticEventKind.USER_MESSAGE, request.message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return {"session_id": session_id, "event_count": len(result.events)}
 
     @router.post("/sessions/{session_id}/cancel", response_model=LoopActionResponse)
@@ -282,17 +294,17 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         previous_state = RuntimeSessionState(session["status"])
         state.release_operation_lease(session_id)
         session.pop("celery_task_id", None)
-        prepare_transition(state, session, RuntimeSessionState.CANCELLED)
+        prepare_transition(state, session, RuntimeSessionState.CANCELLED, task_id=task["id"])
         try:
             result = adapter.cancel(session_id)
         except HTTPException:
-            set_session_state(state, session, previous_state)
+            set_session_state(state, session, previous_state, task_id=task["id"])
             raise
         except Exception as exc:
-            set_session_state(state, session, previous_state)
+            set_session_state(state, session, previous_state, task_id=task["id"])
             raise HTTPException(status_code=502, detail=f"Runtime cancel failed: {exc}") from exc
         append_runtime_result(state, task["id"], session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
         return runtime_result_response(result)
 
     @router.get("/sessions/{session_id}/timeline", response_model=list[TimelineEventResponse])
@@ -313,7 +325,10 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         poll_interval = float(os.environ.get("DOCAGENT_SSE_POLL_INTERVAL", "0.2"))
 
         async def generate():
-            last_row_id = 0
+            try:
+                last_row_id = int(request.headers.get("last-event-id", "0") or "0")
+            except ValueError:
+                last_row_id = 0
             for _ in range(max_polls):
                 if await request.is_disconnected():
                     return
@@ -321,6 +336,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                     state.list_timeline_events_after, session_id, last_row_id
                 )
                 for row_id, event in new_rows:
+                    yield f"id: {row_id}\n"
                     yield f"data: {_json.dumps(event)}\n\n"
                     last_row_id = row_id
                 await asyncio.sleep(poll_interval)

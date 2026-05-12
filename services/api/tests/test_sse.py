@@ -59,3 +59,36 @@ def test_stream_timeline_sends_existing_events(tmp_path: Path) -> None:
     event = json.loads(data_lines[0])
     assert "id" in event
     assert "kind" in event
+
+
+def test_stream_timeline_sends_sse_ids_and_honors_last_event_id(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "SSE events test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    session_id = session["id"]
+    client.post(f"/sessions/{session_id}/loop/start")
+    client.post(f"/sessions/{session_id}/cancel")
+
+    first_lines: list[str] = []
+    with client.stream("GET", f"/sessions/{session_id}/timeline/stream") as r:
+        assert r.status_code == 200
+        first_lines = [line.strip() for line in r.iter_lines() if line.strip()]
+
+    first_id = next(line.removeprefix("id:").strip() for line in first_lines if line.startswith("id:"))
+    second_data_lines: list[str] = []
+    second_id_lines: list[str] = []
+    with client.stream(
+        "GET",
+        f"/sessions/{session_id}/timeline/stream",
+        headers={"Last-Event-ID": first_id},
+    ) as r:
+        assert r.status_code == 200
+        for line in r.iter_lines():
+            line = line.strip()
+            if line.startswith("id:"):
+                second_id_lines.append(line)
+            if line.startswith("data:"):
+                second_data_lines.append(line)
+
+    assert second_data_lines
+    assert all(line != f"id: {first_id}" for line in second_id_lines)

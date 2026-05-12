@@ -66,6 +66,7 @@ class SemanticEventKind(str, Enum):
     EXPORT_PDF = "export_pdf"
     APPROVAL_REQUESTED = "approval_requested"
     APPROVAL_RESOLVED = "approval_resolved"
+    SESSION_STATUS = "session_status"
     ERROR = "error"
 
 

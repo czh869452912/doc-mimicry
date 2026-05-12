@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from docagent_api.celery_app import celery_app
-from docagent_api.routes._shared import append_runtime_result, set_session_state
+from docagent_api.routes._shared import append_runtime_result, runtime_event_sink, set_session_state
 from docagent_contracts import RuntimeSessionState
 
 
@@ -96,11 +96,14 @@ def run_session(
 
     try:
         _ensure_runtime_session(state, adapter, session)
-        method = getattr(adapter, operation_name)
-        result = method(session_id, **operation_kwargs)
         task_id = session["task_id"]
+        method = getattr(adapter, operation_name)
+        if operation_name.endswith("_stream"):
+            result = method(session_id, **operation_kwargs, sink=runtime_event_sink(state, task_id, session_id))
+        else:
+            result = method(session_id, **operation_kwargs)
         append_runtime_result(state, task_id, session_id, result)
-        set_session_state(state, session, result.next_state)
+        set_session_state(state, session, result.next_state, task_id=task_id)
         state.release_operation_lease(session_id)
     except Exception as exc:
         from docagent_api.routes._shared import manual_event
@@ -120,5 +123,5 @@ def run_session(
         # running_* state forever.
         fallback = RuntimeSessionState.FAILED.value if session["status"] in RUNNING_STATES else session["status"]
         rollback = _runtime_state_or_default(previous_state_on_failure or fallback, RuntimeSessionState.FAILED)
-        set_session_state(state, session, rollback)
+        set_session_state(state, session, rollback, task_id=task_id)
         state.release_operation_lease(session_id)
