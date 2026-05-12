@@ -36,16 +36,28 @@ Resolve the findings in `docs/reviews/active/2026-05-12-assistant-ui-runtime-doc
 
 | Workstream | Findings |
 |---|---|
-| Runtime/Docker configuration | 1, 2, 4, 8, 16, 17, 20 (security — Phase 1 first), 23 |
-| Runtime identity and worker lifecycle | 3, 5, 9, 14, 22 |
+| Runtime/Docker configuration | 1✓, 2✓, 4✓, 8✓ (resolved by 07ee848); verify/CI coverage remains for 16, 17; harden 20 (security), 23, 27, 32 |
+| Runtime identity and worker lifecycle | 3, 5, 9, 14, 22, 28, 29 |
 | Frontend interaction and refresh | 6, 7, 10, 19, 25 |
 | Draft/editing and attachment safety | 12, 13, 15, 24 |
-| Path/SSE/performance hardening | 11, 18, 21 |
+| Path/SSE/performance hardening | 11, 18, 21, 26 |
+| Low-severity ops / compat | 30 |
+
+## Current Baseline After 2026-05-12 Merge
+
+Commit `07ee848` partially repaired the runtime/Docker entry path:
+
+- `docker-compose.override.yml` now injects `DOCAGENT_RUNTIME`, `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` into both `api` and `worker`.
+- `scripts/dev.ps1` now sets a container-safe `OPENHANDS_CONTAINER_BASE_URL` default of `http://host.docker.internal:$OpenHandsPort`.
+- `pyproject.toml` now defines OpenHands dependencies and `services/api/Dockerfile` installs `.[openhands]`.
+- `apps/web/nginx.conf` now resolves the API upstream dynamically through Docker DNS.
+
+The same merge did not close the runtime lifecycle issues. The highest-risk remaining chain breaks are persisted runtime session identity, stale running recovery, Celery streaming, cancellation, session status/SSE semantics, autosave conflict prevention, doc type path validation, and query/attachment hardening.
 
 ## Files And Modules Likely To Change
 
-- `docker-compose.yml`: propagate runtime, LLM, and OpenHands env to `api` and `worker`; possibly add an OpenHands-capable build arg.
-- `docker-compose.override.yml`: dev-specific repo root and host networking override.
+- `docker-compose.yml`: decide whether runtime, LLM, and OpenHands env should also be present in the base compose file, or whether base compose remains mock-safe and runtime env lives in the dev override.
+- `docker-compose.override.yml`: current dev-path runtime/OpenHands env injection, container-safe host URL, and repo-root override.
 - `scripts/dev.ps1`: translate host OpenHands URL for containers; pass env into compose reliably.
 - `.env.example`: document runtime envs and container-safe OpenHands URL.
 - `pyproject.toml`: add OpenHands optional dependency extra or runtime dependency grouping.
@@ -80,16 +92,18 @@ Resolve the findings in `docs/reviews/active/2026-05-12-assistant-ui-runtime-doc
 
 ## Step-By-Step Implementation Checklist
 
-### Phase 1: Make Runtime Configuration Real In Docker
+### Phase 1: Verify And Harden Runtime Configuration In Docker
 
 - [ ] **[Security — Finding 20, do first]** Validate `doc_type_id` in `get_doc_type()` (`doctypes.py`) and `build_prompt_bundle()` (`prompts.py`): reject any value containing `..`, `/`, `\`, or URL-encoded equivalents before constructing the path. Add tests for traversal attempts via `/doc-types/{id}` and `POST /tasks`.
-- [ ] Add tests that parse `docker-compose.yml` and assert `api` and `worker` receive `DOCAGENT_RUNTIME`, `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL`.
-- [ ] Update `docker-compose.yml` environment blocks for `api` and `worker` using compose interpolation, with safe defaults for mock runtime.
-- [ ] Update `scripts/dev.ps1` so host-side `http://127.0.0.1:8001` becomes container-side `http://host.docker.internal:8001` when passed into compose on Docker Desktop.
-- [ ] Add `DOCAGENT_RUNTIME`, `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` to `.env.example` with comments distinguishing host and container URLs.
-- [ ] Update `create_app()` to read `DOCAGENT_REPO_ROOT` when `repo_root` is not explicitly passed.
-- [ ] Add an OpenHands dependency strategy: either `[project.optional-dependencies].openhands` in `pyproject.toml` and a Docker build arg, or a dedicated OpenHands image target.
-- [ ] Update `services/api/Dockerfile` to install the OpenHands extra when the OpenHands-capable image is requested.
+- [ ] Replace the old compose-string tests with a merged-config assertion: run or parse `docker compose config` with `DOCAGENT_RUNTIME=openhands` and dummy LLM env, and assert `api` and `worker` receive `DOCAGENT_RUNTIME`, container-safe `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL`.
+- [ ] Decide whether base `docker-compose.yml` should also include runtime/OpenHands env keys, or whether the supported contract is "dev/runtime env lives in `docker-compose.override.yml`". Document the decision in `docs/quality/local-development.md` and tests.
+- [ ] Verify `scripts/dev.ps1` continues translating host-side `http://127.0.0.1:8001` to container-side `http://host.docker.internal:8001`; keep this covered by `tests/test_dev_entrypoint.py`.
+- [ ] **[Finding 32]** Decide and document the mock-runtime OpenHands env contract: either leave `OPENHANDS_BASE_URL` blank when `DOCAGENT_RUNTIME=mock`, or explicitly document why the compose default is harmless. If direct `scripts/dev.ps1` use remains supported, clear `OPENHANDS_CONTAINER_BASE_URL` when runtime is not `openhands`.
+- [ ] Update `.env.example` with comments distinguishing host `OPENHANDS_BASE_URL` from container `OPENHANDS_CONTAINER_BASE_URL`, if the file does not already reflect the merged behavior.
+- [ ] **[Finding 23]** Update `create_app()` to read `DOCAGENT_REPO_ROOT` when `repo_root` is not explicitly passed: `root = repo_root or Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))`.
+- [ ] **[Finding 27]** Change `DOCAGENT_REPO_ROOT: /app` in `docker-compose.override.yml` (both `api` and `worker`) to `DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}` for consistency with other interpolated vars.
+- [ ] Keep the current OpenHands dependency strategy (`pyproject.toml` `[project.optional-dependencies].openhands` plus Dockerfile `.[openhands]`) unless image size or CI runtime proves it needs split image targets.
+- [ ] **[Finding 30]** Add an import-time smoke for the OpenHands-capable image: run `python -c "import lmnr"` inside Docker build or CI. Treat this as a smoke gap; only repin/upgrade `lmnr==0.7.51` if the smoke fails on Python 3.12.
 - [ ] Add an API health/runtime diagnostics test that confirms selected runtime is visible without exposing secrets.
 - [ ] Verification: run `python -m pytest tests/test_dev_entrypoint.py services/api/tests/test_runtime_factory.py -q`.
 - [ ] Verification: run `docker compose config` and inspect that `api` and `worker` contain the runtime env keys.
@@ -105,12 +119,16 @@ Resolve the findings in `docs/reviews/active/2026-05-12-assistant-ui-runtime-doc
 - [ ] Add tests where session creation happens with one adapter instance and background operation runs with another instance, proving the same runtime session id is used.
 - [ ] Add Redis or DB-backed per-session operation lease before Celery dispatch; reject concurrent operations with HTTP 409.
 - [ ] Add stale running-session recovery on API startup or worker startup: append an error/status event and move abandoned sessions to `failed` or `paused`.
+- [ ] **[Finding 28]** Make Celery rollback contract explicit and defensive: require route-dispatched tasks to pass `previous_state_on_failure`, add tests that normal route dispatch rolls back to the pre-running state, and add a fallback where missing rollback state plus current `running_*` status becomes `FAILED` instead of preserving `running_*`.
+- [ ] **[Finding 29 — root cause of Finding 3]** Confirm whether the current OpenHands Agent Server/SDK exposes a REST endpoint to reconnect to an existing conversation by `conversation_id`. If yes, implement persistence path: `client.py` resumes via server API using `sessions.runtime_session_id` from DB. If no, choose and document one explicit fallback strategy (see Open Questions) and implement it — do not silently create a second conversation.
 - [ ] Add cancellation plumbing: persist Celery task id or operation id, revoke Celery tasks where possible, and make worker/runtime calls check a cancellation flag before final writes/state transitions.
 - [ ] Verification: run `python -m pytest services/api/tests/test_worker_tasks.py services/api/tests/test_background_runner.py services/api/tests/test_phase3_api.py agent/runtime-adapters/openhands/tests -q`.
 
 ### Phase 3: Restore Streaming And Timeline State Semantics
 
+- [ ] Add a regression test for the current half-wired Celery streaming path: with `DOCAGENT_QUEUE=celery` and a fake adapter that implements `start_loop_stream`, assert the queued task receives/uses the streaming method rather than `start_loop`.
 - [ ] **Streaming dispatch — decide and implement one approach:** (A) Route layer passes `operation_name="start_loop_stream"` when `use_celery=True` and streaming method exists; worker calls it directly with a local `runtime_event_sink()`. (B) Worker auto-detects `f"{operation_name}_stream"` and calls it if present. Approach A is simpler since `stream_or_sync()` logic already exists in the route layer.
+- [ ] Update `worker_tasks.run_session()` so streaming methods receive a `runtime_event_sink(state, task_id, session_id)` and persist raw/semantic events before operation completion. Keep sync fallback behavior for adapters without stream methods.
 - [ ] Add a fake streaming adapter test with `DOCAGENT_QUEUE=celery` proving a timeline event is persisted before the operation completes.
 - [ ] Add `SESSION_STATUS` to `SemanticEventKind` or introduce a documented status event mechanism.
 - [ ] **`set_session_state()` signature change required:** to emit a `SESSION_STATUS` timeline event, add optional `task_id: str | None = None` parameter. When `task_id` is present, emit the status event. Update all ~10 call sites (routes/sessions.py, routes/tasks.py, worker_tasks.py) to pass `task_id` where available. List all call sites in the PR description.
@@ -145,6 +163,7 @@ Resolve the findings in `docs/reviews/active/2026-05-12-assistant-ui-runtime-doc
 > Note: doc type id path traversal (Finding 20) was addressed in Phase 1. Steps 1–3 below are verification-only; do not re-implement.
 
 - [ ] Verify Phase 1 security coverage: confirm `get_doc_type()` and `build_prompt_bundle()` reject traversal attempts and that tests pass for `/doc-types/{id}` and session creation with malicious `doc_type_id`.
+- [ ] **[Finding 26]** Decide whether to enforce strict nginx `/api/` proxy semantics. If yes, change regex to `^/api/(.+)$` or add `location = /api/ { return 404; }`. If no, document that bare `/api/` is harmless and currently returns the backend's root behavior.
 - [ ] Make `import_text_input()` produce unique ids and paths for duplicate filenames, preserving the original filename in the conversion report.
 - [ ] **[API contract change — requires migration plan]** Extend `SendMessageRequest` and response to carry structured attachment references (`attachments: [{input_id, markdown_path, original_filename}]`). Make the field optional for backward compatibility. Update `apps/web/src/api.ts`, `docAgentAttachmentAdapter.ts`, and all `sendMessage` call sites. Keep the human-readable imported attachment line in the message summary.
 - [ ] Replace unbounded `list_sessions()` usage in task session listing with a DB-level `task_id` filter.
@@ -196,7 +215,7 @@ Expected:
 - Keep `DOCAGENT_RUNTIME=mock` as the default safe path while OpenHands configuration is being repaired.
 - Introduce schema migrations in small steps; each migration should be reversible or additive.
 - If persisted OpenHands resume is not supported by the SDK, persist enough metadata to fail clearly and then use one explicit fallback only: clear stale state, create a new product session, or pin OpenHands execution to the worker that created the runtime session. Never silently fork a second OpenHands conversation under the same product session id.
-- If Celery streaming proves too risky in one pass, temporarily set the local dev stack to inline queue for OpenHands and document Celery streaming as the next blocking task.
+- If Celery streaming proves too risky in one pass, temporarily set the local dev stack to inline queue for OpenHands and document Celery streaming as the next blocking task. Do not leave the current half-wired state where route code constructs streaming callables that the Celery worker never uses.
 - Do not remove existing synchronous adapter methods until streaming worker coverage is stable.
 
 ## Open Questions
@@ -209,7 +228,7 @@ Expected:
 
 ## Execution Order
 
-1. Phase 1 first: without real runtime/env selection, later OpenHands fixes cannot be verified.
+1. Phase 1 first: verify the now-partial runtime/env fixes, close path-security and repo-root gaps, and make the Docker configuration contract explicit.
 2. Phase 2 second: runtime identity and cancellation are prerequisites for trustworthy background work.
 3. Phase 3 third: streaming/status events depend on the background lifecycle.
 4. Phase 4 fourth: frontend behavior should be fixed once backend semantics are stable.

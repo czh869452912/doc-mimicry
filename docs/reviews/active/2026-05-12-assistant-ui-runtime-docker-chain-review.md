@@ -504,3 +504,156 @@ After typing `/start`, the conversation thread shows no new events until SSE del
 Suggested fix:
 
 Call `context.refreshTimeline()` inside each handled slash command branch in `slashCommands.ts`, or call it unconditionally in `ConversationPane.submitOrCancel()` after `executeSlashCommand` returns `handled=true`.
+
+---
+
+## Post-Merge Re-review — 2026-05-12
+
+Context: after commit `07ee848` merged runtime/dev-container and assistant-ui fixes, the repository was rechecked against this review. `git status --short --branch` showed `main...origin/main` with a clean worktree. `docker compose config` was also run with `DOCAGENT_RUNTIME=openhands`, `OPENHANDS_CONTAINER_BASE_URL=http://host.docker.internal:8001`, and dummy LLM env values.
+
+### Current Status Summary
+
+| Finding | Current Status | Notes |
+|---------|----------------|-------|
+| 1 | **Resolved for default dev compose path; still needs base/CI coverage** | `docker-compose.override.yml` now injects `DOCAGENT_RUNTIME` into both `api` and `worker`, and `docker compose config` confirms the merged config contains it. Base `docker-compose.yml` still lacks the key, so non-dev compose/CI coverage should still be verified. |
+| 2 | **Resolved for Docker Desktop dev path** | `scripts/dev.ps1` now derives `OPENHANDS_CONTAINER_BASE_URL=http://host.docker.internal:$OpenHandsPort`, and merged compose config passes that value as `OPENHANDS_BASE_URL` to `api` and `worker`. |
+| 3 | **Still open** | `OpenHandsRuntimeAdapter` still stores `_runtime_session_ids` in memory, and `worker_tasks._ensure_runtime_session()` still creates a new runtime session when process-local state is absent. |
+| 4 | **Resolved for default dev compose path; still needs base/CI coverage** | `docker-compose.override.yml` now injects `OPENHANDS_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` into both `api` and `worker`; merged compose config confirms the values. |
+| 5 | **Still open** | `create_app()` still only logs interrupted running sessions; no recovery task exists in `worker_tasks.py` or `celery_app.py`. |
+| 6 | **Still open** | `DocAgentComposer` still uses `submitMode="enter"` and the running placeholder still says "type to queue"; `ConversationPane.submitOrCancel()` still cancels on non-empty input while running. |
+| 7 | **Still open** | Frontend hints exist, but `session_state.py` still does not allow `IDLE -> RUNNING_CHAT` or `AWAIT_OUTLINE_APPROVAL -> RUNNING_CHAT`. |
+| 8 | **Resolved for current Dockerfile** | `pyproject.toml` now defines an `openhands` extra and `services/api/Dockerfile` installs `pip install --no-cache-dir -e ".[openhands]"`. |
+| 9 | **Still open; new evidence** | Route handlers build streaming callables, but the Celery branch passes `operation_name="start_loop"`/`"approve_outline"`/etc. to `worker_tasks.run_session()`. The worker calls those sync methods directly, so Docker/Celery still does not stream incrementally. |
+| 10 | **Still partial** | Free-form send refreshes timeline/workspace, but handled slash commands still return before calling `refreshTimeline()` or session invalidation. |
+| 11 | **Still open** | `openhands_mapper.py` still only replaces backslashes; absolute workspace/container paths are not normalized relative to workspace root. |
+| 12 | **Still open** | `imports.py` still writes fixed stem-based paths and ids. |
+| 13 | **Still partial/open** | Attachment adapter still returns prose content such as "Imported attachment ..."; no structured attachment reference reaches `SendMessageRequest`. |
+| 14 | **Still open** | Cancel still calls the API-process adapter only; no Celery revoke or shared cancellation flag is present. |
+| 15 | **Still open** | `AppShell.tsx` still gates autosave only on `draftTaskId === activeTask?.id`; running session status is not consulted. Backend draft PUT has no running guard. |
+| 16 | **Still partial/open** | Dev entrypoint tests are stronger, but no compose/OpenHands/Celery full-chain smoke exists. |
+| 17 | **Still partial/open** | Tests now assert more dev-entrypoint details, but CI still lacks a real Docker/Celery/OpenHands full-chain job. |
+| 18 | **Still open** | SSE still starts with `last_row_id = 0`, emits only `data: ...`, and does not honor `Last-Event-ID`. |
+| 19 | **Still open** | Frontend still listens for `session_status`; backend still does not emit that semantic event kind. |
+| 20 | **Still open** | `get_doc_type()` and `build_prompt_bundle()` still join raw `doc_type_id` into filesystem paths. |
+| 21 | **Still open** | `state.list_sessions()` still returns every session, and route handlers filter in Python. |
+| 22 | **Still open** | Celery dispatch still lacks a distributed per-session lock or active operation lease. |
+| 23 | **Still open** | `create_app()` still uses `repo_root or Path.cwd()` and ignores `DOCAGENT_REPO_ROOT`. |
+| 24 | **Still duplicate/open** | Same root cause as Finding 15 remains. |
+| 25 | **Still open** | `slashCommands.ts` still calls `/start`, `/check`, and `/export` without refresh/invalidation. |
+
+### New Evidence To Fold Into Fix Plan
+
+- Finding 9 should explicitly cover the current half-wired streaming path: `sessions.py` constructs streaming callables for inline execution, but the Celery path passes only the sync operation name to `worker_tasks.run_session()`. The worker never receives the stream method name or a runtime event sink.
+- Phase 1 of the fix plan should be reduced to verification and remaining hardening for the dev Docker path. The runtime/env/OpenHands dependency parts are already implemented for the default dev compose path; the remaining Phase 1 work is security validation, `DOCAGENT_REPO_ROOT` handling, diagnostics, and CI/base-compose coverage decisions.
+
+---
+
+## Post-Merge Static Analysis Pass — 2026-05-12
+
+### Finding 26: nginx `rewrite` regex accepts `/api/` bare path — routing contract is ambiguous
+
+Severity: Low
+
+Evidence:
+
+- `apps/web/nginx.conf:12–13` — `rewrite ^/api/(.*)$ /$1 break` captures an empty string for `/api/`, rewriting it to `/` before proxying to FastAPI.
+- FastAPI currently has no explicit `/` route, so this normally returns 404 rather than application data. The behavior is not a security issue, but the proxy contract is implicit.
+
+Impact:
+
+A bare `/api/` browser request is routed through the API proxy even though it is not a real API endpoint. This is a minor routing clarity issue and should not block the runtime-chain fixes.
+
+Suggested fix:
+
+If the project wants strict proxy semantics, change the regex to `^/api/(.+)$` (require at least one character after the prefix), or add an explicit `location = /api/ { return 404; }` block. Otherwise document the current behavior and leave it alone.
+
+### Finding 27: `docker-compose.override.yml` hardcodes `DOCAGENT_REPO_ROOT: /app` — cannot be overridden via host environment
+
+Severity: Low
+
+Evidence:
+
+- `docker-compose.override.yml:6,22` — `DOCAGENT_REPO_ROOT: /app` is a literal string in both `api` and `worker` blocks.
+- All other runtime env vars use `${VAR:-default}` interpolation syntax.
+- If the container workdir changes (e.g., alternative deployment), there is no host-env override path.
+
+Impact:
+
+No correctness bug under current Docker setup. Minor ops inflexibility for alternative deployment layouts.
+
+Suggested fix:
+
+Change to `DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}` to match the interpolation pattern used by other vars.
+
+### Finding 28: Celery `run_session()` rollback depends on callers passing `previous_state_on_failure`
+
+Severity: Medium
+
+Evidence:
+
+- `worker_tasks.py:24–45` — `_ensure_runtime_session()` raises on failure; no inner try/except.
+- `worker_tasks.py:70–86` — the outer `except` block sets rollback to `previous_state_on_failure or session["status"]`.
+- Normal route dispatch currently passes the pre-running state into Celery, so common API paths roll back to the state before the operation. However, direct task invocation, future callers, or malformed dispatches can omit `previous_state_on_failure` while the DB session is already `running_*`.
+
+Impact:
+
+The task contract is fragile: the worker appends a failed timeline event, but its rollback target is only safe if every caller passes the pre-running state. A future caller can leave the session in `running_*` after a worker-side `_ensure_runtime_session()` failure.
+
+Suggested fix:
+
+Make the Celery contract explicit and defensive. Require `previous_state_on_failure` for route-dispatched operations, add tests for the normal route path, and add a fallback that maps missing rollback state plus current `running_*` status to `FAILED` instead of preserving `running_*`.
+
+### Finding 29: `OpenHandsAgentServerClient._conversations` is process-local — root cause of Finding 3
+
+Severity: Critical
+
+Evidence:
+
+- `agent/runtime-adapters/openhands/docagent_openhands_runtime/client.py:30` — `self._conversations: dict[str, Any] = {}` is an instance variable.
+- `services/api/docagent_api/runtime_factory.py:22` — `create_runtime_adapter()` constructs a fresh `OpenHandsAgentServerClient` (and thus a fresh `_conversations` dict) on every call.
+- `services/api/docagent_api/worker_tasks.py:21` — `_get_adapter()` calls `create_runtime_adapter()` on every Celery task invocation.
+- Every Celery worker invocation therefore starts with `_conversations = {}`, so `_ensure_runtime_session` always falls through to `adapter.create_session()`, creating a new OpenHands conversation.
+
+Impact:
+
+This is the structural root cause of Finding 3. Even after Finding 3's symptom (crash on get_state miss) was patched, the underlying issue remains: every worker task silently forks a new OpenHands conversation. Message history, context, and conversation continuity are permanently broken across API ↔ worker process boundaries in the current architecture.
+
+Suggested fix:
+
+The fix requires either (A) persisting the OpenHands `conversation_id` in the product DB (as `sessions.runtime_session_id`) and loading it in the worker via the OpenHands server's REST API instead of the in-process dict, or (B) making `_get_adapter()` return a process-scoped singleton adapter instance (module-level). Option A is the correct long-term fix (aligns with Phase 2 plan); Option B is a shorter-term workaround but breaks the stateless-worker design.
+
+### Finding 30: OpenHands image lacks import-time smoke for pinned `lmnr==0.7.51` on Python 3.12
+
+Severity: Low
+
+Evidence:
+
+- `pyproject.toml:23` — `"lmnr==0.7.51"` in the `[openhands]` dependency group.
+- `services/api/Dockerfile:1` — `FROM python:3.12-slim` (bumped from 3.11 in this merge).
+- The local checkout does not currently have `lmnr` installed (`python -c "import importlib.util; print(importlib.util.find_spec('lmnr'))"` returned `None`), so import compatibility cannot be proven from the host environment.
+
+Impact:
+
+The Docker build can complete dependency installation while still missing a cheap import-time compatibility signal for a pinned OpenHands dependency on Python 3.12. This is a smoke-test gap, not a confirmed dependency bug.
+
+Suggested fix:
+
+Add `python -c "import lmnr"` to a Dockerfile smoke step or CI job that runs inside the OpenHands-capable image. Upgrade or repin only if that smoke fails.
+
+### Finding 32: Mock-runtime compose still receives an OpenHands base URL by default
+
+Severity: Low
+
+Evidence:
+
+- `docker-compose.override.yml:8,24` — `OPENHANDS_BASE_URL` defaults to `${OPENHANDS_CONTAINER_BASE_URL:-http://host.docker.internal:8001}` for both `api` and `worker`.
+- Therefore mock-runtime containers still receive an OpenHands-looking URL even when `DOCAGENT_RUNTIME=mock`.
+- If a developer runs `scripts/dev.ps1` directly in a long-lived PowerShell process, `$env:OPENHANDS_CONTAINER_BASE_URL` can also remain set between invocations. This does not affect the parent shell when using `start-dev.cmd`, but it can add confusion for direct script use.
+
+Impact:
+
+No functional breakage for the mock adapter. The environment is misleading during runtime switches and can make compose output look like OpenHands is configured even when the selected runtime is mock.
+
+Suggested fix:
+
+Make the runtime-specific env contract explicit: either leave `OPENHANDS_BASE_URL` blank when `DOCAGENT_RUNTIME=mock`, or document that it is harmless. If keeping direct `scripts/dev.ps1` use supported, clear `OPENHANDS_CONTAINER_BASE_URL` when runtime is not `openhands`.
