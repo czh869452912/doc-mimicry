@@ -12,7 +12,7 @@ def import_text_input(
     content: str,
     created_at: str,
 ) -> dict[str, Any]:
-    stem = _safe_stem(name)
+    stem = _unique_stem(workspace_root, _safe_stem(name))
     original_path = workspace_root / "inputs" / "original" / f"{stem}.txt"
     markdown_path = workspace_root / "inputs" / "markdown" / f"{stem}.md"
     report_path = workspace_root / "inputs" / "reports" / f"{stem}.json"
@@ -53,3 +53,16 @@ def _safe_stem(name: str) -> str:
     raw_stem = Path(name).stem or "input"
     stem = re.sub(r"[^A-Za-z0-9_-]+", "-", raw_stem).strip("-").lower()
     return stem or "input"
+
+
+def _unique_stem(workspace_root: Path, base_stem: str) -> str:
+    stem = base_stem
+    suffix = 2
+    while (
+        (workspace_root / "inputs" / "original" / f"{stem}.txt").exists()
+        or (workspace_root / "inputs" / "markdown" / f"{stem}.md").exists()
+        or (workspace_root / "inputs" / "reports" / f"{stem}.json").exists()
+    ):
+        stem = f"{base_stem}-{suffix}"
+        suffix += 1
+    return stem

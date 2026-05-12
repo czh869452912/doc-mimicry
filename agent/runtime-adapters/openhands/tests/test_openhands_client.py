@@ -33,6 +33,13 @@ def test_event_to_payload_extracts_nested_path() -> None:
     assert payload["path"] == "draft/outline.md"
 
 
+def test_openhands_client_unknown_conversation_explains_resume_gap() -> None:
+    client = OpenHandsAgentServerClient(base_url="http://example.test")
+
+    with pytest.raises(RuntimeError, match="does not support cross-process resume"):
+        client.send_message("missing-runtime-id", "hello")
+
+
 def test_openhands_client_streams_events_while_run_blocks() -> None:
     class State:
         def __init__(self) -> None:

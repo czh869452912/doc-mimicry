@@ -29,7 +29,8 @@ python -m pytest packages/contracts/tests packages/workspace/tests packages/time
 
 These tests cover contract models, workspace creation, workspace validation, checkpoints, Markdown import stubs, and semantic timeline mapping.
 
-GitHub Actions runs the same command in `.github/workflows/ci.yml` on push to `main` and pull requests.
+GitHub Actions runs Python on 3.12 and installs the repository with the `dev`
+extra before running package, API, mock runtime, and OpenHands adapter tests.
 
 ## Phase 1 Interactive Skeleton
 
@@ -88,5 +89,12 @@ OpenHands smoke is opt-in:
 ```powershell
 $env:DOCAGENT_RUNTIME = "openhands"
 $env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 & 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' tools/runtime/openhands_smoke.py
+```
+
+Docker Compose smoke is mock-safe:
+
+```powershell
+python tools/runtime/compose_smoke.py --runtime mock
 ```

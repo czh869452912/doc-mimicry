@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
+import logging
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -12,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 
 from docagent_api.background import BackgroundRuntimeRunner
+from docagent_api.celery_app import celery_app
 from docagent_api.request_models import (
     ApproveOutlineRequest,
     ReviseSelectionRequest,
@@ -33,6 +35,8 @@ from docagent_api.routes._shared import (
 )
 from docagent_api.state import DocAgentState
 from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
+
+logger = logging.getLogger(__name__)
 
 
 def create_sessions_router(state: DocAgentState, adapter: Any, runner: BackgroundRuntimeRunner) -> APIRouter:
@@ -247,20 +251,21 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
+        runtime_message = _message_with_attachments(request)
         if background:
             user_event = manual_event(
                 task["id"], session_id, f"user-{uuid4().hex[:8]}",
-                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, request.message, [],
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, runtime_message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
             stream_method = getattr(adapter, "send_message_stream", None)
             if callable(stream_method):
                 operation = lambda: stream_method(
-                    session_id, request.message,
+                    session_id, runtime_message,
                     runtime_event_sink(state, task["id"], session_id),
                 )
             else:
-                operation = lambda: adapter.send_message(session_id, request.message)
+                operation = lambda: adapter.send_message(session_id, runtime_message)
             response.status_code = 202
             return start_background_runtime_operation(
                 state,
@@ -270,18 +275,18 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 operation,
                 runner,
                 operation_name="send_message",
-                operation_kwargs={"message": request.message},
+                operation_kwargs={"message": runtime_message},
             )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,
-            lambda: adapter.send_message(session_id, request.message),
+            lambda: adapter.send_message(session_id, runtime_message),
             task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
         if not result.events:
             user_event = manual_event(
                 task["id"], session_id, f"user-{uuid4().hex[:8]}",
-                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, request.message, [],
+                TimelineActor.USER, SemanticEventKind.USER_MESSAGE, runtime_message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
         set_session_state(state, session, result.next_state, task_id=task["id"])
@@ -292,7 +297,13 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
-        state.release_operation_lease(session_id)
+        celery_task_id = session.get("celery_task_id")
+        if celery_task_id:
+            try:
+                celery_app.control.revoke(celery_task_id, terminate=True)
+            except Exception as exc:
+                logger.warning("Failed to revoke Celery task %s during cancel: %s", celery_task_id, exc)
+        state.release_operation_lease(session_id, celery_task_id)
         session.pop("celery_task_id", None)
         prepare_transition(state, session, RuntimeSessionState.CANCELLED, task_id=task["id"])
         try:
@@ -348,3 +359,18 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         )
 
     return router
+
+
+def _message_with_attachments(request: SendMessageRequest) -> str:
+    if not request.attachments:
+        return request.message
+    references = [
+        f"- {attachment.name}: {attachment.markdown_path}"
+        for attachment in request.attachments
+    ]
+    return "\n".join([
+        request.message.rstrip(),
+        "",
+        "Attached workspace inputs:",
+        *references,
+    ]).strip()

@@ -8,6 +8,7 @@ export interface SlashCommandContext {
   openHelp: () => void;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
+  refreshSessions?: () => Promise<unknown>;
 }
 
 export interface SlashCommandResult {
@@ -38,14 +39,17 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
 
   if (command === "/start") {
     await api.startLoop(session.id);
+    await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
     return { handled: true, message: "Outline loop starting…" };
   }
   if (command === "/check") {
     await api.runChecklist(session.id);
+    await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
     return { handled: true, message: "Checklist running…" };
   }
   if (command === "/export") {
     await api.exportMarkdown(session.id);
+    await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
     return { handled: true, message: "Export started. Open the artifact from the workspace tree when it appears." };
   }
 

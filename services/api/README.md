@@ -58,3 +58,21 @@ default for the compose stack. The API and worker image uses Python 3.12 because
 SDK packages require Python 3.12 or newer.
 
 Normal CI and local development should keep `mock` unless OpenHands Agent Server is configured and running.
+
+## Smoke Tests
+
+The OpenHands smoke script is an adapter/full-chain smoke, not a unit test. It
+uses `DOCAGENT_RUNTIME=openhands`, `OPENHANDS_BASE_URL`, and live LLM settings:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "openhands"
+$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
+python tools/runtime/openhands_smoke.py
+```
+
+For Docker Compose routing and container health without a real runtime, use:
+
+```powershell
+python tools/runtime/compose_smoke.py --runtime mock
+```

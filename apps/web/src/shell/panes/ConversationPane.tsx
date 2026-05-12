@@ -1,7 +1,7 @@
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
-import type { SessionRecord, TaskRecord, TimelineEvent } from "../../types";
+import type { MessageAttachment, SessionRecord, TaskRecord, TimelineEvent } from "../../types";
 import { DocAgentComposer } from "../assistant/DocAgentComposer";
 import { DocAgentThread } from "../assistant/DocAgentThread";
 import { useDocAgentAssistantRuntime } from "../assistant/useDocAgentAssistantRuntime";
@@ -21,6 +21,7 @@ interface ConversationPaneProps {
   queuedCommand?: string | null;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
+  refreshSessions?: () => Promise<unknown>;
 }
 
 export function ConversationPane({
@@ -37,6 +38,7 @@ export function ConversationPane({
   queuedCommand,
   refreshTimeline,
   refreshWorkspace,
+  refreshSessions,
 }: ConversationPaneProps) {
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
@@ -48,20 +50,25 @@ export function ConversationPane({
   }, [events]);
 
   const submitOrCancel = useCallback(
-    async (rawInput: string) => {
+    async (rawInput: string, attachments: MessageAttachment[] = []) => {
       const input = rawInput.trimEnd();
-      if (!input) return;
-
       if (isRunning && activeSession) {
+        if (input) {
+          setStatus("Agent is working.");
+          return;
+        }
         try {
           await api.cancelSession(activeSession.id);
           await refreshTimeline();
+          await refreshSessions?.();
           setStatus("Cancelled.");
         } catch (caught) {
           setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
         }
         return;
       }
+
+      if (!input) return;
 
       try {
         const commandResult = await executeSlashCommand(input, {
@@ -76,9 +83,7 @@ export function ConversationPane({
           setStatus(commandResult.message ?? "");
           return;
         }
-        // Free-form message: backend doesn't allow chat from idle/await/completed/cancelled.
-        // Surface a friendly hint instead of a raw 409.
-        if (activeSession && !["draft_ready", "paused", "failed"].includes(activeSession.status)) {
+        if (activeSession && ["completed", "cancelled"].includes(activeSession.status)) {
           setStatus(idleSubmitHint(activeSession.status));
           return;
         }
@@ -87,15 +92,16 @@ export function ConversationPane({
           setStatus("Create a workspace first.");
           return;
         }
-        await api.sendMessage(session.id, input);
+        await api.sendMessage(session.id, input, attachments);
         await refreshTimeline();
         await refreshWorkspace();
+        await refreshSessions?.();
         setStatus("");
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
       }
     },
-    [isRunning, activeSession, activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace],
+    [isRunning, activeSession, activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace, refreshSessions],
   );
 
   const reloadInput = useCallback(
@@ -115,11 +121,12 @@ export function ConversationPane({
     try {
       await api.cancelSession(activeSession.id);
       await refreshTimeline();
+      await refreshSessions?.();
       setStatus("Cancelled.");
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
     }
-  }, [activeSession, refreshTimeline]);
+  }, [activeSession, refreshTimeline, refreshSessions]);
 
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);

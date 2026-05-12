@@ -199,9 +199,7 @@ def test_cancel_completed_session_returns_409(tmp_path: Path) -> None:
     assert response.status_code == 409
 
 
-def test_startup_logs_warning_for_interrupted_running_sessions(tmp_path: Path) -> None:
-    """With Celery-backed state, startup no longer force-fails running sessions.
-    It only logs a warning; Celery handles recovery. Status stays unchanged."""
+def test_startup_marks_interrupted_running_sessions_failed(tmp_path: Path) -> None:
     state_root = tmp_path / "state"
     client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
@@ -210,12 +208,37 @@ def test_startup_logs_warning_for_interrupted_running_sessions(tmp_path: Path) -
     session["status"] = "running_revision"
     state.save_session(session)
 
-    # Re-create the app — now only warns, does not force-fail sessions
     recovered_client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
 
-    assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "running_revision"
+    assert recovered_client.get(f"/sessions/{session['id']}").json()["status"] == "failed"
+    events = recovered_client.get(f"/sessions/{session['id']}/timeline").json()
+    assert any(event["kind"] == "error" and "interrupted" in event["summary"].lower() for event in events)
     new_session = recovered_client.post(f"/tasks/{task['id']}/sessions").json()
     assert recovered_client.post(f"/sessions/{new_session['id']}/loop/start").status_code == 200
+
+
+def test_cancel_revoke_persisted_celery_task(tmp_path: Path, monkeypatch: Any) -> None:
+    revoked: list[str] = []
+
+    class FakeControl:
+        @staticmethod
+        def revoke(task_id: str, terminate: bool = False) -> None:
+            revoked.append(f"{task_id}:{terminate}")
+
+    monkeypatch.setattr("docagent_api.routes.sessions.celery_app.control", FakeControl())
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    db = DocAgentState(state_root)
+    assert db.acquire_operation_lease(session["id"], "celery-001") is True
+    session["status"] = "running_chat"
+    db.save_session(session)
+
+    response = client.post(f"/sessions/{session['id']}/cancel")
+
+    assert response.status_code == 200
+    assert revoked == ["celery-001:True"]
 
 
 def test_send_message_background_uses_running_chat_state(tmp_path: Path) -> None:

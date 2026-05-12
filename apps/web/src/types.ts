@@ -66,6 +66,13 @@ export interface ImportedInput {
   event?: TimelineEvent;
 }
 
+export interface MessageAttachment {
+  name: string;
+  markdown_path: string;
+  source_path?: string | null;
+  conversion_report_path?: string | null;
+}
+
 export interface LoopActionResult {
   session_id: string;
   next_state?: string | null;

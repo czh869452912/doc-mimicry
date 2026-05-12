@@ -79,6 +79,11 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
     append_runtime_result(state, task["id"], session["id"], result)
 
 
+def _is_cancelled(state: Any, session_id: str) -> bool:
+    latest = state.get_session(session_id)
+    return latest is not None and latest.get("status") == RuntimeSessionState.CANCELLED.value
+
+
 @celery_app.task(bind=True, max_retries=0)
 def run_session(
     self,
@@ -102,7 +107,13 @@ def run_session(
             result = method(session_id, **operation_kwargs, sink=runtime_event_sink(state, task_id, session_id))
         else:
             result = method(session_id, **operation_kwargs)
+        if _is_cancelled(state, session_id):
+            state.release_operation_lease(session_id)
+            return
         append_runtime_result(state, task_id, session_id, result)
+        if _is_cancelled(state, session_id):
+            state.release_operation_lease(session_id)
+            return
         set_session_state(state, session, result.next_state, task_id=task_id)
         state.release_operation_lease(session_id)
     except Exception as exc:

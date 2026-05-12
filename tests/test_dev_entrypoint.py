@@ -61,7 +61,8 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
 
     assert "resolver 127.0.0.11" in nginx_conf
     assert "set $api_upstream api:8000" in nginx_conf
-    assert "rewrite ^/api/(.*)$ /$1 break" in nginx_conf
+    assert "location ~ ^/api/(.+)$" in nginx_conf
+    assert "rewrite ^/api/(.+)$ /$1 break" in nginx_conf
     assert "proxy_pass http://$api_upstream" in nginx_conf
 
 

@@ -6,10 +6,12 @@ import { DocAgentComposer } from "../DocAgentComposer";
 
 function ComposerHarness({
   draftText,
+  isRunning = false,
   onDraftTextApplied,
   onNew = vi.fn(),
 }: {
   draftText?: string | null;
+  isRunning?: boolean;
   onDraftTextApplied?: () => void;
   onNew?: (message: AppendMessage) => Promise<void>;
 }) {
@@ -20,7 +22,12 @@ function ComposerHarness({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <DocAgentComposer disabled={false} draftText={draftText} onDraftTextApplied={onDraftTextApplied} />
+      <DocAgentComposer
+        disabled={false}
+        draftText={draftText}
+        isRunning={isRunning}
+        onDraftTextApplied={onDraftTextApplied}
+      />
     </AssistantRuntimeProvider>
   );
 }
@@ -54,5 +61,17 @@ describe("DocAgentComposer", () => {
 
     expect(await screen.findByDisplayValue("Please review this selected passage")).toBeTruthy();
     expect(onDraftTextApplied).toHaveBeenCalledOnce();
+  });
+
+  it("does not submit on Enter while the agent is running", async () => {
+    const onNew = vi.fn();
+    render(<ComposerHarness isRunning onNew={onNew} />);
+
+    const input = screen.getByLabelText("Message");
+    expect(input.getAttribute("placeholder")).toBe("Agent is working");
+    await userEvent.type(input, "Wait here");
+    await userEvent.keyboard("{Enter}");
+
+    expect(onNew).not.toHaveBeenCalled();
   });
 });

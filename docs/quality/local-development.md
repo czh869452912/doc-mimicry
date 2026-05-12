@@ -110,3 +110,22 @@ docker compose up -d --build postgres redis api worker web
 ```powershell
 docker compose logs -f api worker web
 ```
+
+## Local Smoke Checks
+
+After changing compose, Dockerfiles, nginx proxying, or runtime environment
+plumbing, run the mock compose smoke:
+
+```powershell
+python tools/runtime/compose_smoke.py --runtime mock
+```
+
+The OpenHands smoke is opt-in because it needs a reachable Agent Server and LLM
+credentials:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "openhands"
+$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
+python tools/runtime/openhands_smoke.py
+```

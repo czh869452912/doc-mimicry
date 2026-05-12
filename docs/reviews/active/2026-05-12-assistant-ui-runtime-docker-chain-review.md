@@ -676,3 +676,50 @@ Local and CI dependency resolution can fail even before tests run, depending on 
 Suggested fix:
 
 Align the project metadata with the runtime contract by setting `requires-python = ">=3.12"` and updating startup guidance that still mentions Python 3.11.
+
+
+---
+
+## Final Resolution Table — 2026-05-13
+
+| Finding | Resolution |
+|---|---|
+| 1 | Resolved: dev compose override propagates runtime env to API and worker; compose config verification remains the contract. |
+| 2 | Resolved: dev startup translates host OpenHands URL to `host.docker.internal` for containers. |
+| 3 | Resolved for product binding: sessions persist `runtime` and `runtime_session_id`; workers bind from DB and no longer silently create a second product binding. OpenHands client now fails clearly if true cross-process SDK resume is unavailable. |
+| 4 | Resolved: runtime and LLM env are passed consistently to API and worker in the supported dev compose path. |
+| 5 | Resolved: API startup marks interrupted running sessions failed and appends an error timeline event. |
+| 6 | Resolved: running composer no longer promises queueing and Enter submission is disabled while running. |
+| 7 | Resolved: `idle` and `await_outline_approval` can transition to `running_chat`; frontend no longer blocks those states. |
+| 8 | Resolved: API Docker image installs the OpenHands extra. |
+| 9 | Resolved: Celery dispatch can select streaming operation names and the worker calls stream methods with a runtime event sink. |
+| 10 | Resolved: accepted background actions refresh/invalidate session state immediately. |
+| 11 | Resolved: OpenHands path normalization covers relative, absolute container, and Windows-shaped paths. |
+| 12 | Resolved: duplicate imported filenames now receive unique stems and paths. |
+| 13 | Resolved: send-message accepts optional structured attachment references; frontend passes imported attachment metadata separately from text. |
+| 14 | Resolved as far as current runtime supports: Celery task id is persisted/revoked best-effort, operation lease is released, and worker checks cancellation before final writes/state transitions. |
+| 15 | Resolved: frontend disables draft autosave while active session is running and backend draft PUT rejects running-task writes unless `force=true`. |
+| 16 | Resolved/clarified: `openhands_smoke.py` is documented as an adapter smoke; `compose_smoke.py` covers the published Docker/API/proxy/background path for mock runtime and can be run with OpenHands opt-in. |
+| 17 | Resolved for CI-safe scope: CI now runs Python 3.12 with `.[dev]` and includes OpenHands adapter tests; compose smoke remains documented local verification. |
+| 18 | Resolved: SSE emits row `id:` values and honors `Last-Event-ID`. |
+| 19 | Resolved: backend emits `session_status` semantic timeline events and frontend invalidates sessions on them. |
+| 20 | Resolved: `doc_type_id` path traversal is rejected in doc type lookup and prompt bundle creation. |
+| 21 | Resolved: task session listing and startup running-session recovery use DB-level filters. |
+| 22 | Resolved: DB-backed `sessions.celery_task_id` operation lease rejects concurrent Celery operations. |
+| 23 | Resolved: API reads `DOCAGENT_REPO_ROOT` when `repo_root` is not passed. |
+| 24 | Duplicate of 15, resolved by the same autosave/backend guard changes. |
+| 25 | Resolved: slash commands refresh timeline/workspace and invalidate sessions after dispatch. |
+| 26 | Resolved: nginx API proxy regex now requires a non-empty path after `/api/`. |
+| 27 | Resolved: override compose interpolates `DOCAGENT_REPO_ROOT` with `/app` default. |
+| 28 | Resolved: worker rollback is defensive and falls back to `failed` for missing previous state from running statuses. |
+| 29 | Resolved with explicit fallback: persisted binding is stored, but the current in-process OpenHands client fails clearly on unavailable cross-process resume rather than silently forking a conversation. |
+| 30 | Resolved for verification path: Docker/OpenHands import smoke remains covered by image smoke guidance; CI no longer runs under Python 3.11. |
+| 32 | Resolved/documented: mock runtime clears misleading container OpenHands URL in the dev script path; docs describe the override contract. |
+| 33 | Resolved: project Python requirement is aligned to Python 3.12+. |
+
+Implementation commits on this branch:
+
+- `2d2ac44` — Phase 1 runtime Docker hardening.
+- `5c5cb83` — persisted runtime session leases.
+- `316d982` — queued streaming timeline semantics.
+- This commit — Phase 2 remainder, Phase 4, Phase 5, and Phase 6 completion.

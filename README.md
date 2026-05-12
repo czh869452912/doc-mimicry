@@ -39,6 +39,21 @@ To start the same stack with the OpenHands runtime adapter selected:
 
 The script starts the OpenHands Agent Server on `http://127.0.0.1:8001` unless one is already running. Set `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` in your shell or `.env.local`.
 
+Smoke-test the mock Docker Compose stack with:
+
+```powershell
+python tools/runtime/compose_smoke.py --runtime mock
+```
+
+The OpenHands end-to-end smoke is opt-in and requires a reachable Agent Server plus LLM credentials:
+
+```powershell
+$env:DOCAGENT_RUNTIME = "openhands"
+$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
+python tools/runtime/openhands_smoke.py
+```
+
 ## Phase 0 Focus
 
 Phase 0 validates the document-version Claude Code loop:

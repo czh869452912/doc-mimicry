@@ -25,6 +25,7 @@ vi.mock("../../api", () => ({
     reviseSelection: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),
+    cancelSession: vi.fn(),
     updateDraft: vi.fn(),
   },
 }));
@@ -447,11 +448,34 @@ describe("AppShell", () => {
     await userEvent.type(screen.getByLabelText("Message"), "Revise the draft");
     await userEvent.keyboard("{Enter}");
 
-    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the draft"));
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the draft", []));
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
     expect(screen.queryByText("Working...")).toBeNull();
   });
+
+  it("does not autosave draft edits while the active session is running", async () => {
+    vi.mocked(api.listTaskSessions).mockResolvedValue([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "running_chat",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]);
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    await userEvent.type(screen.getByRole("textbox"), "\nNew edit");
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    });
+
+    expect(api.updateDraft).not.toHaveBeenCalled();
+  }, 10_000);
 
   it("imports composer text attachments before sending the message", async () => {
     renderAppShell("/?task=task-1&session=session-1");
@@ -472,7 +496,15 @@ describe("AppShell", () => {
     await waitFor(() =>
       expect(api.sendMessage).toHaveBeenCalledWith(
         "session-1",
-        "Use the attached notes\nImported attachment scope-notes.md as inputs/markdown/scope-notes.md.",
+        "Use the attached notes",
+        [
+          {
+            name: "scope-notes.md",
+            markdown_path: "inputs/markdown/scope-notes.md",
+            source_path: "inputs/original/scope-notes.txt",
+            conversion_report_path: "inputs/reports/scope-notes.json",
+          },
+        ],
       ),
     );
   });
@@ -513,7 +545,7 @@ describe("AppShell", () => {
     expect(reloadButton.hasAttribute("disabled")).toBe(false);
     fireEvent.click(reloadButton);
 
-    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the launch scope"));
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the launch scope", []));
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
   });
 });

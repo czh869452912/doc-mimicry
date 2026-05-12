@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 from docagent_api.app import state_root_from_env
+from docagent_api.state import DocAgentState
 from docagent_contracts import (
     PromptBundle,
     RawRuntimeEvent,
@@ -146,6 +147,22 @@ def test_task_session_message_timeline_and_draft_roundtrip(tmp_path: Path) -> No
     update_response = client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Edited\n"})
     assert update_response.status_code == 200
     assert client.get(f"/tasks/{task['id']}/draft").json()["markdown"] == "# Edited\n"
+
+
+def test_draft_update_is_blocked_while_session_running_unless_forced(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    db = DocAgentState(tmp_path / "state")
+    session["status"] = "running_chat"
+    db.save_session(session)
+
+    blocked = client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Edited\n"})
+    assert blocked.status_code == 409
+
+    forced = client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Edited\n", "force": True})
+    assert forced.status_code == 200
+    assert forced.json()["markdown"] == "# Edited\n"
 
 
 def test_background_message_streams_partial_timeline_before_completion(tmp_path: Path) -> None:

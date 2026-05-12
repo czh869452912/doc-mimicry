@@ -106,24 +106,24 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 - [x] **[Finding 33]** Align `pyproject.toml` `requires-python` with the OpenHands dependency floor and Docker runtime by requiring Python 3.12+.
 - [x] **[Finding 30]** Add an import-time smoke for the OpenHands-capable image: run `python -c "import lmnr"` inside Docker build or CI. Treat this as a smoke gap; only repin/upgrade `lmnr==0.7.51` if the smoke fails on Python 3.12.
 - [x] Add an API health/runtime diagnostics test that confirms selected runtime is visible without exposing secrets.
-- [ ] Verification: run `python -m pytest tests/test_dev_entrypoint.py services/api/tests/test_runtime_factory.py -q`.
-- [ ] Verification: run `docker compose config` and inspect that `api` and `worker` contain the runtime env keys.
+- [x] Verification: run `python -m pytest tests/test_dev_entrypoint.py services/api/tests/test_runtime_factory.py -q`.
+- [x] Verification: run `docker compose config` and inspect that `api` and `worker` contain the runtime env keys.
 
 ### Phase 2: Persist Runtime Session Identity And Operation Leases
 
 - [x] Add a schema migration for: `sessions.runtime_session_id TEXT`, `sessions.celery_task_id TEXT` (for cancel/revoke), and `sessions.runtime TEXT`. Each column is nullable and additive-only. Include a `downgrade` stub.
 - [x] Decide and document operation lease strategy before implementing: use DB-backed `sessions.celery_task_id` as the durable per-session operation lease. This is simpler to reason about for the current Postgres/Celery stack than Redis `SET NX EX`, and can be cleared on worker/API recovery.
-- [ ] Before implementing resume, verify the current OpenHands Agent Server/SDK supports reconnecting to an existing conversation by id across API/worker processes. Record the exact supported API in the implementation PR. If unsupported, choose and document one explicit fallback: fail and clear stale state, create a new product session, or pin OpenHands execution to the creating worker. Do not silently create a second runtime conversation for the same product session.
+- [x] Before implementing resume, verify the current OpenHands Agent Server/SDK supports reconnecting to an existing conversation by id across API/worker processes. Current adapter has no cross-process resume API; fallback is explicit fail-fast on missing in-process conversation rather than silently forking a second conversation.
 - [x] Extend `DocAgentState` with methods to save/load runtime binding, list sessions by task id, list sessions by status, acquire/release an operation lease, and mark stale operations.
 - [x] Update `OpenHandsRuntimeAdapter` so `create_session()` returns or records the runtime session id through a product-level binding, and follow-up operations can use a persisted binding instead of only `_runtime_session_ids`.
 - [x] Update `worker_tasks._ensure_runtime_session()` so it loads existing runtime binding rather than creating a second OpenHands conversation when process-local state is empty.
 - [x] Add tests where session creation happens with one adapter instance and background operation runs with another instance, proving the same runtime session id is used.
 - [x] Add Redis or DB-backed per-session operation lease before Celery dispatch; reject concurrent operations with HTTP 409.
-- [ ] Add stale running-session recovery on API startup or worker startup: append an error/status event and move abandoned sessions to `failed` or `paused`.
+- [x] Add stale running-session recovery on API startup or worker startup: append an error/status event and move abandoned sessions to `failed` or `paused`.
 - [x] **[Finding 28]** Make Celery rollback contract explicit and defensive: require route-dispatched tasks to pass `previous_state_on_failure`, add tests that normal route dispatch rolls back to the pre-running state, and add a fallback where missing rollback state plus current `running_*` status becomes `FAILED` instead of preserving `running_*`.
-- [ ] **[Finding 29 — root cause of Finding 3]** Confirm whether the current OpenHands Agent Server/SDK exposes a REST endpoint to reconnect to an existing conversation by `conversation_id`. If yes, implement persistence path: `client.py` resumes via server API using `sessions.runtime_session_id` from DB. If no, choose and document one explicit fallback strategy (see Open Questions) and implement it — do not silently create a second conversation.
-- [ ] Add cancellation plumbing: persist Celery task id or operation id, revoke Celery tasks where possible, and make worker/runtime calls check a cancellation flag before final writes/state transitions.
-- [ ] Verification: run `python -m pytest services/api/tests/test_worker_tasks.py services/api/tests/test_background_runner.py services/api/tests/test_phase3_api.py agent/runtime-adapters/openhands/tests -q`.
+- [x] **[Finding 29 — root cause of Finding 3]** Current adapter does not expose a safe cross-process resume path; implemented persisted product binding plus explicit fail-fast when a runtime session id is missing from the process-local OpenHands client, avoiding silent conversation forks.
+- [x] Add cancellation plumbing: persist Celery task id or operation id, revoke Celery tasks where possible, and make worker/runtime calls check a cancellation flag before final writes/state transitions.
+- [x] Verification: run `python -m pytest services/api/tests/test_worker_tasks.py services/api/tests/test_background_runner.py services/api/tests/test_phase3_api.py agent/runtime-adapters/openhands/tests -q`.
 
 ### Phase 3: Restore Streaming And Timeline State Semantics
 
@@ -138,8 +138,8 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 - [x] Add SSE `id:` fields based on timeline row id and honor `Last-Event-ID` in `/timeline/stream`.
 - [x] Keep full timeline fetch on frontend SSE error as a recovery path, but avoid normal full replay on reconnect. Browser EventSource automatically sends `Last-Event-ID` after receiving server `id:` fields; no manual frontend header is required.
 - [x] Normalize OpenHands paths relative to `workspace_root` before mapping; support absolute container paths, Windows paths, and relative paths.
-- [ ] Verification: run `python -m pytest services/api/tests/test_sse.py packages/timeline/tests/test_openhands_mapper.py -q`.
-- [ ] Verification: run `cd apps/web; npm run test:unit -- useTimeline`.
+- [x] Verification: run `python -m pytest services/api/tests/test_sse.py packages/timeline/tests/test_openhands_mapper.py -q`.
+- [x] Verification: run `cd apps/web; npm run test:unit -- useTimeline`.
 
 ### Phase 4: Fix Assistant UI Interaction And Editing Safety
 
@@ -147,41 +147,41 @@ The same merge did not close the runtime lifecycle issues. The highest-risk rema
 > - Does chat from `await_outline_approval` preserve that state after the agent responds, or advance it?
 > - Are manual draft edits during a running operation blocked entirely, or allowed as explicit interrupt checkpoints?
 
-- [ ] Decide and document running-input behavior: either disable send while running or implement interrupt-with-message. For this pass, prefer disabling message send while running and keeping an explicit stop button.
-- [ ] Fix Enter-key cancel bug (two-part, must be done together): (1) Set `submitMode="none"` on `ComposerPrimitive.Input` when `isRunning=true` so Enter does not trigger submission. (2) In `submitOrCancel()`, change the `isRunning && activeSession` branch to only call `cancelSession()` when `input.trim() === ""` — non-empty input while running should show a hint or be no-op, not silently cancel.
-- [ ] Update `DocAgentComposer` placeholder text to remove the "type to queue" promise — replace with "Agent is working" or similar non-committal copy unless real queueing is implemented.
-- [ ] Allow free-form `send_message` from `idle` and `await_outline_approval`, or explicitly document why those states are blocked. Preferred fix: allow chat from both while preserving or returning to the prior phase state.
-- [ ] Update `session_state.py` tests for `IDLE -> RUNNING_CHAT` and `AWAIT_OUTLINE_APPROVAL -> RUNNING_CHAT`.
-- [ ] After any accepted background response, optimistically update or invalidate the active session query using returned `status`.
-- [ ] Update slash commands to call `refreshTimeline()` and session invalidation after dispatch.
-- [ ] Disable draft autosave while any active session for the task has a `running_*` status.
-- [ ] Add backend guard on `PUT /tasks/{task_id}/draft` so draft writes during running sessions return 409 unless explicitly forced.
-- [ ] Verification: run `cd apps/web; npm run test:unit`.
-- [ ] Verification: run `python -m pytest services/api/tests/test_session_state.py services/api/tests/test_phase3_api.py services/api/tests/test_doctypes_and_drafts.py -q`.
+- [x] Decide and document running-input behavior: message send is disabled while running; the explicit stop button remains the cancel affordance.
+- [x] Fix Enter-key cancel bug (two-part, must be done together): (1) Set `submitMode="none"` on `ComposerPrimitive.Input` when `isRunning=true` so Enter does not trigger submission. (2) In `submitOrCancel()`, change the `isRunning && activeSession` branch to only call `cancelSession()` when `input.trim() === ""` — non-empty input while running should show a hint or be no-op, not silently cancel.
+- [x] Update `DocAgentComposer` placeholder text to remove the "type to queue" promise — replace with "Agent is working" or similar non-committal copy unless real queueing is implemented.
+- [x] Allow free-form `send_message` from `idle` and `await_outline_approval`, or explicitly document why those states are blocked. Preferred fix: allow chat from both while preserving or returning to the prior phase state.
+- [x] Update `session_state.py` tests for `IDLE -> RUNNING_CHAT` and `AWAIT_OUTLINE_APPROVAL -> RUNNING_CHAT`.
+- [x] After any accepted background response, optimistically update or invalidate the active session query using returned `status`.
+- [x] Update slash commands to call `refreshTimeline()` and session invalidation after dispatch.
+- [x] Disable draft autosave while any active session for the task has a `running_*` status.
+- [x] Add backend guard on `PUT /tasks/{task_id}/draft` so draft writes during running sessions return 409 unless explicitly forced.
+- [x] Verification: run `cd apps/web; npm run test:unit`.
+- [x] Verification: run `python -m pytest services/api/tests/test_session_state.py services/api/tests/test_phase3_api.py services/api/tests/test_doctypes_and_drafts.py -q`.
 
 ### Phase 5: Harden Inputs, Paths, And Query Shape
 
 > Note: doc type id path traversal (Finding 20) was addressed in Phase 1. Steps 1–3 below are verification-only; do not re-implement.
 
-- [ ] Verify Phase 1 security coverage: confirm `get_doc_type()` and `build_prompt_bundle()` reject traversal attempts and that tests pass for `/doc-types/{id}` and session creation with malicious `doc_type_id`.
-- [ ] **[Finding 26]** Decide whether to enforce strict nginx `/api/` proxy semantics. If yes, change regex to `^/api/(.+)$` or add `location = /api/ { return 404; }`. If no, document that bare `/api/` is harmless and currently returns the backend's root behavior.
-- [ ] Make `import_text_input()` produce unique ids and paths for duplicate filenames, preserving the original filename in the conversion report.
-- [ ] **[API contract change — requires migration plan]** Extend `SendMessageRequest` and response to carry structured attachment references (`attachments: [{input_id, markdown_path, original_filename}]`). Make the field optional for backward compatibility. Update `apps/web/src/api.ts`, `docAgentAttachmentAdapter.ts`, and all `sendMessage` call sites. Keep the human-readable imported attachment line in the message summary.
-- [ ] Replace unbounded `list_sessions()` usage in task session listing with a DB-level `task_id` filter.
-- [ ] Replace startup interrupted-session scan with a DB-level status filter.
-- [ ] Verification: run `python -m pytest services/api/tests/test_imports.py services/api/tests/test_doctypes_and_drafts.py services/api/tests/test_state.py services/api/tests/test_phase2_api.py -q`.
-- [ ] Verification: run `cd apps/web; npm run test:unit -- docAgentAttachmentAdapter`.
+- [x] Verify Phase 1 security coverage: confirm `get_doc_type()` and `build_prompt_bundle()` reject traversal attempts and that tests pass for `/doc-types/{id}` and session creation with malicious `doc_type_id`.
+- [x] **[Finding 26]** Enforced strict nginx `/api/` proxy semantics by changing the location/rewrite regex to `^/api/(.+)$`.
+- [x] Make `import_text_input()` produce unique ids and paths for duplicate filenames, preserving the original filename in the conversion report.
+- [x] **[API contract change]** Extended `SendMessageRequest` with optional structured attachment references. Updated `apps/web/src/api.ts`, `docAgentAttachmentAdapter.ts`, and all `sendMessage` call sites.
+- [x] Replace unbounded `list_sessions()` usage in task session listing with a DB-level `task_id` filter.
+- [x] Replace startup interrupted-session scan with a DB-level status filter.
+- [x] Verification: run `python -m pytest services/api/tests/test_imports.py services/api/tests/test_doctypes_and_drafts.py services/api/tests/test_state.py services/api/tests/test_phase2_api.py -q`.
+- [x] Verification: run `cd apps/web; npm run test:unit -- docAgentAttachmentAdapter`.
 
 ### Phase 6: Add Real Chain Verification And Documentation
 
-- [ ] Rename or document `tools/runtime/openhands_smoke.py` as an adapter smoke, not a full-chain smoke.
-- [ ] Add a mock Docker Compose smoke script that starts `postgres redis api worker web`, creates a workspace through the published API/proxy, starts a background operation, and verifies timeline/workspace output.
-- [ ] Add an opt-in OpenHands full-chain smoke that uses compose, background operations, and the container-safe OpenHands URL.
-- [ ] Add OpenHands adapter tests to CI if they do not require live services or secrets.
-- [ ] Add a CI-safe mock Docker smoke job if runtime allows Docker-in-Docker; otherwise document it as a local pre-release verification command.
-- [ ] Update `README.md`, `services/api/README.md`, `docs/quality/local-development.md`, and `docs/quality/testing.md` with the corrected runtime setup.
-- [ ] Update the review document with a final resolution table mapping each finding to the fixing task/commit.
-- [ ] Verification: run the full Python suite, frontend build, frontend unit tests, and the mock compose smoke.
+- [x] Rename or document `tools/runtime/openhands_smoke.py` as an adapter smoke, not a full-chain smoke.
+- [x] Add a mock Docker Compose smoke script that starts `postgres redis api worker web`, creates a workspace through the published API/proxy, starts a background operation, and verifies timeline/workspace output.
+- [x] Add an opt-in OpenHands full-chain smoke path via `tools/runtime/compose_smoke.py --runtime openhands`; the in-process `openhands_smoke.py` remains adapter-focused.
+- [x] Add OpenHands adapter tests to CI if they do not require live services or secrets.
+- [x] Documented mock Docker smoke as a local pre-release verification command; CI keeps Docker smoke out of the default job.
+- [x] Update `README.md`, `services/api/README.md`, `docs/quality/local-development.md`, and `docs/quality/testing.md` with the corrected runtime setup.
+- [x] Update the review document with a final resolution table mapping each finding to the fixing task/commit.
+- [x] Verification: run the full Python suite, frontend build, frontend unit tests, and the mock compose smoke.
 
 ## Verification Commands
 

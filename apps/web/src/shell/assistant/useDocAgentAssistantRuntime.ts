@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "../../types";
 import { createDocAgentTextAttachmentAdapter } from "./docAgentAttachmentAdapter";
 import { mapTimelineEventsToAssistantMessages } from "./docAgentAssistantMessages";
+import type { MessageAttachment } from "../../types";
 
 interface UseDocAgentAssistantRuntimeOptions {
   activeTaskId: string | null;
@@ -10,7 +11,7 @@ interface UseDocAgentAssistantRuntimeOptions {
   events: TimelineEvent[];
   isRunning: boolean;
   onReloadInput?: (parentMessageId: string | null) => Promise<void>;
-  onSubmitInput: (input: string) => Promise<void>;
+  onSubmitInput: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
 }
 
 export function useDocAgentAssistantRuntime({
@@ -22,7 +23,7 @@ export function useDocAgentAssistantRuntime({
   onSubmitInput,
 }: UseDocAgentAssistantRuntimeOptions) {
   const messages = useMemo(() => mapTimelineEventsToAssistantMessages(events), [events]);
-  const importedAttachmentReferencesRef = useRef<string[]>([]);
+  const importedAttachmentReferencesRef = useRef<MessageAttachment[]>([]);
 
   useEffect(() => {
     importedAttachmentReferencesRef.current = [];
@@ -47,9 +48,9 @@ export function useDocAgentAssistantRuntime({
     isRunning,
     messages,
     onNew: async (message: AppendMessage) => {
-      const references = importedAttachmentReferencesRef.current;
+      const attachments = importedAttachmentReferencesRef.current;
       importedAttachmentReferencesRef.current = [];
-      await onSubmitInput(textFromAppendMessage(message, references));
+      await onSubmitInput(textFromAppendMessage(message), attachments);
     },
     onReload: async (parentId: string | null) => {
       await onReloadInput?.(parentId);
@@ -58,10 +59,10 @@ export function useDocAgentAssistantRuntime({
   });
 }
 
-function textFromAppendMessage(message: AppendMessage, attachmentReferences: string[] = []): string {
+function textFromAppendMessage(message: AppendMessage): string {
   const contentText = message.content
     .filter((part): part is Extract<(typeof message.content)[number], { type: "text" }> => part.type === "text")
     .map((part) => part.text)
     .join("\n");
-  return [...[contentText], ...attachmentReferences].filter(Boolean).join("\n");
+  return contentText;
 }

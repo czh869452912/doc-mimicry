@@ -10,8 +10,16 @@ class CreateTaskRequest(BaseModel):
     description: str | None = None
 
 
+class MessageAttachment(BaseModel):
+    name: str
+    markdown_path: str
+    source_path: str | None = None
+    conversion_report_path: str | None = None
+
+
 class SendMessageRequest(BaseModel):
     message: str
+    attachments: list[MessageAttachment] = []
 
 
 class ImportTextRequest(BaseModel):
@@ -30,3 +38,4 @@ class ReviseSelectionRequest(BaseModel):
 
 class UpdateDraftRequest(BaseModel):
     markdown: str
+    force: bool = False

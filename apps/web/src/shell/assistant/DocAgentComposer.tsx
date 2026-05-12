@@ -58,8 +58,8 @@ export function DocAgentComposer({
             ref={inputRef}
             aria-label="Message"
             disabled={disabled}
-            placeholder={isRunning ? "Agent is working — type to queue, or stop to interrupt" : "Message the agent, or type / for commands"}
-            submitMode="enter"
+            placeholder={isRunning ? "Agent is working" : "Message the agent, or type / for commands"}
+            submitMode={isRunning ? "none" : "enter"}
           />
           <DocAgentSlashCommands query={query} onSelect={selectCommand} />
         </div>

@@ -18,6 +18,7 @@ services:
       - workspace_data:/workspace
 
   worker:
+    command: celery -A docagent_api.celery_app worker --loglevel=info
     environment:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}

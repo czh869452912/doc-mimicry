@@ -1,8 +1,9 @@
 import type { AttachmentAdapter, CompleteAttachment, PendingAttachment } from "@assistant-ui/react";
 import { api } from "../../api";
+import type { MessageAttachment } from "../../types";
 
 interface DocAgentTextAttachmentAdapterOptions {
-  onImported?: (reference: string) => void;
+  onImported?: (reference: MessageAttachment) => void;
   taskId: string | null;
 }
 
@@ -51,7 +52,12 @@ export function createDocAgentTextAttachmentAdapter({
         ? attachment.text
         : await attachment.file.text();
       const imported = await api.importTextInput(taskId, attachment.name, text);
-      onImported?.(`Imported attachment ${attachment.name} as ${imported.markdown_path}.`);
+      onImported?.({
+        name: attachment.name,
+        markdown_path: imported.markdown_path,
+        source_path: imported.source_path,
+        conversion_report_path: imported.conversion_report_path,
+      });
 
       return {
         ...attachment,

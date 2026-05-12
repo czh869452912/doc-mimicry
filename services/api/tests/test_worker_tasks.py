@@ -112,3 +112,26 @@ def test_run_session_uses_streaming_method_with_runtime_event_sink(tmp_path):
     mock_state.append_raw_runtime_event.assert_called_once_with("s1", streamed_event)
     saved_statuses = [call.args[0]["status"] for call in mock_state.save_session.call_args_list]
     assert saved_statuses[-1] == "await_outline_approval"
+
+
+def test_run_session_does_not_write_final_result_after_cancel(tmp_path):
+    mock_state = MagicMock()
+    mock_state.get_session.side_effect = [
+        {"id": "s1", "task_id": "t1", "status": "running_chat"},
+        {"id": "s1", "task_id": "t1", "status": "cancelled"},
+    ]
+    mock_adapter = MagicMock()
+    mock_adapter.get_state.return_value = RuntimeSessionState.RUNNING_CHAT
+    mock_adapter.send_message.return_value = RuntimeOperationResult(
+        session_id="s1",
+        next_state=RuntimeSessionState.DRAFT_READY,
+    )
+
+    with patch("docagent_api.worker_tasks._get_state", return_value=mock_state), \
+         patch("docagent_api.worker_tasks._get_adapter", return_value=mock_adapter):
+        run_session("s1", "send_message", {"message": "Hello"})
+
+    mock_adapter.send_message.assert_called_once_with("s1", message="Hello")
+    mock_state.append_timeline_event.assert_not_called()
+    mock_state.save_session.assert_not_called()
+    mock_state.release_operation_lease.assert_called_once_with("s1")

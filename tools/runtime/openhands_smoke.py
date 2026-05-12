@@ -1,6 +1,21 @@
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
+import os
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+for relative in [
+    "services/api",
+    "packages/contracts",
+    "packages/workspace",
+    "packages/timeline",
+    "agent/runtime-adapters/openhands",
+]:
+    path = str(REPO_ROOT / relative)
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from fastapi.testclient import TestClient
 
@@ -8,7 +23,21 @@ from docagent_api.app import create_app
 
 
 def main() -> int:
-    client = TestClient(create_app(repo_root=Path("."), runtime_name="openhands"))
+    parser = argparse.ArgumentParser(description="Run an opt-in in-process OpenHands adapter smoke.")
+    parser.parse_args()
+
+    """Run an opt-in in-process smoke against the OpenHands adapter."""
+    if not os.environ.get("DATABASE_URL"):
+        print("DATABASE_URL is required for the in-process OpenHands smoke.")
+        print("Start the compose database or use tools/runtime/compose_smoke.py --runtime openhands.")
+        return 2
+    client = TestClient(
+        create_app(
+            state_root=REPO_ROOT / ".local" / "runtime-smoke" / "openhands",
+            repo_root=REPO_ROOT,
+            runtime_name="openhands",
+        )
+    )
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
     print("created task")
     session = client.post(f"/tasks/{task['id']}/sessions").json()

@@ -7,6 +7,7 @@ import { ConversationPane } from "../ConversationPane";
 
 vi.mock("../../../api", () => ({
   api: {
+    cancelSession: vi.fn(),
     sendMessage: vi.fn(),
   },
 }));
@@ -43,7 +44,7 @@ const events: TimelineEvent[] = [
   },
 ];
 
-function renderPane() {
+function renderPane(overrides: Partial<React.ComponentProps<typeof ConversationPane>> = {}) {
   return render(
     <ConversationPane
       activeSession={session}
@@ -55,6 +56,7 @@ function renderPane() {
       refreshTimeline={vi.fn()}
       refreshWorkspace={vi.fn()}
       onOpenPath={vi.fn()}
+      {...overrides}
     />,
   );
 }
@@ -107,6 +109,26 @@ describe("ConversationPane", () => {
     await userEvent.type(screen.getByLabelText("Message"), "Revise this section");
     await userEvent.keyboard("{Enter}");
 
-    expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise this section");
+    expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise this section", []);
+  });
+
+  it("allows chat from an outline-approval session", async () => {
+    vi.mocked(api.sendMessage).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_chat" });
+    renderPane({ activeSession: { ...session, status: "await_outline_approval" } });
+
+    await userEvent.type(screen.getByLabelText("Message"), "Adjust the outline");
+    await userEvent.keyboard("{Enter}");
+
+    expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Adjust the outline", []);
+  });
+
+  it("does not submit or cancel when Enter is pressed while running", async () => {
+    renderPane({ activeSession: { ...session, status: "running_chat" } });
+
+    await userEvent.type(screen.getByLabelText("Message"), "Do not cancel");
+    await userEvent.keyboard("{Enter}");
+
+    expect(api.cancelSession).not.toHaveBeenCalled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
   });
 });

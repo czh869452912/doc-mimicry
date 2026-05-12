@@ -114,7 +114,10 @@ class OpenHandsAgentServerClient:
         try:
             return self._conversations[runtime_session_id]
         except KeyError as exc:
-            raise RuntimeError(f"Unknown OpenHands runtime session: {runtime_session_id}") from exc
+            raise RuntimeError(
+                "OpenHands Agent Server client does not support cross-process resume "
+                f"for runtime session {runtime_session_id}; the conversation is not present in this process."
+            ) from exc
 
 
 def _event_to_payload(event: Any) -> dict[str, Any]:

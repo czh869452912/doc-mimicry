@@ -72,13 +72,13 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install test dependencies
-        run: python -m pip install --upgrade pip pytest fastapi uvicorn httpx
+        run: python -m pip install --upgrade pip ".[dev]"
 
       - name: Run foundation and API tests
-        run: python -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests tests -q
+        run: python -m pytest packages/contracts/tests packages/workspace/tests packages/timeline/tests tools/import/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests -q
 
   web:
     name: Web build

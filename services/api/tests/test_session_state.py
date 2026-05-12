@@ -21,3 +21,8 @@ def test_paused_allows_running_chat() -> None:
         require_transition("paused", RuntimeSessionState.RUNNING_CHAT)
         == RuntimeSessionState.RUNNING_CHAT
     )
+
+
+@pytest.mark.parametrize("status", ["idle", "await_outline_approval"])
+def test_chat_is_allowed_from_non_terminal_waiting_states(status: str) -> None:
+    assert require_transition(status, RuntimeSessionState.RUNNING_CHAT) == RuntimeSessionState.RUNNING_CHAT

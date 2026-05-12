@@ -56,6 +56,7 @@ export function AppShell() {
       : workspaces.activeSession?.status === "await_outline_approval"
         ? "waiting"
         : "idle";
+  const activeSessionIsRunning = Boolean(workspaces.activeSession?.status?.startsWith("running"));
 
   return (
     <main className="docagent-shell" onKeyDown={handleKeyDown}>
@@ -121,6 +122,9 @@ export function AppShell() {
                 queuedComposerDraft={queuedComposerDraft}
                 queuedCommand={queuedCommand}
                 refreshTimeline={timeline.refreshTimeline}
+                refreshSessions={async () => {
+                  await queryClient.invalidateQueries({ queryKey: ["sessions", workspaces.activeTask?.id] });
+                }}
                 refreshWorkspace={async () => {
                   await queryClient.invalidateQueries({ queryKey: ["workspace", workspaces.activeTask?.id] });
                   await queryClient.invalidateQueries({ queryKey: ["draft", workspaces.activeTask?.id] });
@@ -137,7 +141,7 @@ export function AppShell() {
                 activeSessionId={workspaces.activeSession?.id ?? null}
                 activeTabId={editorTabs.activeTabId}
                 draft={draft}
-                draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null)}
+                draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null) && !activeSessionIsRunning}
                 tabs={editorTabs.tabs}
                 taskId={workspaces.activeTask?.id ?? null}
                 onCloseTab={editorTabs.removeTab}

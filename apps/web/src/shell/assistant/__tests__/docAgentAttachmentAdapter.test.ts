@@ -30,7 +30,23 @@ describe("createDocAgentTextAttachmentAdapter", () => {
     const pending = await addAttachment(adapter.add({ file }));
     const complete = await adapter.send(pending);
 
+    const references: unknown[] = [];
+    const adapterWithCallback = createDocAgentTextAttachmentAdapter({
+      taskId: "task-1",
+      onImported: (reference) => references.push(reference),
+    });
+    const callbackPending = await addAttachment(adapterWithCallback.add({ file }));
+    await adapterWithCallback.send(callbackPending);
+
     expect(api.importTextInput).toHaveBeenCalledWith("task-1", "source-notes.md", "Launch scope notes");
+    expect(references).toEqual([
+      {
+        name: "source-notes.md",
+        markdown_path: "inputs/markdown/source-notes.md",
+        source_path: "inputs/original/source-notes.txt",
+        conversion_report_path: "inputs/reports/source-notes.json",
+      },
+    ]);
     expect(complete.status).toEqual({ type: "complete" });
     expect(complete.content).toEqual([
       {

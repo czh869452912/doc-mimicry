@@ -11,6 +11,7 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     RuntimeSessionState.IDLE: {
         RuntimeSessionState.RUNNING_CONTEXT,
         RuntimeSessionState.RUNNING_REVISION,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.RUNNING_CONTEXT: {
@@ -20,6 +21,7 @@ ALLOWED_TRANSITIONS: dict[RuntimeSessionState, set[RuntimeSessionState]] = {
     },
     RuntimeSessionState.AWAIT_OUTLINE_APPROVAL: {
         RuntimeSessionState.RUNNING_DRAFT,
+        RuntimeSessionState.RUNNING_CHAT,
         RuntimeSessionState.CANCELLED,
     },
     RuntimeSessionState.RUNNING_DRAFT: {

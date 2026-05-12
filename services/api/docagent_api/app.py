@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from dataclasses import asdict
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +17,8 @@ from docagent_api.routes.sessions import create_sessions_router
 from docagent_api.routes.tasks import create_tasks_router
 from docagent_api.runtime_factory import create_runtime_adapter
 from docagent_api.state import DocAgentState
-from docagent_contracts import RuntimeSessionState
+from docagent_api.routes._shared import manual_event
+from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor, TimelineStatus
 
 
 def create_app(
@@ -49,7 +52,7 @@ def create_app(
         state_root or state_root_from_env() or root / ".local" / "docagent",
         database_url=os.environ.get("DATABASE_URL"),
     )
-    _warn_interrupted_sessions(state)
+    _recover_interrupted_sessions(state)
     adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 
     @app.get("/health", response_model=HealthResponse)
@@ -63,8 +66,8 @@ def create_app(
     return app
 
 
-def _warn_interrupted_sessions(state: DocAgentState) -> None:
-    """Log a warning for sessions left in running states (Celery will recover them)."""
+def _recover_interrupted_sessions(state: DocAgentState) -> None:
+    """Fail sessions left in running states after an API/worker interruption."""
     import logging
     running_states = {
         RuntimeSessionState.RUNNING_CONTEXT.value,
@@ -75,10 +78,22 @@ def _warn_interrupted_sessions(state: DocAgentState) -> None:
         RuntimeSessionState.RUNNING_EXPORT.value,
     }
     logger = logging.getLogger(__name__)
-    interrupted = state.list_sessions_by_status(running_states)
+    interrupted = state.mark_stale_operations(running_states, RuntimeSessionState.FAILED.value)
     if interrupted:
+        for session in interrupted:
+            failure = manual_event(
+                session["task_id"],
+                session["id"],
+                f"runtime-interrupted-{uuid4().hex[:8]}",
+                TimelineActor.SYSTEM,
+                SemanticEventKind.ERROR,
+                "Runtime operation interrupted during API startup recovery",
+                [],
+                status=TimelineStatus.FAILED,
+            )
+            state.append_timeline_event(session["id"], asdict(failure))
         ids = ", ".join(s["id"] for s in interrupted)
-        logger.warning("Sessions left in running state (will be recovered by worker): %s", ids)
+        logger.warning("Marked interrupted running sessions failed during startup recovery: %s", ids)
 
 
 def state_root_from_env() -> Path | None:

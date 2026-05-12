@@ -28,13 +28,23 @@ from docagent_api.routes._shared import (
 from docagent_api.state import DocAgentState
 from docagent_api.time import utc_now
 from docagent_api.workspace_files import list_workspace_files, read_workspace_text_file
-from docagent_contracts import SemanticEventKind, TimelineActor
+from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
 from docagent_workspace import create_workspace
 
 
 def _title_from_description(description: str) -> str:
     first_line = next((line.strip() for line in description.splitlines() if line.strip()), "Untitled workspace")
     return first_line[:80]
+
+
+RUNNING_STATES = {
+    RuntimeSessionState.RUNNING_CONTEXT.value,
+    RuntimeSessionState.RUNNING_DRAFT.value,
+    RuntimeSessionState.RUNNING_REVISION.value,
+    RuntimeSessionState.RUNNING_CHAT.value,
+    RuntimeSessionState.RUNNING_CHECKLIST.value,
+    RuntimeSessionState.RUNNING_EXPORT.value,
+}
 
 
 def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRouter:
@@ -98,6 +108,16 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
     @router.put("/tasks/{task_id}/draft", response_model=DraftResponse)
     def update_draft(task_id: str, request: UpdateDraftRequest) -> dict[str, str]:
         task = require_task(state, task_id)
+        if not request.force:
+            running_sessions = [
+                session for session in state.list_sessions_by_task(task_id)
+                if session["status"] in RUNNING_STATES
+            ]
+            if running_sessions:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Cannot update draft while a runtime session is running.",
+                )
         write_draft(Path(task["workspace_root"]), request.markdown)
         return {"task_id": task_id, "markdown": read_draft(Path(task["workspace_root"]))}
 
