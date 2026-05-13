@@ -74,6 +74,7 @@ describe("DocAgentComposer", () => {
     await userEvent.type(input, "Wait here");
     await userEvent.keyboard("{Enter}");
 
+    expect((input as HTMLTextAreaElement).value).toBe("Wait here\n");
     expect(onNew).not.toHaveBeenCalled();
   });
 

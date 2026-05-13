@@ -7,7 +7,6 @@ import type { MessageAttachment } from "../../types";
 
 interface UseDocAgentAssistantRuntimeOptions {
   activeTaskId: string | null;
-  disabled: boolean;
   events: TimelineEvent[];
   isRunning: boolean;
   onReloadInput?: (parentMessageId: string | null) => Promise<void>;
@@ -16,7 +15,6 @@ interface UseDocAgentAssistantRuntimeOptions {
 
 export function useDocAgentAssistantRuntime({
   activeTaskId,
-  disabled,
   events,
   isRunning,
   onReloadInput,
@@ -44,7 +42,6 @@ export function useDocAgentAssistantRuntime({
     adapters: {
       attachments: attachmentAdapter,
     },
-    isDisabled: disabled,
     isRunning,
     messages,
     onNew: async (message: AppendMessage) => {

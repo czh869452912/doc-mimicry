@@ -525,6 +525,29 @@ describe("AppShell", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps composer text editable while the active session is running", async () => {
+    vi.mocked(api.listTaskSessions).mockResolvedValue([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "running_chat",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]);
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    const input = await screen.findByLabelText("Message");
+    await waitFor(() => expect(input.getAttribute("placeholder")).toBe("Agent is working"));
+    expect((input as HTMLTextAreaElement).disabled).toBe(false);
+
+    await userEvent.type(input, "Next thought");
+
+    expect((input as HTMLTextAreaElement).value).toBe("Next thought");
+    expect(screen.getByRole("button", { name: "Stop the running agent" })).toBeTruthy();
+  });
+
   it("does not autosave draft edits while the active session is running", async () => {
     vi.mocked(api.listTaskSessions).mockResolvedValue([
       {

@@ -132,7 +132,6 @@ export function ConversationPane({
   const composerHint = composerHintFor(activeSession);
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
-    disabled: composerDisabled,
     events,
     isRunning,
     onReloadInput: reloadInput,
