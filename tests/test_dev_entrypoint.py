@@ -74,6 +74,7 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
 
     assert "openhands:" in compose
+    assert "entrypoint: []" in compose
     assert "python -m openhands.agent_server --host 0.0.0.0 --port 8001" in compose
     assert "target: /workspace" in compose
     assert "OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}" in override

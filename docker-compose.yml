@@ -30,6 +30,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
+    entrypoint: []
     command: python -m openhands.agent_server --host 0.0.0.0 --port 8001
     environment:
       OPENHANDS_SUPPRESS_BANNER: "1"
