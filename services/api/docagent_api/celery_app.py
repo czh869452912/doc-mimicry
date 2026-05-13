@@ -17,6 +17,9 @@ celery_app.conf.update(
     task_reject_on_worker_lost=True,
     # Tasks requeued if worker is silent longer than this (must exceed max session runtime)
     broker_transport_options={"visibility_timeout": 3600},
+    # OpenHands SDK dependencies expect sys.stdout/sys.stderr to behave like
+    # real text streams (including .encoding). Celery's LoggingProxy omits that.
+    worker_redirect_stdouts=False,
     # Import worker_tasks to register tasks
     imports=["docagent_api.worker_tasks"],
 )

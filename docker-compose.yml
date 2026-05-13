@@ -72,6 +72,7 @@ services:
       DOCAGENT_QUEUE: celery
       DOCAGENT_STATE_ROOT: /workspace/state
       DOCAGENT_RUN_MIGRATIONS: "0"
+      OPENHANDS_SUPPRESS_BANNER: "1"
     volumes:
       - workspace_data:/workspace
     depends_on:

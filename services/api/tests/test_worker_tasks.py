@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from docagent_api.worker_tasks import run_session
+from docagent_api.celery_app import celery_app
 from docagent_contracts import RawRuntimeEvent, RuntimeKind, RuntimeOperationResult, RuntimeSessionState
 
 
@@ -35,6 +36,10 @@ def test_run_session_calls_runtime_adapter(tmp_path):
     mock_adapter.send_message.assert_called_once_with("s1", message="Hello")
     mock_adapter.create_session.assert_not_called()
     mock_adapter.bind_runtime_session.assert_called_once()
+
+
+def test_celery_worker_preserves_real_standard_streams_for_runtime_sdks():
+    assert celery_app.conf.worker_redirect_stdouts is False
 
 
 def test_run_session_creates_openhands_runtime_session_in_worker_when_unbound(tmp_path):
