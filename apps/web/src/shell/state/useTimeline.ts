@@ -16,6 +16,49 @@ export function useTimeline(
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const invalidatedEventIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    invalidatedEventIdsRef.current.clear();
+  }, [sessionId, taskId]);
+
+  const invalidateRelatedQueries = useCallback(
+    (eventsToInspect: TimelineEvent[]) => {
+      let shouldInvalidateWorkspace = false;
+      let shouldInvalidateDraft = false;
+      let shouldInvalidateSessions = false;
+
+      for (const event of eventsToInspect) {
+        if (invalidatedEventIdsRef.current.has(event.id)) continue;
+        invalidatedEventIdsRef.current.add(event.id);
+
+        if (event.paths.length > 0) {
+          shouldInvalidateWorkspace = true;
+          if (event.paths.some((p) => p.startsWith("draft/"))) {
+            shouldInvalidateDraft = true;
+          }
+        }
+        if (
+          event.kind === "session_status" ||
+          event.kind === "error" ||
+          event.actor === "system"
+        ) {
+          shouldInvalidateSessions = true;
+        }
+      }
+
+      if (shouldInvalidateWorkspace) {
+        void queryClient.invalidateQueries({ queryKey: ["workspace", taskId] });
+      }
+      if (shouldInvalidateDraft) {
+        void queryClient.invalidateQueries({ queryKey: ["draft", taskId] });
+      }
+      if (shouldInvalidateSessions) {
+        void queryClient.invalidateQueries({ queryKey: ["sessions", taskId] });
+      }
+    },
+    [queryClient, taskId],
+  );
 
   const loadTimeline = useCallback(
     async (sid: string | null | undefined, shouldApply: () => boolean = () => true) => {
@@ -32,7 +75,10 @@ export function useTimeline(
       // No setEvents([]) here — leave previous events visible during fetch
       try {
         const nextEvents = replaceWithIdDedup(await api.getTimeline(sid));
-        if (shouldApply()) setEvents(nextEvents);
+        if (shouldApply()) {
+          setEvents(nextEvents);
+          invalidateRelatedQueries(nextEvents);
+        }
         return nextEvents;
       } catch (caught) {
         if (shouldApply())
@@ -42,7 +88,7 @@ export function useTimeline(
         if (shouldApply()) setLoading(false);
       }
     },
-    [],
+    [invalidateRelatedQueries],
   );
 
   const refreshTimeline = useCallback(
@@ -62,38 +108,22 @@ export function useTimeline(
   useEffect(() => {
     if (!sessionId) return;
     const currentSessionId = sessionId;
-    const currentTaskId = taskId;
     let cancelled = false;
     let pollId: ReturnType<typeof window.setInterval> | undefined;
     let reconnectId: ReturnType<typeof window.setTimeout> | undefined;
     let backoffMs = SSE_BACKOFF_BASE_MS;
     let closeCurrentSource: (() => void) | undefined;
 
-    function invalidateRelatedQueries(event: TimelineEvent) {
-      // Note: timeline data is managed directly by this hook (useState + SSE),
-      // so there is no separate useQuery consumer for ["timeline", sessionId].
-      // We invalidate workspace/draft/session queries only.
-      if (event.paths.length > 0) {
-        void queryClient.invalidateQueries({ queryKey: ["workspace", currentTaskId] });
-        if (event.paths.some((p) => p.startsWith("draft/"))) {
-          void queryClient.invalidateQueries({ queryKey: ["draft", currentTaskId] });
-        }
-      }
-      if (
-        event.kind === "session_status" ||
-        event.kind === "error" ||
-        event.actor === "system"
-      ) {
-        void queryClient.invalidateQueries({ queryKey: ["sessions", currentTaskId] });
-      }
-    }
-
     function startPolling() {
       pollId = window.setInterval(() => {
         void api
           .getTimeline(currentSessionId)
           .then((nextEvents) => {
-            if (!cancelled) setEvents(replaceWithIdDedup(nextEvents));
+            if (!cancelled) {
+              const dedupedEvents = replaceWithIdDedup(nextEvents);
+              setEvents(dedupedEvents);
+              invalidateRelatedQueries(dedupedEvents);
+            }
           })
           .catch((caught) => {
             if (!cancelled)
@@ -120,7 +150,16 @@ export function useTimeline(
         try {
           const event = JSON.parse(ev.data as string) as TimelineEvent;
           setEvents((prev) => mergeTimelineEvents(prev, [event]));
-          invalidateRelatedQueries(event);
+          invalidateRelatedQueries([event]);
+          if (event.kind === "session_status" || event.kind === "error") {
+            void api.getTimeline(currentSessionId).then((nextEvents) => {
+              if (!cancelled) {
+                const dedupedEvents = replaceWithIdDedup(nextEvents);
+                setEvents(dedupedEvents);
+                invalidateRelatedQueries(dedupedEvents);
+              }
+            });
+          }
         } catch {
           // ignore unparseable keep-alive frames
         }
@@ -132,7 +171,11 @@ export function useTimeline(
         if (cancelled) return;
         // Re-fetch timeline to catch up on missed events
         void api.getTimeline(currentSessionId).then((nextEvents) => {
-          if (!cancelled) setEvents(replaceWithIdDedup(nextEvents));
+          if (!cancelled) {
+            const dedupedEvents = replaceWithIdDedup(nextEvents);
+            setEvents(dedupedEvents);
+            invalidateRelatedQueries(dedupedEvents);
+          }
         });
         // Reconnect with exponential backoff
         reconnectId = window.setTimeout(() => {
@@ -150,7 +193,7 @@ export function useTimeline(
       if (pollId !== undefined) window.clearInterval(pollId);
       if (reconnectId !== undefined) window.clearTimeout(reconnectId);
     };
-  }, [sessionId, taskId, queryClient]);
+  }, [sessionId, invalidateRelatedQueries]);
 
   const resetTimeline = useCallback(() => {
     setEvents([]);

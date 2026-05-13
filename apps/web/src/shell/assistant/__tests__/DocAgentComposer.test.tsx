@@ -5,11 +5,13 @@ import { describe, expect, it, vi } from "vitest";
 import { DocAgentComposer } from "../DocAgentComposer";
 
 function ComposerHarness({
+  disabled = false,
   draftText,
   isRunning = false,
   onDraftTextApplied,
   onNew = vi.fn(),
 }: {
+  disabled?: boolean;
   draftText?: string | null;
   isRunning?: boolean;
   onDraftTextApplied?: () => void;
@@ -23,7 +25,7 @@ function ComposerHarness({
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <DocAgentComposer
-        disabled={false}
+        disabled={disabled}
         draftText={draftText}
         isRunning={isRunning}
         onDraftTextApplied={onDraftTextApplied}
@@ -73,5 +75,27 @@ describe("DocAgentComposer", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(onNew).not.toHaveBeenCalled();
+  });
+
+  it("renders an accessible send button with a visible send icon", () => {
+    render(<ComposerHarness />);
+
+    const sendButton = screen.getByRole("button", { name: "Send message" });
+    expect(sendButton.querySelector("svg")).toBeTruthy();
+  });
+
+  it("unlocks the composer when the running state clears", async () => {
+    const { rerender } = render(<ComposerHarness isRunning />);
+
+    expect(screen.getByLabelText("Message").getAttribute("placeholder")).toBe("Agent is working");
+    expect(screen.getByRole("button", { name: "Stop the running agent" })).toBeTruthy();
+
+    rerender(<ComposerHarness isRunning={false} />);
+
+    const input = screen.getByLabelText("Message") as HTMLTextAreaElement;
+    expect(input.disabled).toBe(false);
+    expect(input.getAttribute("placeholder")).toBe("Message the agent, or type / for commands");
+    await userEvent.type(input, "Continue");
+    expect(screen.getByRole("button", { name: "Send message" }).hasAttribute("disabled")).toBe(false);
   });
 });

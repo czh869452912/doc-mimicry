@@ -6,8 +6,12 @@ import { api } from "../../api";
 import type { TimelineEvent } from "../../types";
 import { useTimeline } from "../state/useTimeline";
 
-function renderWithQuery(ui: React.ReactElement) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function createTestQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
+function renderWithQuery(ui: React.ReactElement, queryClient = createTestQueryClient()) {
+  const qc = queryClient;
   function Wrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
   }
@@ -203,5 +207,43 @@ describe("useTimeline", () => {
     await waitFor(() => expect(latest.events.some((e) => e.id === "sse-event-1")).toBe(true));
 
     vi.unstubAllGlobals();
+  });
+
+  it("invalidates session queries only once for an already observed status event", async () => {
+    const statusEvent: TimelineEvent = {
+      ...eventOne,
+      actor: "system",
+      id: "status-event-1",
+      kind: "session_status",
+      status: "succeeded",
+      summary: "Session status changed to idle",
+    };
+    vi.mocked(api.getTimeline).mockResolvedValue([statusEvent]);
+
+    const queryClient = createTestQueryClient();
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    let latest!: ReturnType<typeof useTimeline>;
+    renderWithQuery(
+      <Harness sessionId="session-status" taskId="task-1" onState={(state) => (latest = state)} />,
+      queryClient,
+    );
+
+    await waitFor(() =>
+      expect(latest.events.map((event) => event.id)).toEqual(["status-event-1"]),
+    );
+
+    await act(async () => {
+      await latest.refreshTimeline();
+    });
+
+    const sessionInvalidations = invalidateSpy.mock.calls.filter(
+      ([options]) =>
+        typeof options === "object" &&
+        options !== null &&
+        "queryKey" in options &&
+        JSON.stringify(options.queryKey) === JSON.stringify(["sessions", "task-1"]),
+    );
+    expect(sessionInvalidations).toHaveLength(1);
   });
 });

@@ -28,6 +28,7 @@ vi.mock("../../api", () => ({
     cancelSession: vi.fn(),
     updateDraft: vi.fn(),
   },
+  streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
 vi.mock("../editor/LazyDraftEditor", () => ({
@@ -114,6 +115,7 @@ describe("AppShell", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("loads the active task draft after restored workspace state is available", async () => {
@@ -452,6 +454,75 @@ describe("AppShell", () => {
     expect(api.getTimeline).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
     expect(screen.queryByText("Working...")).toBeNull();
+  });
+
+  it("unlocks the composer after a background chat returns the session to idle", async () => {
+    let capturedOnMessage: ((ev: MessageEvent) => void) | null = null;
+
+    class MockEventSource {
+      onmessage: ((ev: MessageEvent) => void) | null = null;
+      onerror: ((ev: Event) => void) | null = null;
+      close = vi.fn();
+      constructor(_url: string) {
+        Object.defineProperty(this, "onmessage", {
+          set(fn: (ev: MessageEvent) => void) {
+            capturedOnMessage = fn;
+          },
+          get() {
+            return capturedOnMessage;
+          },
+        });
+      }
+    }
+
+    vi.stubGlobal("EventSource", MockEventSource);
+    vi.mocked(api.listTaskSessions)
+      .mockResolvedValueOnce([
+        {
+          id: "session-1",
+          task_id: "task-1",
+          status: "running_chat",
+          created_at: "2026-05-06T08:00:00Z",
+          updated_at: "2026-05-06T09:00:00Z",
+        },
+      ])
+      .mockResolvedValue([
+        {
+          id: "session-1",
+          task_id: "task-1",
+          status: "idle",
+          created_at: "2026-05-06T08:00:00Z",
+          updated_at: "2026-05-06T09:01:00Z",
+        },
+      ]);
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    expect(await screen.findByRole("button", { name: "Stop the running agent" })).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText("Message").getAttribute("placeholder")).toBe("Agent is working"));
+
+    await act(async () => {
+      capturedOnMessage?.({
+        data: JSON.stringify({
+          id: "task-1-status-idle",
+          actor: "system",
+          kind: "session_status",
+          paths: [],
+          raw_event_id: null,
+          session_id: "session-1",
+          status: "succeeded",
+          summary: "Session status changed to idle",
+          task_id: "task-1",
+        }),
+      } as MessageEvent);
+    });
+
+    await waitFor(() => expect(api.listTaskSessions).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByLabelText("Message").getAttribute("placeholder")).toBe("Message the agent, or type / for commands"));
+    await userEvent.type(screen.getByLabelText("Message"), "Continue");
+    expect(screen.getByRole("button", { name: "Send message" }).hasAttribute("disabled")).toBe(false);
+
+    vi.unstubAllGlobals();
   });
 
   it("does not autosave draft edits while the active session is running", async () => {

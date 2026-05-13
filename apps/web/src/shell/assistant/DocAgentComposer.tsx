@@ -82,7 +82,7 @@ export function DocAgentComposer({
           <Square size={13} />
         </button>
       ) : (
-        <ComposerPrimitive.Send className="aui-send-button" disabled={disabled}>
+        <ComposerPrimitive.Send className="aui-send-button" aria-label="Send message" disabled={disabled}>
           <Send size={15} />
         </ComposerPrimitive.Send>
       )}
