@@ -23,6 +23,8 @@ def main() -> int:
     if args.runtime == "mock":
         env.pop("OPENHANDS_BASE_URL", None)
         env.pop("OPENHANDS_CONTAINER_BASE_URL", None)
+    else:
+        env.setdefault("OPENHANDS_CONTAINER_BASE_URL", "http://openhands:8001")
 
     if not args.skip_up:
         subprocess.run(
@@ -30,11 +32,14 @@ def main() -> int:
             check=True,
             env=env,
         )
-        subprocess.run(
-            ["docker", "compose", "up", "-d", "--build", "postgres", "redis", "api", "worker", "web"],
-            check=True,
-            env=env,
-        )
+        up_command = ["docker", "compose"]
+        if args.runtime == "openhands":
+            up_command.extend(["--profile", "openhands"])
+        up_command.extend(["up", "-d", "--build", "postgres", "redis"])
+        if args.runtime == "openhands":
+            up_command.append("openhands")
+        up_command.extend(["api", "worker", "web"])
+        subprocess.run(up_command, check=True, env=env)
 
     wait_for_json(f"{args.api_url}/health", args.timeout)
     wait_for_text(args.web_url, args.timeout)

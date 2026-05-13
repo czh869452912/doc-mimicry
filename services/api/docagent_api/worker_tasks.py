@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from docagent_api.celery_app import celery_app
+from docagent_api.prompts import build_prompt_bundle
 from docagent_api.routes._shared import append_runtime_result, runtime_event_sink, set_session_state
 from docagent_api.session_state import RUNNING_STATES
 from docagent_contracts import RuntimeSessionState
@@ -46,8 +47,6 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
     except Exception:
         pass
 
-    from docagent_api.prompts import build_prompt_bundle
-
     repo_root = Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
     task = state.get_task(session["task_id"])
     if task is None:
@@ -63,7 +62,6 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
     for raw_event in result.raw_events:
         runtime_session_id = raw_event.runtime_session_id
         if runtime_session_id:
-            state.bind_runtime_session(session["id"], raw_event.runtime.value, runtime_session_id)
             session["runtime"] = raw_event.runtime.value
             session["runtime_session_id"] = runtime_session_id
             break

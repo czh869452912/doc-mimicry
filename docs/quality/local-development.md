@@ -19,8 +19,8 @@ The startup script must:
 - start the FastAPI service;
 - start the Celery worker;
 - start the Vite web app;
-- start the OpenHands Agent Server when `-Runtime openhands` is selected and no server is already available;
-- keep API state, logs, and local runtime artifacts under `.local/`;
+- start the OpenHands Agent Server as a Compose service when `-Runtime openhands` is selected;
+- keep API state and local runtime artifacts under Docker volumes or `.local/`;
 - write startup logs under `.local/dev`;
 - build the API and web Docker images when needed;
 - set runtime environment variables for the API and worker containers;
@@ -44,52 +44,19 @@ real agent runtime.
 Runtime-specific environment is supplied by `docker-compose.override.yml` and
 the startup script. The override passes `DOCAGENT_RUNTIME`, `LLM_API_KEY`,
 `LLM_MODEL`, `LLM_BASE_URL`, and a container-safe `OPENHANDS_BASE_URL` to both
-the API and worker. It also interpolates `DOCAGENT_REPO_ROOT`, defaulting to
-`/app` inside the image.
+the API and worker. In OpenHands mode, the default container URL is
+`http://openhands:8001`, which points at the Compose `openhands` service. That
+service mounts the same `/workspace` volume as the API and worker, so runtime
+file operations see the same task workspace.
 
-Use `OPENHANDS_BASE_URL` for host-side processes. Use
-`OPENHANDS_CONTAINER_BASE_URL` when Docker Compose services need to reach a
-host OpenHands Agent Server; on Docker Desktop this is normally
-`http://host.docker.internal:8001`. `start-dev.cmd -Runtime openhands` sets this
-container URL automatically. When `DOCAGENT_RUNTIME=mock`, the startup script
-clears the container OpenHands URL so mock runs do not carry a misleading
-runtime endpoint.
+The script reads `.env` first and `.env.local` second. Existing shell variables
+win over both files, and `.env.local` only fills values that were not already
+set by the shell or `.env`.
 
-## OpenHands Python Venv
-
-When `-Runtime openhands` is selected, the script manages a Python virtual environment at `.local/dev/.venv` (gitignored via `.local/`).
-
-### Auto-creation
-
-If `.local/dev/.venv/Scripts/python.exe` does not exist, the script creates the venv automatically:
-
-1. **Preferred**: uses `uv` (`uv venv` + `uv pip install -r`).
-2. **Fallback**: uses `python -m venv` + `pip install -r` if `uv` is not on PATH.
-3. **Error**: if neither `uv` nor `python` is found, the script aborts with an actionable message.
-
-### Dependencies
-
-All packages required by the OpenHands runtime are listed in:
-
-```
-scripts/requirements-openhands.txt
-```
-
-Add any new runtime dependency there. The venv is only created once; to force a reinstall after editing the file, delete `.local/dev/.venv` and re-run the script.
-
-### Manual venv setup
-
-```powershell
-uv venv .local/dev/.venv
-uv pip install --python .local/dev/.venv/Scripts/python.exe -r scripts/requirements-openhands.txt
-```
-
-or without `uv`:
-
-```powershell
-python -m venv .local/dev/.venv
-.local/dev/.venv/Scripts/python.exe -m pip install -r scripts/requirements-openhands.txt
-```
+Use `OPENHANDS_BASE_URL=http://127.0.0.1:8001` for host-side smoke tests. Use
+`OPENHANDS_CONTAINER_BASE_URL=http://openhands:8001` for Compose services. When
+`DOCAGENT_RUNTIME=mock`, the startup script clears the container OpenHands URL
+so mock runs do not carry a misleading runtime endpoint.
 
 ## Manual Fallback
 
@@ -99,16 +66,19 @@ To start with the OpenHands adapter selected:
 .\start-dev.cmd -Runtime openhands
 ```
 
-The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional `OPENHANDS_BASE_URL` from the shell or `.env.local`. If `OPENHANDS_BASE_URL` is omitted, the script starts OpenHands Agent Server on `http://127.0.0.1:8001`.
+The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional
+OpenHands URLs from the shell, `.env`, or `.env.local`. If
+`OPENHANDS_BASE_URL` is omitted, the Compose OpenHands service is still exposed
+on `http://127.0.0.1:8001` for host checks.
 
 If the startup script fails, run the services separately:
 
 ```powershell
-docker compose up -d --build postgres redis api worker web
+docker compose --profile openhands up -d --build postgres redis openhands api worker web
 ```
 
 ```powershell
-docker compose logs -f api worker web
+docker compose logs -f openhands api worker web
 ```
 
 ## Local Smoke Checks

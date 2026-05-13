@@ -8,8 +8,10 @@ from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter
 class FakeOpenHandsClient:
     def __init__(self) -> None:
         self.messages: list[str] = []
+        self.create_calls = 0
 
     def create_session(self, prompt_bundle: PromptBundle) -> str:
+        self.create_calls += 1
         return "openhands-session-001"
 
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
@@ -32,10 +34,27 @@ def test_openhands_adapter_creates_session_and_maps_raw_events(tmp_path: Path) -
     started = adapter.start_loop("session-001")
 
     assert created.next_state == RuntimeSessionState.IDLE
-    assert created.raw_events[0].runtime_session_id == "openhands-session-001"
+    assert created.raw_events == []
+    assert client.create_calls == 1
     assert started.next_state == RuntimeSessionState.AWAIT_OUTLINE_APPROVAL
-    assert started.raw_events[0].payload["path"] == "draft/outline.md"
+    assert started.raw_events[0].kind == "session_created"
+    assert started.raw_events[1].payload["path"] == "draft/outline.md"
     assert started.changed_paths == ["draft/outline.md"]
+
+
+def test_openhands_adapter_defers_runtime_session_until_first_operation(tmp_path: Path) -> None:
+    client = FakeOpenHandsClient()
+    adapter = OpenHandsRuntimeAdapter(client)
+
+    result = adapter.create_session("session-001", _prompt_bundle(tmp_path))
+
+    assert result.next_state == RuntimeSessionState.IDLE
+    assert result.raw_events == []
+    assert client.create_calls == 0
+
+    adapter.start_loop("session-001")
+
+    assert client.create_calls == 1
 
 
 def test_openhands_adapter_cancel_sets_cancelled(tmp_path: Path) -> None:

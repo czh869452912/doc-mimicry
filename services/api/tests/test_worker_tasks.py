@@ -37,6 +37,53 @@ def test_run_session_calls_runtime_adapter(tmp_path):
     mock_adapter.bind_runtime_session.assert_called_once()
 
 
+def test_run_session_creates_openhands_runtime_session_in_worker_when_unbound(tmp_path):
+    mock_state = MagicMock()
+    mock_state.get_session.return_value = {
+        "id": "s1",
+        "task_id": "t1",
+        "status": "running_context",
+        "runtime": "openhands",
+    }
+    mock_state.get_task.return_value = {
+        "id": "t1",
+        "doc_type_id": "prd",
+        "brief": "b",
+        "workspace_root": str(tmp_path),
+    }
+    mock_adapter = MagicMock()
+    mock_adapter.get_state.side_effect = RuntimeError("not bound")
+    mock_adapter.create_session.return_value = RuntimeOperationResult(
+        session_id="s1",
+        next_state=RuntimeSessionState.IDLE,
+        raw_events=[
+            RawRuntimeEvent(
+                id="raw-create",
+                session_id="s1",
+                runtime=RuntimeKind.OPENHANDS,
+                runtime_session_id="oh-001",
+                kind="session_created",
+                payload={"workspace_root": str(tmp_path)},
+                created_at="2026-05-12T00:00:00Z",
+            )
+        ],
+    )
+    mock_adapter.start_loop.return_value = RuntimeOperationResult(
+        session_id="s1",
+        next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+    )
+
+    with patch("docagent_api.worker_tasks._get_state", return_value=mock_state), \
+         patch("docagent_api.worker_tasks._get_adapter", return_value=mock_adapter), \
+         patch("docagent_api.worker_tasks.build_prompt_bundle") as build_prompt_bundle:
+        build_prompt_bundle.return_value = MagicMock()
+        run_session("s1", "start_loop", {})
+
+    mock_adapter.create_session.assert_called_once()
+    mock_state.bind_runtime_session.assert_called_once_with("s1", "openhands", "oh-001")
+    mock_adapter.start_loop.assert_called_once_with("s1")
+
+
 def test_run_session_rolls_back_to_previous_state_on_failure(tmp_path):
     """On exception, session must revert to previous_state_on_failure, not the running_* state."""
     mock_state = MagicMock()

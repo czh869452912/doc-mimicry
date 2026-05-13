@@ -1,8 +1,8 @@
 param(
     [ValidateSet("mock", "openhands")]
-    [string]$Runtime = $env:DOCAGENT_RUNTIME,
-    [string]$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL,
-    [string]$OpenHandsContainerBaseUrl = $env:OPENHANDS_CONTAINER_BASE_URL,
+    [string]$Runtime,
+    [string]$OpenHandsBaseUrl,
+    [string]$OpenHandsContainerBaseUrl,
     [int]$OpenHandsPort = 8001,
     [switch]$NoBrowser
 )
@@ -11,10 +11,6 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $logRoot = Join-Path $repoRoot ".local\dev"
-$openHandsLog = Join-Path $logRoot "openhands.log"
-$openHandsErrLog = Join-Path $logRoot "openhands.err.log"
-$venvPython    = Join-Path $logRoot ".venv\Scripts\python.exe"
-$openHandsReqs = Join-Path $PSScriptRoot "requirements-openhands.txt"
 
 function Test-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -58,48 +54,6 @@ function Test-HttpReady {
     return $false
 }
 
-function Ensure-OpenHandsVenv {
-    if (Test-Path $venvPython) { return }
-
-    $venvDir = Join-Path $logRoot ".venv"
-    $uv      = Get-Command uv     -ErrorAction SilentlyContinue
-    $py      = Get-Command python -ErrorAction SilentlyContinue
-
-    if ($null -eq $uv -and $null -eq $py) {
-        throw (
-            "Cannot auto-create the OpenHands venv at '$venvDir': " +
-            "neither 'uv' nor 'python' was found on PATH. " +
-            "Install uv (https://github.com/astral-sh/uv) or Python 3.12+, then retry."
-        )
-    }
-
-    Write-Host "OpenHands venv not found — creating at $venvDir ..."
-    if ($null -ne $uv) {
-        Write-Host "  Using uv to create venv ..."
-        & $uv.Source venv $venvDir
-        if ($LASTEXITCODE -ne 0) {
-            throw "uv venv creation failed (exit $LASTEXITCODE). See output above."
-        }
-        Write-Host "  Installing from $openHandsReqs via uv pip ..."
-        & $uv.Source pip install --python $venvPython -r $openHandsReqs
-        if ($LASTEXITCODE -ne 0) {
-            throw "uv pip install -r requirements-openhands.txt failed (exit $LASTEXITCODE). See output above."
-        }
-    } else {
-        Write-Host "  uv not found — falling back to python -m venv ..."
-        & $py.Source -m venv $venvDir
-        if ($LASTEXITCODE -ne 0) {
-            throw "python -m venv creation failed (exit $LASTEXITCODE). See output above."
-        }
-        Write-Host "  Installing from $openHandsReqs via pip ..."
-        & $venvPython -m pip install -r $openHandsReqs
-        if ($LASTEXITCODE -ne 0) {
-            throw "pip install -r requirements-openhands.txt failed (exit $LASTEXITCODE). See output above."
-        }
-    }
-    Write-Host "OpenHands venv ready."
-}
-
 function Start-OpenHandsIfNeeded {
     if ($Runtime -ne "openhands") {
         return $null
@@ -113,39 +67,28 @@ function Start-OpenHandsIfNeeded {
             exit 1
         }
     }
-    try {
-        Invoke-WebRequest -Uri "$OpenHandsBaseUrl/docs" -UseBasicParsing -TimeoutSec 2 | Out-Null
-        Write-Host "OpenHands Agent Server already running at $OpenHandsBaseUrl"
-        return $null
-    }
-    catch {
-        Ensure-OpenHandsVenv
-        # docagent-openhands: keep the runtime server alive after this script exits.
-        $env:OPENHANDS_SUPPRESS_BANNER = "1"
-        $process = Start-Process -FilePath $venvPython -ArgumentList @(
-            "-m",
-            "openhands.agent_server",
-            "--port",
-            "$OpenHandsPort"
-        ) -WorkingDirectory $repoRoot -RedirectStandardOutput $openHandsLog -RedirectStandardError $openHandsErrLog -WindowStyle Hidden -PassThru
-        if (-not (Test-HttpReady "$OpenHandsBaseUrl/docs" 45)) {
-            if (-not $process.HasExited) {
-                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            }
-            throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check $openHandsLog and $openHandsErrLog."
-        }
-        return $process
-    }
+    return $null
 }
 
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+Import-LocalEnv (Join-Path $repoRoot ".env")
 Import-LocalEnv (Join-Path $repoRoot ".env.local")
+
+if ([string]::IsNullOrWhiteSpace($Runtime)) {
+    $Runtime = $env:DOCAGENT_RUNTIME
+}
+if ([string]::IsNullOrWhiteSpace($OpenHandsBaseUrl)) {
+    $OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL
+}
+if ([string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
+    $OpenHandsContainerBaseUrl = $env:OPENHANDS_CONTAINER_BASE_URL
+}
 
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
     $Runtime = "mock"
 }
 if ($Runtime -eq "openhands" -and [string]::IsNullOrWhiteSpace($OpenHandsContainerBaseUrl)) {
-    $OpenHandsContainerBaseUrl = "http://host.docker.internal:$OpenHandsPort"
+    $OpenHandsContainerBaseUrl = "http://openhands:$OpenHandsPort"
 }
 if ($Runtime -ne "openhands") {
     $OpenHandsContainerBaseUrl = ""
@@ -154,10 +97,9 @@ if (-not (Test-Command "docker")) {
     throw "Docker is required for the local dev stack. Install Docker Desktop and start it before running start-dev.cmd."
 }
 
-$openHandsProcess = $null
 Push-Location $repoRoot
 try {
-    $openHandsProcess = Start-OpenHandsIfNeeded
+    Start-OpenHandsIfNeeded | Out-Null
 
     $env:DOCAGENT_RUNTIME = $Runtime
     $env:DOCAGENT_QUEUE = "celery"
@@ -184,8 +126,16 @@ try {
         Remove-Item $stalePytestCache -Recurse -Force
     }
 
-    docker compose up -d --build postgres redis api worker web
+    if ($Runtime -eq "openhands") {
+        docker compose --profile openhands up -d --build postgres redis openhands api worker web
+    } else {
+        docker compose up -d --build postgres redis api worker web
+    }
 
+    if ($Runtime -eq "openhands" -and -not (Test-HttpReady "$OpenHandsBaseUrl/docs" 90)) {
+        docker compose logs openhands --tail 80
+        throw "OpenHands Agent Server did not become ready at $OpenHandsBaseUrl. Check docker compose logs openhands."
+    }
     if (-not (Test-HttpReady "http://127.0.0.1:8000/health" 90)) {
         docker compose logs api --tail 80
         throw "API did not become ready at http://127.0.0.1:8000. Check docker compose logs api."
@@ -211,7 +161,4 @@ try {
 }
 finally {
     Pop-Location
-    if ($null -ne $openHandsProcess -and $openHandsProcess.HasExited) {
-        Write-Warning "OpenHands Agent Server exited during startup. Check $openHandsLog and $openHandsErrLog."
-    }
 }

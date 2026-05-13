@@ -25,6 +25,24 @@ services:
       timeout: 5s
       retries: 5
 
+  openhands:
+    profiles: ["openhands"]
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: python -m openhands.agent_server --host 0.0.0.0 --port 8001
+    environment:
+      OPENHANDS_SUPPRESS_BANNER: "1"
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+    volumes:
+      - type: volume
+        source: workspace_data
+        target: /workspace
+    ports:
+      - "8001:8001"
+
   api:
     build:
       context: .

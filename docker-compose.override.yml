@@ -5,7 +5,7 @@ services:
     environment:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
-      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://host.docker.internal:8001}
+      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
@@ -22,7 +22,7 @@ services:
     environment:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
-      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://host.docker.internal:8001}
+      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
