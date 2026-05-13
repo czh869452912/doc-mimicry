@@ -23,7 +23,8 @@ COPY doc-types ./doc-types
 RUN pip install --no-cache-dir -e ".[openhands]" \
     && python -c "import lmnr"
 
-RUN chmod +x services/api/docker-entrypoint.sh
+RUN sed -i 's/\r$//' services/api/docker-entrypoint.sh \
+    && chmod +x services/api/docker-entrypoint.sh
 
 ENTRYPOINT ["sh", "services/api/docker-entrypoint.sh"]
 CMD ["uvicorn", "--factory", "docagent_api.app:create_app", "--host", "0.0.0.0", "--port", "8000"]

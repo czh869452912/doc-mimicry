@@ -57,6 +57,7 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
 
     assert "FROM python:3.12-slim" in dockerfile
     assert 'pip install --no-cache-dir -e ".[openhands]"' in dockerfile
+    assert "sed -i 's/\\r$//' services/api/docker-entrypoint.sh" in dockerfile
     assert "openhands = [" in pyproject
     assert "openhands-sdk==1.20.1" in pyproject
     assert "opentelemetry-instrumentation==0.60b1" in pyproject
