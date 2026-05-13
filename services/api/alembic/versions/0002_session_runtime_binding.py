@@ -14,13 +14,27 @@ branch_labels = None
 depends_on = None
 
 
+RUNTIME_COLUMNS = [
+    sa.Column("runtime", sa.String(), nullable=True),
+    sa.Column("runtime_session_id", sa.String(), nullable=True),
+    sa.Column("celery_task_id", sa.String(), nullable=True),
+]
+
+
+def _session_column_names() -> set[str]:
+    inspector = sa.inspect(op.get_bind())
+    return {column["name"] for column in inspector.get_columns("sessions")}
+
+
 def upgrade() -> None:
-    op.add_column("sessions", sa.Column("runtime", sa.String(), nullable=True))
-    op.add_column("sessions", sa.Column("runtime_session_id", sa.String(), nullable=True))
-    op.add_column("sessions", sa.Column("celery_task_id", sa.String(), nullable=True))
+    existing_columns = _session_column_names()
+    for column in RUNTIME_COLUMNS:
+        if column.name not in existing_columns:
+            op.add_column("sessions", column)
 
 
 def downgrade() -> None:
-    op.drop_column("sessions", "celery_task_id")
-    op.drop_column("sessions", "runtime_session_id")
-    op.drop_column("sessions", "runtime")
+    existing_columns = _session_column_names()
+    for column_name in ("celery_task_id", "runtime_session_id", "runtime"):
+        if column_name in existing_columns:
+            op.drop_column("sessions", column_name)

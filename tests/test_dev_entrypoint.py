@@ -26,6 +26,7 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     compose_override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     dockerfile = (ROOT / "services" / "api" / "Dockerfile").read_text(encoding="utf-8")
+    entrypoint = (ROOT / "services" / "api" / "docker-entrypoint.sh").read_text(encoding="utf-8")
     nginx_conf = (ROOT / "apps" / "web" / "nginx.conf").read_text(encoding="utf-8")
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
@@ -40,6 +41,8 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "docker compose --profile openhands up -d --build postgres redis openhands api worker web" in dev_script
     assert "http://openhands:$OpenHandsPort" in dev_script
     assert "openhands.agent_server" in compose
+    assert 'DOCAGENT_RUN_MIGRATIONS: "1"' in compose
+    assert 'DOCAGENT_RUN_MIGRATIONS: "0"' in compose
     assert "Ensure-OpenHandsVenv" not in dev_script
     assert "Start-Process -FilePath $venvPython" not in dev_script
     assert "Start-Job -Name \"docagent-openhands\"" not in dev_script
@@ -57,7 +60,10 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
 
     assert "FROM python:3.12-slim" in dockerfile
     assert 'pip install --no-cache-dir -e ".[openhands]"' in dockerfile
-    assert "sed -i 's/\\r$//' services/api/docker-entrypoint.sh" in dockerfile
+    assert "cp services/api/docker-entrypoint.sh /usr/local/bin/docagent-api-entrypoint" in dockerfile
+    assert "sed -i 's/\\r$//' /usr/local/bin/docagent-api-entrypoint" in dockerfile
+    assert 'ENTRYPOINT ["sh", "/usr/local/bin/docagent-api-entrypoint"]' in dockerfile
+    assert 'if [ "${DOCAGENT_RUN_MIGRATIONS:-1}" = "1" ]; then' in entrypoint
     assert "openhands = [" in pyproject
     assert "openhands-sdk==1.20.1" in pyproject
     assert "opentelemetry-instrumentation==0.60b1" in pyproject
@@ -79,6 +85,13 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     assert "python -m openhands.agent_server --host 0.0.0.0 --port 8001" in compose
     assert "target: /workspace" in compose
     assert "OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}" in override
+
+
+def test_runtime_services_share_single_api_image_build() -> None:
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+
+    assert compose.count("dockerfile: services/api/Dockerfile") == 1
+    assert compose.count("image: docagent-api") == 3
 
 
 def test_compose_override_interpolates_repo_root() -> None:
