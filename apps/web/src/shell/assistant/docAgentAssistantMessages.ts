@@ -115,6 +115,7 @@ function titleForKind(kind: string): string {
     generate_outline: "Generate outline",
     update_draft: "Update draft",
     revise_selection: "Revise selection",
+    agent_tool_call: "Agent action",
     create_checkpoint: "Create checkpoint",
     run_checklist: "Run checklist",
     export_markdown: "Export Markdown",

@@ -124,3 +124,58 @@ def test_cancelled_maps_to_error() -> None:
 
     assert event is not None
     assert event.kind is SemanticEventKind.ERROR
+
+
+def test_task_tracker_view_maps_to_agent_tool_call() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-t01", "ActionEvent", {"action": {"kind": "TaskTrackerAction", "command": "view", "task_list": []}}),
+        task_id="task-001",
+    )
+
+    assert event is not None
+    assert event.kind is SemanticEventKind.AGENT_TOOL_CALL
+    assert event.summary == "Checking task list"
+
+
+def test_task_tracker_plan_maps_to_agent_tool_call_with_count() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-t02", "ActionEvent", {
+            "action": {
+                "kind": "TaskTrackerAction",
+                "command": "plan",
+                "task_list": [{"title": "Write outline", "status": "todo"}, {"title": "Write draft", "status": "todo"}],
+            },
+        }),
+        task_id="task-001",
+    )
+
+    assert event is not None
+    assert event.kind is SemanticEventKind.AGENT_TOOL_CALL
+    assert event.summary == "Updating task list (2 tasks)"
+
+
+def test_think_action_is_skipped() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-t03", "ActionEvent", {"action": {"kind": "ThinkAction", "thought": "I need to plan..."}}),
+        task_id="task-001",
+    )
+
+    assert event is None
+
+
+def test_finish_action_is_skipped() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-t04", "ActionEvent", {"action": {"kind": "FinishAction", "message": "Done."}}),
+        task_id="task-001",
+    )
+
+    assert event is None
+
+
+def test_unknown_action_event_is_skipped() -> None:
+    event = map_openhands_raw_event(
+        _raw("raw-t05", "ActionEvent", {"action": {"kind": "UnknownFutureAction"}}),
+        task_id="task-001",
+    )
+
+    assert event is None

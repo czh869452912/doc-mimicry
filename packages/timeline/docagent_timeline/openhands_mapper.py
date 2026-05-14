@@ -56,6 +56,20 @@ def _classify(raw_event: RawRuntimeEvent) -> tuple[SemanticEventKind | None, str
                     return SemanticEventKind.AGENT_MESSAGE, text
         return None, ""
 
+    # Map visible tool call actions from ActionEvents (chat mode intermediate steps)
+    if raw_event.kind == "ActionEvent":
+        action = raw_event.payload.get("action") or {}
+        action_kind = action.get("kind", "")
+        if action_kind in ("ThinkAction", "FinishAction"):
+            return None, ""
+        if action_kind == "TaskTrackerAction":
+            command = action.get("command", "")
+            if command == "plan":
+                n = len(action.get("task_list") or [])
+                return SemanticEventKind.AGENT_TOOL_CALL, f"Updating task list ({n} tasks)"
+            return SemanticEventKind.AGENT_TOOL_CALL, "Checking task list"
+        return None, ""
+
     path = _path(raw_event)
     if path is None:
         return None, ""
