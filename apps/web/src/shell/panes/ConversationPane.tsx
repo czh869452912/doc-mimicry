@@ -149,7 +149,6 @@ export function ConversationPane({
     events,
     isDisabled: composerDisabled,
     isRunning,
-    isSendDisabled: isRunning || composerDisabled,
     onCancel: cancelActiveSession,
     onReloadInput: reloadInput,
     onSubmitInput: submitOrCancel,

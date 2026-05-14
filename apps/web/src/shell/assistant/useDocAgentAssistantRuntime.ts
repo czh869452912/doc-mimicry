@@ -11,7 +11,6 @@ interface UseDocAgentAssistantRuntimeOptions {
   events: TimelineEvent[];
   isDisabled?: boolean;
   isRunning: boolean;
-  isSendDisabled?: boolean;
   onCancel?: () => Promise<void>;
   onReloadInput?: (parentMessageId: string | null, config: StartRunConfig) => Promise<void>;
   onSubmitInput: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
@@ -45,7 +44,6 @@ export function useDocAgentAssistantRuntime({
   events,
   isDisabled = false,
   isRunning,
-  isSendDisabled = false,
   onCancel,
   onReloadInput,
   onSubmitInput,
@@ -74,7 +72,6 @@ export function useDocAgentAssistantRuntime({
     },
     isDisabled,
     isRunning,
-    isSendDisabled,
     messages,
     onCancel,
     onNew: async (message: AppendMessage) => {
