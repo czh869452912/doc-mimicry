@@ -1,5 +1,5 @@
 import { CheckCircle2, ExternalLink } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../../api";
 import type { TimelineEvent } from "../../../types";
 
@@ -13,25 +13,28 @@ interface OutlineCardProps {
 
 export function OutlineCard({ event, onApproved, onOpenPath, sessionId, taskId }: OutlineCardProps) {
   const [outline, setOutline] = useState(event.summary);
+  const dirtyRef = useRef(false);
   const outlinePath = event.paths.find((path) => path.endsWith("outline.md")) ?? "draft/outline.md";
 
   useEffect(() => {
+    dirtyRef.current = false;
+    setOutline(event.summary);
     if (!taskId) return;
     let cancelled = false;
 
     api
       .getWorkspaceFile(taskId, outlinePath)
       .then((file) => {
-        if (!cancelled) setOutline(file.content);
+        if (!cancelled && !dirtyRef.current) setOutline(file.content);
       })
       .catch(() => {
-        if (!cancelled) setOutline(event.summary);
+        if (!cancelled && !dirtyRef.current) setOutline(event.summary);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [event.summary, outlinePath, taskId]);
+  }, [event.id, outlinePath, taskId]);
 
   async function approve() {
     if (!sessionId) return;
@@ -47,7 +50,13 @@ export function OutlineCard({ event, onApproved, onOpenPath, sessionId, taskId }
           <ExternalLink size={14} /> Open
         </button>
       </header>
-      <textarea value={outline} onChange={(event) => setOutline(event.target.value)} />
+      <textarea
+        value={outline}
+        onChange={(event) => {
+          dirtyRef.current = true;
+          setOutline(event.target.value);
+        }}
+      />
       <footer>
         <button className="primary-button" type="button" disabled={!sessionId} onClick={() => void approve()}>
           <CheckCircle2 size={14} /> Approve
