@@ -1,3 +1,4 @@
+import type { StartRunConfig } from "@assistant-ui/core";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
@@ -43,11 +44,27 @@ export function ConversationPane({
   const [status, setStatus] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const eventsRef = useRef(events);
+  const cancellationInFlightRef = useRef(false);
   const isRunning = Boolean(activeSession?.status?.startsWith("running"));
 
   useEffect(() => {
     eventsRef.current = events;
   }, [events]);
+
+  const cancelActiveSession = useCallback(async () => {
+    if (!activeSession || cancellationInFlightRef.current) return;
+    cancellationInFlightRef.current = true;
+    try {
+      await api.cancelSession(activeSession.id);
+      await refreshTimeline();
+      await refreshSessions?.();
+      setStatus("Cancelled.");
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
+    } finally {
+      cancellationInFlightRef.current = false;
+    }
+  }, [activeSession, refreshTimeline, refreshSessions]);
 
   const submitOrCancel = useCallback(
     async (rawInput: string, attachments: MessageAttachment[] = []) => {
@@ -57,14 +74,7 @@ export function ConversationPane({
           setStatus("Agent is working.");
           return;
         }
-        try {
-          await api.cancelSession(activeSession.id);
-          await refreshTimeline();
-          await refreshSessions?.();
-          setStatus("Cancelled.");
-        } catch (caught) {
-          setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
-        }
+        await cancelActiveSession();
         return;
       }
 
@@ -101,11 +111,21 @@ export function ConversationPane({
         setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
       }
     },
-    [isRunning, activeSession, activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace, refreshSessions],
+    [
+      isRunning,
+      activeSession,
+      cancelActiveSession,
+      activeTask,
+      ensureSession,
+      onOpenPath,
+      refreshTimeline,
+      refreshWorkspace,
+      refreshSessions,
+    ],
   );
 
   const reloadInput = useCallback(
-    async (parentMessageId: string | null) => {
+    async (parentMessageId: string | null, _config?: StartRunConfig) => {
       const input = inputForReload(eventsRef.current, parentMessageId);
       if (!input) {
         setStatus("No previous user message to reload.");
@@ -116,24 +136,13 @@ export function ConversationPane({
     [submitOrCancel],
   );
 
-  const cancelActiveSession = useCallback(async () => {
-    if (!activeSession) return;
-    try {
-      await api.cancelSession(activeSession.id);
-      await refreshTimeline();
-      await refreshSessions?.();
-      setStatus("Cancelled.");
-    } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
-    }
-  }, [activeSession, refreshTimeline, refreshSessions]);
-
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
     events,
     isRunning,
+    onCancel: cancelActiveSession,
     onReloadInput: reloadInput,
     onSubmitInput: submitOrCancel,
   });

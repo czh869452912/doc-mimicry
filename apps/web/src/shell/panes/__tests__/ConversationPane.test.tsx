@@ -131,4 +131,23 @@ describe("ConversationPane", () => {
     expect(api.cancelSession).not.toHaveBeenCalled();
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
+
+  it("sends only one cancel request while cancellation is already in flight", async () => {
+    const user = userEvent.setup();
+    let resolveCancel!: (value: { session_id: string; status: string }) => void;
+    vi.mocked(api.cancelSession).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCancel = resolve;
+      }) as ReturnType<typeof api.cancelSession>,
+    );
+
+    renderPane({ activeSession: { ...session, status: "running_chat" } });
+
+    const stopButton = screen.getByRole("button", { name: /stop the running agent/i });
+    await user.dblClick(stopButton);
+
+    expect(api.cancelSession).toHaveBeenCalledTimes(1);
+
+    resolveCancel({ session_id: "session-1", status: "cancelled" });
+  });
 });
