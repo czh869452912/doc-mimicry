@@ -18,8 +18,8 @@ import type { DocTypeSummary, SessionRecord, TaskRecord } from "../../types";
 import type { CreateWorkspaceInput, WorkspaceTreeNode } from "../state/useWorkspaces";
 
 const createWorkspaceSchema = z.object({
-  title: z.string(),
-  description: z.string().min(1, "Description is required"),
+  title: z.string().trim().min(1, "Title is required"),
+  description: z.string().trim().min(1, "Description is required"),
 });
 
 interface WorkspacePaneProps {
@@ -123,6 +123,9 @@ export function WorkspacePane({
               id="workspace-title"
               {...register("title")}
             />
+            {errors.title && (
+              <p className="pane-note pane-note--error">{errors.title.message}</p>
+            )}
             <FieldDescription>Shown in the workspace list.</FieldDescription>
           </Field>
           <Field>

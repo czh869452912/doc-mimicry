@@ -55,7 +55,7 @@ function mapTimelineEventToAssistantMessage(event: TimelineEvent): ThreadMessage
       role: "assistant",
       createdAt,
       content: [{ type: "text", text: event.summary }],
-      status: threadStatusForEvent(event.status),
+      status: assistantStatusFromTimelineStatus(event.status),
       metadata: assistantMetadata(custom),
     };
   }
@@ -66,7 +66,7 @@ function mapTimelineEventToAssistantMessage(event: TimelineEvent): ThreadMessage
     role: "assistant",
     createdAt,
     content: [{ type: "data", ...dataPart }],
-    status: threadStatusForEvent(event.status),
+    status: assistantStatusFromTimelineStatus(event.status),
     metadata: assistantMetadata(custom),
   };
 }
@@ -142,11 +142,12 @@ function assistantMetadata(custom: Record<string, unknown>) {
   };
 }
 
-function threadStatusForEvent(status: string): NonNullable<ThreadMessage["status"]> {
-  if (status === "running" || status === "pending") return { type: "running" };
+function assistantStatusFromTimelineStatus(status: string): NonNullable<ThreadMessage["status"]> {
+  if (status === "pending" || status === "running") return { type: "running" };
   if (status === "failed") return { type: "incomplete", reason: "error" };
   if (status === "cancelled") return { type: "incomplete", reason: "cancelled" };
-  return { type: "complete", reason: "stop" };
+  if (status === "succeeded" || status === "skipped") return { type: "complete", reason: "stop" };
+  return { type: "incomplete", reason: "error" };
 }
 
 function categoryForKind(kind: string): ToolCallCategory {

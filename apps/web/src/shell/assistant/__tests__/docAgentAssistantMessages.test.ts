@@ -143,4 +143,17 @@ describe("mapTimelineEventsToAssistantMessages", () => {
       { type: "complete", reason: "stop" },
     ]);
   });
+
+  it("maps unknown timeline status to incomplete error instead of complete", () => {
+    const messages = mapTimelineEventsToAssistantMessages([
+      event({
+        id: "evt-paused",
+        kind: "agent_message",
+        summary: "Paused by runtime",
+        status: "paused" as TimelineEvent["status"],
+      }),
+    ]);
+
+    expect(messages[0].status).toEqual({ type: "incomplete", reason: "error" });
+  });
 });
