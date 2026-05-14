@@ -4,7 +4,7 @@ Runtime-specific notes and adapter expectations.
 
 The product should not couple directly to one agent runtime. OpenHands is the first candidate, but the adapter boundary should allow replacement.
 
-Expected operations:
+Formal operations:
 
 - create session
 - send ACP prompt
@@ -19,18 +19,18 @@ Expected operations:
 - `mock`: deterministic local and CI adapter.
 - `openhands`: OpenHands Agent Server / SDK adapter.
 
-Runtime-specific payloads must stay inside their adapter package. The product
-backend consumes `RuntimeOperationResult`, ACP updates, optional semantic
-projections, raw event references, and stable session states.
+Runtime-specific payloads must stay inside their adapter package or ACP shim.
+The product backend consumes ACP updates, optional projection metadata, raw audit
+references, and stable session states.
 
 ## ACP Boundary
 
-New adapters should implement `send_prompt(session_id, prompt, metadata)` and
-return `acp_updates`. Product actions such as start loop, approve outline,
+Adapters implement `send_prompt(session_id, prompt, metadata)` and return
+`acp_updates`. Product actions such as start loop, approve outline,
 revise selection, run checklist, and export are prompts with metadata; they are
 not new adapter methods.
 
-The old operation-specific methods and streaming variants are compatibility
-fallbacks for legacy adapters. Do not build new behavior on them unless a
-temporary migration wrapper is unavoidable.
+Runtime-specific implementation details may exist inside an adapter, but they
+must be normalized into ACP updates before leaving the adapter package. Do not
+build new product behavior on private runtime methods.
 

@@ -1,6 +1,6 @@
 # Minimal Shared Schemas
 
-These schemas are the first source of truth for UI, API, tools, and runtime adapters until generated TypeScript/Pydantic models exist.
+These schemas are the first source of truth for UI, API, tools, and ACP runtime adapters until generated TypeScript/Pydantic models exist.
 
 Field names should stay stable unless a decision record explains the change.
 
@@ -90,7 +90,32 @@ features_detected:
 created_at: IsoDateTime
 ```
 
+## AcpEventEnvelope
+
+Canonical session event stored by the backend and streamed to the center
+timeline.
+
+```yaml
+id: string
+session_id: string
+sequence: number
+event_type: string
+payload: object
+projection: object
+created_at: IsoDateTime
+```
+
+Rules:
+
+- `payload` preserves the ACP event or shimmed runtime update.
+- `projection` contains optional DocAgent read-model metadata.
+- Consumers that need the authoring timeline should read ACP events, not
+  semantic projections.
+
 ## SemanticTimelineEvent
+
+Derived DocAgent read model for cards, invalidation, and reports.
+It is not the authoring timeline contract.
 
 ```yaml
 id: string

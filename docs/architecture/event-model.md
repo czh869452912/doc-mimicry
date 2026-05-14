@@ -2,8 +2,10 @@
 
 The durable interaction record is the ACP event log. The center timeline reads
 ACP events and renders native agent activity directly. Semantic DocAgent events
-remain as projections for product cards, workspace invalidation, reporting, and
-compatibility endpoints.
+are projections for product cards, workspace invalidation, reporting, and
+derived read endpoints.
+
+This is the only formal event contract for the agent-to-backend-to-UI chain.
 
 ## ACP Events
 
@@ -21,13 +23,14 @@ adapter. They may include:
 - session resumed
 
 The API exposes the log through `GET /sessions/{session_id}/events` and
-`GET /sessions/{session_id}/events/stream`. New runtime work should emit ACP
-updates first. Unsupported runtime payloads should be preserved in the ACP
-payload instead of being compressed into a semantic summary.
+`GET /sessions/{session_id}/events/stream`. New runtime work emits ACP updates
+first. Unsupported runtime payloads are preserved in the ACP payload instead of
+being compressed into a semantic summary.
 
 ## Semantic Projections
 
-Semantic events are derived from raw event type, path, command, and workspace role.
+Semantic events are derived from ACP event type, payload, path, command, and
+workspace role. They are rebuildable read models, not a second event protocol.
 
 Examples:
 
@@ -51,6 +54,6 @@ Store all three layers with clear ownership:
 - raw runtime payload for audit and debugging when a runtime shim receives one
 - semantic projection for DocAgent cards, workspace invalidation, and reporting
 
-The legacy `/timeline` endpoint may continue to return semantic projections for
-older clients, but it is not the source of truth for the authoring timeline.
+The `/timeline` endpoint returns semantic projections as a derived read
+endpoint. It is not the source of truth for the authoring timeline.
 

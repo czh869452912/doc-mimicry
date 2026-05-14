@@ -40,9 +40,9 @@ to inspect backend logs.
 ## Runtime Configuration
 
 The backend exposes ACP session events through `/sessions/{session_id}/events`
-and `/sessions/{session_id}/events/stream`. Runtime adapters that support ACP
-should accept prompts plus metadata and return ACP updates; operation-specific
-methods are compatibility fallbacks.
+and `/sessions/{session_id}/events/stream`. Runtime adapters accept prompts plus
+metadata and return ACP updates. Document actions are represented as ACP prompts
+or commands with product metadata, not as product-facing runtime methods.
 
 Default:
 
@@ -73,8 +73,9 @@ $env:LLM_API_KEY = "sk-docagent-local"
 ```
 
 Configure provider-backed LiteLLM aliases in `config/litellm.yaml` using `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, and the `DOCAGENT_LITELLM_*_MODEL` variables. Explicit `LLM_*`
-environment variables still override these defaults for one-off runtime experiments.
+`ANTHROPIC_API_KEY`, and the `DOCAGENT_LITELLM_*_MODEL` variables. Runtime
+configuration should target LiteLLM aliases; direct provider endpoints are not
+the supported product contract.
 
 ## Smoke Tests
 
@@ -94,8 +95,8 @@ For Docker Compose routing and container health without a real runtime, use:
 python tools/runtime/compose_smoke.py --runtime mock
 ```
 
-The compose smoke checks the ACP event endpoint rather than the legacy semantic
-timeline endpoint.
+The compose smoke checks the ACP event endpoint, which is the supported
+authoring timeline contract.
 
 Check Docker Compose wiring, including LiteLLM, with:
 

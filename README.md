@@ -14,8 +14,8 @@ The project goal is a general document coding-agent experience, not a fixed work
 | `docs/` | Current design truth: product, architecture, decisions, plans, quality. |
 | `reference/` | Research notes and earlier specs. Useful context, not always current truth. |
 | `apps/web/` | React document workbench UI. |
-| `services/api/` | FastAPI backend, product state, and agent runtime adapter. |
-| `packages/` | Shared contracts, workspace helpers, doctype pack helpers, timeline mapping. |
+| `services/api/` | FastAPI backend, product state, ACP event log, and agent runtime adapter. |
+| `packages/` | Shared ACP contracts, workspace helpers, doctype pack helpers, and projection helpers. |
 | `agent/` | System prompts, skill guidance, and runtime adapter notes. |
 | `tools/` | Fixed workspace, export, and repository scripts. |
 | `doc-types/` | Seed document type packs, starting with PRD. |
@@ -37,8 +37,13 @@ To start the same stack with the OpenHands runtime adapter selected:
 .\start-dev.cmd -Runtime openhands
 ```
 
-The script starts the OpenHands Agent Server as a Docker Compose service, exposes it on `http://127.0.0.1:8001`, and connects API/worker containers to it at `http://openhands:8001` with the shared workspace volume mounted. Set `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` in your shell, `.env`, or `.env.local`.
-By default, Compose routes OpenHands model traffic through LiteLLM at `http://litellm:4000` with model aliases such as `docagent/default`, `docagent/fast`, and `docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` only for live runtime runs; mock runtime development does not need them.
+The script starts the OpenHands Agent Server as a Docker Compose service,
+exposes it on `http://127.0.0.1:8001`, and connects API/worker containers to it
+through the ACP runtime adapter with the shared workspace volume mounted.
+Provider-backed model traffic goes through LiteLLM at `http://litellm:4000`
+with model aliases such as `docagent/default`, `docagent/fast`, and
+`docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` only for live
+runtime runs; mock runtime development does not need them.
 
 Smoke-test the mock Docker Compose stack with:
 
@@ -76,6 +81,9 @@ Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or
 - `reference/spec_review_rapid_prototype_v3.md`: rapid prototype direction that shaped Phase 0–2.
 - `docs/product/vision.md`: curated current product intent.
 - `docs/product/ui-surfaces.md`: management and authoring UI design.
+- `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md`: canonical ACP interaction plane and LiteLLM gateway decision.
+- `docs/architecture/event-model.md`: ACP event log and semantic projection contract.
+- `docs/architecture/agent-runtime.md`: ACP runtime boundary and LiteLLM model gateway.
 - `docs/product/phase-2-authoring-loop.md`: next version scope for the PRD authoring loop.
 - `docs/architecture/workspace-contract.md`: workspace contract every agent task must follow.
 - `docs/architecture/markdown-pipeline.md`: Markdown-only import/internal/export strategy.

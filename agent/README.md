@@ -10,3 +10,6 @@ Contents:
 - `skills/`: reusable agent skill guidance.
 - `runtime-adapters/`: runtime-specific notes.
 
+Agent runtime integration is ACP-first. Product-facing runtime adapters emit ACP
+updates, and provider-backed model calls go through LiteLLM aliases.
+

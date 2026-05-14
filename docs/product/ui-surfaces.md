@@ -102,19 +102,21 @@ The left rail organizes work:
 
 ### Center Timeline
 
-The center timeline is the interaction spine.
+The center timeline is the ACP-backed interaction spine.
 
 It should show:
 
 - User requests.
 - Agent progress.
-- File reads/writes as semantic events.
+- File reads/writes as ACP events with DocAgent projections.
 - Checkpoints.
 - Checklist results.
 - Export events.
 - Approval prompts when needed.
 
-The timeline should preserve raw runtime events for audit but default to semantic summaries.
+The timeline consumes the backend-owned ACP event log. It may render semantic
+DocAgent cards, but those cards are projections from ACP events. The UI should
+not introduce a separate runtime event protocol.
 
 ### Right Preview And Editor
 

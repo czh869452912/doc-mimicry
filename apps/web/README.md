@@ -7,7 +7,7 @@ Owns:
 - Management dashboard for document type packs.
 - Resource upload, conversion review, and Skill Creator surface.
 - Chat and user interrupt controls.
-- Agent timeline.
+- ACP-backed agent timeline.
 - Draft preview and diff.
 - Version and artifact views.
 - Approval UI.
@@ -16,7 +16,7 @@ Does not own:
 
 - Agent writing logic.
 - Workspace contract enforcement.
-- Runtime-specific event payload interpretation beyond shared contracts.
+- Runtime-specific event payload interpretation beyond ACP contracts and DocAgent projections.
 
 ## Main Surfaces
 

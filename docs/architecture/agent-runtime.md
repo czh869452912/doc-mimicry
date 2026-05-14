@@ -14,28 +14,31 @@ The runtime should provide a Claude Code-like loop for documents.
 - Context management or condenser.
 - Configurable system prompt and document type skill guidance.
 
-## First Candidate
+## Formal Contract
 
-OpenHands Agent Server / SDK is the first candidate because it already exposes many coding-agent primitives.
+ACP is the only formal session and timeline protocol between DocAgent and agent
+runtimes. DocAgent owns the ACP gateway, durable ACP event log, and product
+projections for workspace, approvals, artifacts, and audit. The center timeline
+reads ACP events from the backend-owned event log.
 
-## Current Direction
-
-Agent interaction uses ACP as the canonical session and timeline protocol.
-DocAgent owns an ACP gateway, durable ACP event log, and product projections for
-workspace, approvals, artifacts, and audit. The center timeline renders ACP
-events directly where possible, while DocAgent-specific cards are derived
-projections.
-
-LiteLLM Proxy should be used as the model gateway for real runtimes so provider compatibility, routing, fallback, and credentials are not spread across runtime adapters.
+LiteLLM Proxy is the formal model gateway for provider-backed runtimes. Runtime
+adapters select LiteLLM model aliases instead of configuring provider endpoints
+directly.
 
 See `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md`.
 
+## Runtime Candidate
+
+OpenHands Agent Server / SDK is the first runtime candidate because it already
+exposes many coding-agent primitives. It is connected through the ACP adapter
+boundary, not as a UI-facing protocol.
+
 ## Adapter Boundary
 
-The backend should call a runtime adapter, not the runtime directly. ACP-capable
-adapters should expose this surface:
+The backend calls a runtime adapter, not the runtime directly. Supported
+adapters expose the ACP session surface:
 
-Expected adapter operations:
+Formal adapter operations:
 
 ```text
 create_session(session_id, prompt_bundle)
@@ -44,10 +47,10 @@ stream_updates(session_id)
 cancel(session_id)
 ```
 
-Older operation-specific methods such as `start_loop`, `approve_outline`, and
-their streaming variants are compatibility fallbacks for legacy adapters. New
-runtime integrations should not add more operation-specific methods; product
-actions are ACP prompts with metadata and product-owned expected states.
+Document actions such as start loop, approve outline, revise selection, run
+checklist, and export are prompts with metadata and product-owned expected
+states. They are not runtime adapter methods. Any runtime-specific implementation
+must adapt to the ACP surface before product state or UI timeline consumption.
 
 ## Runtime-Agnostic Expectations
 
@@ -62,6 +65,5 @@ The rest of the product should reason about:
 - artifacts
 
 It should not depend on a specific runtime event payload outside the adapter or
-ACP shim. Semantic timeline events are projections, not the primary runtime
-contract.
+ACP shim. Semantic timeline events are projections, not the runtime contract.
 

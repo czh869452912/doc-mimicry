@@ -1,6 +1,6 @@
 # Contracts Package
 
-Shared schemas and types for UI, API, tools, and agent adapters.
+Shared schemas and types for UI, API, tools, and ACP runtime adapters.
 
 Current minimal schema source:
 
@@ -12,8 +12,9 @@ Expected contracts:
 - Session.
 - Workspace.
 - Document type pack.
-- Raw event.
-- Semantic timeline event.
+- ACP event envelope.
+- ACP runtime update.
+- Semantic projection.
 - Approval.
 - Artifact.
 - Imported resource.
