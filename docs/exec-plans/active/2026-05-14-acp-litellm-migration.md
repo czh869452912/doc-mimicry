@@ -57,8 +57,8 @@ LiteLLM Proxy
 
 ### Phase 2: Make The Center Timeline Render ACP Events
 
-- [ ] Add frontend ACP event types.
-- [ ] Add timeline renderers for the core ACP event families:
+- [x] Add frontend ACP event types.
+- [x] Add timeline renderers for the core ACP event families:
   - user prompt
   - agent message chunk and completed message
   - tool call start/update/done
@@ -67,15 +67,15 @@ LiteLLM Proxy
   - plan update
   - permission request
   - error, cancellation, and resume state
-- [ ] Add projection renderers for existing DocAgent cards:
+- [x] Add projection renderers for existing DocAgent cards:
   - outline review
   - draft update
   - checklist result
   - artifact
   - approval
-- [ ] Update timeline state to subscribe to ACP event stream as primary source.
-- [ ] Keep semantic timeline rendering behind a compatibility fallback until ACP end-to-end tests pass.
-- [ ] Add Vitest coverage for chunk merging, tool status updates, raw payload drawer behavior, and projection card routing.
+- [x] Update timeline state to subscribe to ACP event stream as primary source.
+- [x] Keep semantic timeline rendering behind a compatibility fallback until ACP end-to-end tests pass.
+- [x] Add Vitest coverage for chunk merging, tool status updates, raw payload preservation, and projection card routing.
 
 ### Phase 3: Replace Operation-Specific Runtime Calls With ACP Prompts
 

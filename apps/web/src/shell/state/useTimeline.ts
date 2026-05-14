@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, streamTimelineUrl } from "../../api";
-import type { TimelineEvent } from "../../types";
+import { api, streamAcpEventsUrl } from "../../api";
+import type { AcpEvent, TimelineEvent } from "../../types";
+import { mergeProjectedAcpEvent, projectAcpEventsToTimelineEvents } from "../conversation/acpTimeline";
 import { mergeTimelineEvents, replaceWithIdDedup } from "../conversation/docagentRuntime";
 
 const TIMELINE_POLL_INTERVAL_MS = 3000;
@@ -74,7 +75,10 @@ export function useTimeline(
       setError(null);
       // No setEvents([]) here — leave previous events visible during fetch
       try {
-        const nextEvents = replaceWithIdDedup(await api.getTimeline(sid));
+        const acpEvents = await api.getAcpEvents(sid);
+        const nextEvents = acpEvents.length > 0
+          ? replaceWithIdDedup(projectAcpEventsToTimelineEvents(acpEvents, taskId))
+          : replaceWithIdDedup(await api.getTimeline(sid));
         if (shouldApply()) {
           setEvents(nextEvents);
           invalidateRelatedQueries(nextEvents);
@@ -88,7 +92,7 @@ export function useTimeline(
         if (shouldApply()) setLoading(false);
       }
     },
-    [invalidateRelatedQueries],
+    [invalidateRelatedQueries, taskId],
   );
 
   const refreshTimeline = useCallback(
@@ -116,15 +120,7 @@ export function useTimeline(
 
     function startPolling() {
       pollId = window.setInterval(() => {
-        void api
-          .getTimeline(currentSessionId)
-          .then((nextEvents) => {
-            if (!cancelled) {
-              const dedupedEvents = replaceWithIdDedup(nextEvents);
-              setEvents(dedupedEvents);
-              invalidateRelatedQueries(dedupedEvents);
-            }
-          })
+        void loadTimeline(currentSessionId, () => !cancelled)
           .catch((caught) => {
             if (!cancelled)
               setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
@@ -137,28 +133,23 @@ export function useTimeline(
       closeCurrentSource?.();
       closeCurrentSource = undefined;
 
-      if (!("EventSource" in window)) {
+      if (typeof window.EventSource !== "function") {
         startPolling();
         return;
       }
-      const source = new EventSource(streamTimelineUrl(currentSessionId));
+      const source = new EventSource(streamAcpEventsUrl(currentSessionId));
       closeCurrentSource = () => source.close();
 
       source.onmessage = (ev: MessageEvent) => {
         if (cancelled) return;
         backoffMs = SSE_BACKOFF_BASE_MS; // reset on successful message
         try {
-          const event = JSON.parse(ev.data as string) as TimelineEvent;
-          setEvents((prev) => mergeTimelineEvents(prev, [event]));
-          invalidateRelatedQueries([event]);
-          if (event.kind === "session_status" || event.kind === "error") {
-            void api.getTimeline(currentSessionId).then((nextEvents) => {
-              if (!cancelled) {
-                const dedupedEvents = replaceWithIdDedup(nextEvents);
-                setEvents(dedupedEvents);
-                invalidateRelatedQueries(dedupedEvents);
-              }
-            });
+          const acpEvent = JSON.parse(ev.data as string) as AcpEvent;
+          const projectedEvent = projectAcpEventsToTimelineEvents([acpEvent], taskId)[0];
+          setEvents((prev) => mergeProjectedAcpEvent(prev, acpEvent, taskId));
+          invalidateRelatedQueries([projectedEvent]);
+          if (projectedEvent.kind === "session_status" || projectedEvent.kind === "error") {
+            void loadTimeline(currentSessionId, () => !cancelled);
           }
         } catch {
           // ignore unparseable keep-alive frames
@@ -169,14 +160,8 @@ export function useTimeline(
         closeCurrentSource?.();
         closeCurrentSource = undefined;
         if (cancelled) return;
-        // Re-fetch timeline to catch up on missed events
-        void api.getTimeline(currentSessionId).then((nextEvents) => {
-          if (!cancelled) {
-            const dedupedEvents = replaceWithIdDedup(nextEvents);
-            setEvents(dedupedEvents);
-            invalidateRelatedQueries(dedupedEvents);
-          }
-        });
+        // Re-fetch the ACP event stream to catch up on missed events.
+        void loadTimeline(currentSessionId, () => !cancelled);
         // Reconnect with exponential backoff
         reconnectId = window.setTimeout(() => {
           if (!cancelled) connect();
@@ -193,7 +178,7 @@ export function useTimeline(
       if (pollId !== undefined) window.clearInterval(pollId);
       if (reconnectId !== undefined) window.clearTimeout(reconnectId);
     };
-  }, [sessionId, invalidateRelatedQueries]);
+  }, [sessionId, taskId, invalidateRelatedQueries, loadTimeline]);
 
   const resetTimeline = useCallback(() => {
     setEvents([]);

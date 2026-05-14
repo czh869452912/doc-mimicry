@@ -5,7 +5,8 @@ import { useTimeline } from "../useTimeline";
 import { api } from "../../../api";
 
 vi.mock("../../../api", () => ({
-  api: { getTimeline: vi.fn() },
+  api: { getAcpEvents: vi.fn(), getTimeline: vi.fn() },
+  streamAcpEventsUrl: vi.fn().mockReturnValue("http://localhost/events/stream"),
   streamTimelineUrl: vi.fn().mockReturnValue("http://localhost/stream"),
 }));
 
@@ -16,6 +17,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe("useTimeline", () => {
   beforeEach(() => {
+    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
     vi.mocked(api.getTimeline).mockResolvedValue([]);
   });
 

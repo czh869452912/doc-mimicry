@@ -13,6 +13,7 @@ vi.mock("../../api", () => ({
     createSession: vi.fn(),
     createTask: vi.fn(),
     exportMarkdown: vi.fn(),
+    getAcpEvents: vi.fn(),
     getDraft: vi.fn(),
     getTimeline: vi.fn(),
     getWorkspace: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("../../api", () => ({
     cancelSession: vi.fn(),
     updateDraft: vi.fn(),
   },
+  streamAcpEventsUrl: (sessionId: string) => `/sessions/${sessionId}/events/stream`,
   streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
@@ -97,6 +99,7 @@ describe("AppShell", () => {
       },
     ]);
     vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-1", root: "workspace/task-1", files: [] });
+    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
     vi.mocked(api.getTimeline).mockResolvedValue([]);
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.importTextInput).mockResolvedValue({
@@ -486,7 +489,7 @@ describe("AppShell", () => {
         "Please revise the selected passage while preserving its meaning.",
       ),
     );
-    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
   });
 
@@ -495,13 +498,14 @@ describe("AppShell", () => {
 
     await screen.findByText("Restored workspace");
     vi.mocked(api.getWorkspace).mockClear();
+    vi.mocked(api.getAcpEvents).mockClear();
     vi.mocked(api.getTimeline).mockClear();
 
     await userEvent.type(screen.getByLabelText("Message"), "Revise the draft");
     await userEvent.keyboard("{Enter}");
 
     await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the draft", []));
-    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
     expect(screen.queryByText("Working...")).toBeNull();
   });
@@ -554,15 +558,20 @@ describe("AppShell", () => {
     await act(async () => {
       capturedOnMessage?.({
         data: JSON.stringify({
-          id: "task-1-status-idle",
-          actor: "system",
-          kind: "session_status",
-          paths: [],
-          raw_event_id: null,
+          id: "acp-status-idle",
           session_id: "session-1",
-          status: "succeeded",
-          summary: "Session status changed to idle",
-          task_id: "task-1",
+          sequence: 1,
+          event_type: "docagent/projection",
+          payload: {},
+          projection: {
+            timeline_id: "task-1-status-idle",
+            actor: "system",
+            timeline_kind: "session_status",
+            paths: [],
+            status: "succeeded",
+            summary: "Session status changed to idle",
+          },
+          created_at: "2026-05-14T00:00:00Z",
         }),
       } as MessageEvent);
     });
@@ -654,6 +663,7 @@ describe("AppShell", () => {
   });
 
   it("reloads an assistant message by resending the nearest previous user message", async () => {
+    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
     vi.mocked(api.getTimeline).mockResolvedValue([
       {
         id: "user-1",
@@ -683,6 +693,7 @@ describe("AppShell", () => {
 
     await screen.findByText("I updated the launch scope.");
     vi.mocked(api.sendMessage).mockClear();
+    vi.mocked(api.getAcpEvents).mockClear();
     vi.mocked(api.getTimeline).mockClear();
 
     const reloadButton = screen.getByRole("button", { name: /reload response/i });
@@ -690,6 +701,6 @@ describe("AppShell", () => {
     fireEvent.click(reloadButton);
 
     await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise the launch scope", []));
-    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
   });
 });

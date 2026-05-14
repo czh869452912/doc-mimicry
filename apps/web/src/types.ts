@@ -36,6 +36,17 @@ export interface TimelineEvent {
   paths: string[];
   status: string;
   created_at?: string;
+  raw_acp_event?: AcpEvent;
+}
+
+export interface AcpEvent {
+  id: string;
+  session_id: string;
+  sequence: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  projection: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface WorkspaceFile {

@@ -2,6 +2,7 @@ import type {
   DocTypeSummary,
   ImportedInput,
   LoopActionResult,
+  AcpEvent,
   MessageAttachment,
   SessionRecord,
   TaskRecord,
@@ -14,6 +15,9 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
 export const streamTimelineUrl = (sessionId: string): string =>
   `${API_BASE}/sessions/${sessionId}/timeline/stream`;
+
+export const streamAcpEventsUrl = (sessionId: string): string =>
+  `${API_BASE}/sessions/${sessionId}/events/stream`;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const contentTypeHeader: Record<string, string> = init?.body !== undefined
@@ -86,6 +90,7 @@ export const api = {
     ),
   cancelSession: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
+  getAcpEvents: (sessionId: string) => request<AcpEvent[]>(`/sessions/${sessionId}/events`),
   getTimeline: (sessionId: string) => request<TimelineEvent[]>(`/sessions/${sessionId}/timeline`),
   getDraft: (taskId: string) => request<{ markdown: string }>(`/tasks/${taskId}/draft`),
   updateDraft: (taskId: string, markdown: string) =>
