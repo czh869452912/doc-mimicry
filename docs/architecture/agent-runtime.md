@@ -18,6 +18,14 @@ The runtime should provide a Claude Code-like loop for documents.
 
 OpenHands Agent Server / SDK is the first candidate because it already exposes many coding-agent primitives.
 
+## Current Direction
+
+Agent interaction should converge on ACP as the canonical session and timeline protocol. DocAgent should own an ACP gateway, durable ACP event log, and product projections for workspace, approvals, artifacts, and audit. The center timeline should render ACP events directly where possible, while DocAgent-specific cards are derived projections.
+
+LiteLLM Proxy should be used as the model gateway for real runtimes so provider compatibility, routing, fallback, and credentials are not spread across runtime adapters.
+
+See `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md` and `docs/exec-plans/active/2026-05-14-acp-litellm-migration.md`.
+
 ## Adapter Boundary
 
 The backend should call a runtime adapter, not the runtime directly.
