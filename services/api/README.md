@@ -59,6 +59,18 @@ because the OpenHands SDK packages require Python 3.12 or newer.
 
 Normal CI and local development should keep `mock` unless OpenHands Agent Server is configured and running.
 
+OpenHands runs through LiteLLM Proxy by default in Docker Compose:
+
+```powershell
+$env:LLM_BASE_URL = "http://litellm:4000"
+$env:LLM_MODEL = "docagent/default"
+$env:LLM_API_KEY = "sk-docagent-local"
+```
+
+Configure provider-backed LiteLLM aliases in `config/litellm.yaml` using `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, and the `DOCAGENT_LITELLM_*_MODEL` variables. Explicit `LLM_*`
+environment variables still override these defaults for one-off runtime experiments.
+
 ## Smoke Tests
 
 The OpenHands smoke script is an adapter/full-chain smoke, not a unit test. It
@@ -75,4 +87,11 @@ For Docker Compose routing and container health without a real runtime, use:
 
 ```powershell
 python tools/runtime/compose_smoke.py --runtime mock
+```
+
+Check Docker Compose wiring, including LiteLLM, with:
+
+```powershell
+docker compose config
+python -m pytest tests/test_litellm_compose.py -q
 ```

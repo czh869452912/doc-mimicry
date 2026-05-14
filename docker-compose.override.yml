@@ -6,9 +6,9 @@ services:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
       OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
+      LLM_MODEL: ${LLM_MODEL:-docagent/default}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
     volumes:
       - ./services/api:/app/services/api
       - ./packages:/app/packages
@@ -23,9 +23,9 @@ services:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
       DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
       OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
+      LLM_MODEL: ${LLM_MODEL:-docagent/default}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
     volumes:
       - ./services/api:/app/services/api
       - ./packages:/app/packages

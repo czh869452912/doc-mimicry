@@ -109,16 +109,16 @@ LiteLLM Proxy
 
 ### Phase 5: Add LiteLLM Proxy As The Model Gateway
 
-- [ ] Add a `litellm` service to Docker Compose.
-- [ ] Add a checked-in LiteLLM config template with model aliases:
+- [x] Add a `litellm` service to Docker Compose.
+- [x] Add a checked-in LiteLLM config template with model aliases:
   - `docagent/default`
   - `docagent/fast`
   - `docagent/reasoning`
-- [ ] Route OpenHands and future runtimes to LiteLLM by default in Compose.
-- [ ] Keep provider credentials in environment variables or deployment secrets.
-- [ ] Pin LiteLLM to a patched version and document upgrade discipline.
-- [ ] Add a mock-safe config or test mode that does not require live provider credentials.
-- [ ] Add smoke tests that verify runtime containers receive LiteLLM base URL and model aliases.
+- [x] Route OpenHands and future runtimes to LiteLLM by default in Compose.
+- [x] Keep provider credentials in environment variables or deployment secrets.
+- [x] Pin LiteLLM to a patched version and document upgrade discipline.
+- [x] Add a mock-safe config or test mode that does not require live provider credentials.
+- [x] Add smoke tests that verify runtime containers receive LiteLLM base URL and model aliases.
 
 ### Phase 6: Retire The Old Interaction Chain
 

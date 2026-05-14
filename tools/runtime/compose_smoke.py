@@ -25,6 +25,9 @@ def main() -> int:
         env.pop("OPENHANDS_CONTAINER_BASE_URL", None)
     else:
         env.setdefault("OPENHANDS_CONTAINER_BASE_URL", "http://openhands:8001")
+        env.setdefault("LLM_API_KEY", "sk-docagent-local")
+        env.setdefault("LLM_MODEL", "docagent/default")
+        env.setdefault("LLM_BASE_URL", "http://litellm:4000")
 
     if not args.skip_up:
         subprocess.run(
@@ -37,7 +40,7 @@ def main() -> int:
             up_command.extend(["--profile", "openhands"])
         up_command.extend(["up", "-d", "--build", "postgres", "redis"])
         if args.runtime == "openhands":
-            up_command.append("openhands")
+            up_command.extend(["litellm", "openhands"])
         up_command.extend(["api", "worker", "web"])
         subprocess.run(up_command, check=True, env=env)
 

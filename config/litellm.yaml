@@ -1,0 +1,17 @@
+model_list:
+  - model_name: docagent/default
+    litellm_params:
+      model: ${DOCAGENT_LITELLM_DEFAULT_MODEL:-openai/gpt-4o-mini}
+      api_key: ${OPENAI_API_KEY}
+  - model_name: docagent/fast
+    litellm_params:
+      model: ${DOCAGENT_LITELLM_FAST_MODEL:-openai/gpt-4o-mini}
+      api_key: ${OPENAI_API_KEY}
+  - model_name: docagent/reasoning
+    litellm_params:
+      model: ${DOCAGENT_LITELLM_REASONING_MODEL:-openai/gpt-4o}
+      api_key: ${OPENAI_API_KEY}
+
+general_settings:
+  master_key: ${LITELLM_MASTER_KEY}
+  drop_params: true

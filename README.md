@@ -38,6 +38,7 @@ To start the same stack with the OpenHands runtime adapter selected:
 ```
 
 The script starts the OpenHands Agent Server as a Docker Compose service, exposes it on `http://127.0.0.1:8001`, and connects API/worker containers to it at `http://openhands:8001` with the shared workspace volume mounted. Set `LLM_API_KEY`, `LLM_MODEL`, and `LLM_BASE_URL` in your shell, `.env`, or `.env.local`.
+By default, Compose routes OpenHands model traffic through LiteLLM at `http://litellm:4000` with model aliases such as `docagent/default`, `docagent/fast`, and `docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` only for live runtime runs; mock runtime development does not need them.
 
 Smoke-test the mock Docker Compose stack with:
 
