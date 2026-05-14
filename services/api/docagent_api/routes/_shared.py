@@ -71,11 +71,13 @@ def set_session_state(
             status=TimelineStatus.SUCCEEDED,
         )
         state.append_timeline_event(session["id"], asdict(event))
+        append_acp_projection_event(state, session["id"], event)
 
 
 def append_events(state: DocAgentState, session_id: str, events: list[SemanticTimelineEvent]) -> None:
     for event in events:
         state.append_timeline_event(session_id, asdict(event))
+        append_acp_projection_event(state, session_id, event)
 
 
 def append_runtime_result(
@@ -93,6 +95,7 @@ def append_runtime_result(
             semantic = map_openhands_raw_event(raw_event, task_id)
             if semantic is not None:
                 state.append_timeline_event(session_id, asdict(semantic))
+                append_acp_projection_event(state, session_id, semantic)
 
 
 def runtime_event_sink(state: DocAgentState, task_id: str, session_id: str) -> Any:
@@ -102,6 +105,7 @@ def runtime_event_sink(state: DocAgentState, task_id: str, session_id: str) -> A
             semantic = map_openhands_raw_event(raw_event, task_id)
             if semantic is not None:
                 state.append_timeline_event(session_id, asdict(semantic))
+                append_acp_projection_event(state, session_id, semantic)
     return sink
 
 
@@ -199,6 +203,7 @@ def start_background_runtime_operation(
                     status=TimelineStatus.FAILED,
                 )
                 state.append_timeline_event(session["id"], asdict(failure))
+                append_acp_projection_event(state, session["id"], failure)
                 set_session_state(state, session, previous_state, task_id=task_id)
                 return
             append_runtime_result(state, task_id, session["id"], result)
@@ -239,4 +244,42 @@ def manual_event(
         paths=paths,
         status=status,
         created_at=utc_now(),
+    )
+
+
+def append_acp_prompt_event(
+    state: DocAgentState,
+    session_id: str,
+    prompt: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    state.append_acp_event(
+        session_id,
+        {
+            "method": "docagent/prompt",
+            "prompt": prompt,
+            "metadata": metadata or {},
+        },
+    )
+
+
+def append_acp_projection_event(
+    state: DocAgentState,
+    session_id: str,
+    event: SemanticTimelineEvent,
+) -> None:
+    state.append_acp_event(
+        session_id,
+        {
+            "method": "docagent/projection",
+            "timeline_event_id": event.id,
+        },
+        projection={
+            "timeline_id": event.id,
+            "timeline_kind": event.kind.value,
+            "actor": event.actor.value,
+            "summary": event.summary,
+            "paths": event.paths,
+            "status": event.status.value,
+        },
     )

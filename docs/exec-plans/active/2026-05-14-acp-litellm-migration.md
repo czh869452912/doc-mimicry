@@ -79,18 +79,18 @@ LiteLLM Proxy
 
 ### Phase 3: Replace Operation-Specific Runtime Calls With ACP Prompts
 
-- [ ] Add a single backend prompt endpoint:
+- [x] Add a single backend prompt endpoint:
   - `POST /sessions/{session_id}/prompt`
-- [ ] Represent product actions as ACP prompts with metadata:
+- [x] Represent product actions as ACP prompts with metadata:
   - start authoring loop
   - approve outline
   - revise selection
   - run checklist
   - export artifact
-- [ ] Remove new development from operation-specific runtime methods.
-- [ ] Preserve existing endpoints temporarily as thin wrappers that call the new prompt endpoint with metadata.
-- [ ] Add API tests proving old endpoints and new prompt endpoint produce the same workspace outcomes for the mock runtime.
-- [ ] Add state-transition tests that keep DocAgent session status product-owned.
+- [x] Remove new development from operation-specific runtime methods.
+- [x] Preserve existing endpoints temporarily as thin wrappers that call the new prompt endpoint with metadata.
+- [x] Add API tests proving old endpoints and new prompt endpoint produce the same workspace outcomes for the mock runtime.
+- [x] Add state-transition tests that keep DocAgent session status product-owned.
 
 ### Phase 4: Add The Runtime ACP Boundary
 

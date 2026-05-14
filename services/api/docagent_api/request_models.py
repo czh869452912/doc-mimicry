@@ -22,6 +22,11 @@ class SendMessageRequest(BaseModel):
     attachments: list[MessageAttachment] = []
 
 
+class PromptRequest(BaseModel):
+    prompt: str
+    metadata: dict[str, object] = {}
+
+
 class ImportTextRequest(BaseModel):
     name: str
     content: str

@@ -257,6 +257,85 @@ def test_send_message_background_uses_running_chat_state(tmp_path: Path) -> None
     assert response.json()["status"] == "running_chat"
 
 
+def test_prompt_endpoint_runs_chat_and_records_acp_prompt_and_projection_events(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": "# Outline\n"})
+
+    response = client.post(
+        f"/sessions/{session['id']}/prompt",
+        json={"prompt": "Please revise the draft", "metadata": {"action": "send_message"}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["next_state"] == "draft_ready"
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/prompt"
+        and event["payload"]["prompt"] == "Please revise the draft"
+        and event["payload"]["metadata"]["action"] == "send_message"
+        for event in acp_events
+    )
+    assert any(
+        event["event_type"] == "docagent/projection"
+        and event["projection"]["timeline_kind"] == "update_draft"
+        for event in acp_events
+    )
+
+
+def test_message_endpoint_is_thin_wrapper_over_prompt_action(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": "# Outline\n"})
+
+    response = client.post(f"/sessions/{session['id']}/messages", json={"message": "hello"})
+
+    assert response.status_code == 200
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    prompts = [event for event in acp_events if event["event_type"] == "docagent/prompt"]
+    assert prompts[-1]["payload"]["prompt"] == "hello"
+    assert prompts[-1]["payload"]["metadata"]["action"] == "send_message"
+
+
+def test_operation_endpoints_record_prompt_action_metadata(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/revision/selection",
+        json={
+            "selected_text": "Define the desired product outcome.",
+            "instruction": "Make it sharper",
+        },
+    ).status_code == 200
+    assert client.post(f"/sessions/{session['id']}/checklist/run").status_code == 200
+    assert client.post(f"/sessions/{session['id']}/artifacts/export-markdown").status_code == 200
+
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    actions = [
+        event["payload"]["metadata"]["action"]
+        for event in acp_events
+        if event["event_type"] == "docagent/prompt"
+    ]
+    assert actions == [
+        "start_loop",
+        "approve_outline",
+        "revise_selection",
+        "run_checklist",
+        "export_markdown",
+    ]
+
+
 def test_session_state_changes_emit_status_events(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()

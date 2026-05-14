@@ -16,12 +16,14 @@ from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.celery_app import celery_app
 from docagent_api.request_models import (
     ApproveOutlineRequest,
+    PromptRequest,
     ReviseSelectionRequest,
     SendMessageRequest,
 )
 from docagent_api.response_models import AcpEventResponse, LoopActionResponse, SessionResponse, TimelineEventResponse
 from docagent_api.routes._shared import (
     append_runtime_result,
+    append_acp_prompt_event,
     manual_event,
     prepare_transition,
     require_session,
@@ -54,6 +56,12 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
+        append_acp_prompt_event(
+            state,
+            session_id,
+            "Start the document authoring loop.",
+            {"action": "start_loop"},
+        )
         if background:
             operation = stream_or_sync(
                 adapter,
@@ -90,6 +98,12 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         task = require_task(state, session["task_id"])
         prepare_transition(state, session, RuntimeSessionState.RUNNING_DRAFT, task_id=task["id"])
         outline_text = request.outline_markdown
+        append_acp_prompt_event(
+            state,
+            session_id,
+            outline_text,
+            {"action": "approve_outline"},
+        )
         if not outline_text.endswith("\n"):
             outline_text = f"{outline_text}\n"
         outline_path = Path(task["workspace_root"]) / "draft" / "outline.md"
@@ -129,6 +143,15 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
+        append_acp_prompt_event(
+            state,
+            session_id,
+            request.instruction,
+            {
+                "action": "revise_selection",
+                "selection": request.selected_text,
+            },
+        )
         try:
             prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
             if background:
@@ -180,6 +203,12 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
+        append_acp_prompt_event(
+            state,
+            session_id,
+            "Run the document checklist.",
+            {"action": "run_checklist"},
+        )
         if background:
             operation = stream_or_sync(
                 adapter,
@@ -213,6 +242,12 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
+        append_acp_prompt_event(
+            state,
+            session_id,
+            "Export the current draft as Markdown.",
+            {"action": "export_markdown"},
+        )
         if background:
             operation = stream_or_sync(
                 adapter,
@@ -249,9 +284,47 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         response: Response,
         background: bool = Query(default=False),
     ) -> dict[str, Any]:
+        return _send_prompt(
+            session_id,
+            request,
+            response,
+            background=background,
+            action="send_message",
+        )
+
+    @router.post("/sessions/{session_id}/prompt", response_model=LoopActionResponse)
+    def send_prompt(
+        session_id: str,
+        request: PromptRequest,
+        response: Response,
+        background: bool = Query(default=False),
+    ) -> dict[str, Any]:
+        return _send_prompt(
+            session_id,
+            SendMessageRequest(message=request.prompt),
+            response,
+            background=background,
+            action=str(request.metadata.get("action") or "send_message"),
+            metadata=request.metadata,
+        )
+
+    def _send_prompt(
+        session_id: str,
+        request: SendMessageRequest,
+        response: Response,
+        *,
+        background: bool,
+        action: str,
+        metadata: dict[str, object] | None = None,
+    ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
         runtime_message = _message_with_attachments(request)
+        prompt_metadata = {
+            "action": action,
+            **(metadata or {}),
+        }
+        append_acp_prompt_event(state, session_id, runtime_message, prompt_metadata)
         if background:
             user_event = manual_event(
                 task["id"], session_id, f"user-{uuid4().hex[:8]}",
@@ -294,7 +367,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             )
             state.append_timeline_event(session_id, asdict(user_event))
         set_session_state(state, session, result.next_state, task_id=task["id"])
-        return {"session_id": session_id, "event_count": len(result.events)}
+        return runtime_result_response(result)
 
     @router.post("/sessions/{session_id}/cancel", response_model=LoopActionResponse)
     def cancel_session(session_id: str) -> dict[str, Any]:
