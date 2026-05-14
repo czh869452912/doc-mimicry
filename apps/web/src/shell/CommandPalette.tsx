@@ -17,7 +17,17 @@ export function CommandPalette({ onClose, onRunCommand, open }: CommandPalettePr
   if (!open) return null;
 
   return (
-    <div className="command-overlay" role="presentation" onMouseDown={onClose}>
+    <div
+      className="command-overlay"
+      role="presentation"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      onMouseDown={onClose}
+    >
       <Command
         className="command-menu"
         label="Command palette"

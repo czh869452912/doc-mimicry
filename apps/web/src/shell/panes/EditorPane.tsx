@@ -38,23 +38,22 @@ export function EditorPane({
     <Tabs className="editor-pane" value={activeTabId} onValueChange={onTabChange}>
       <TabsList className="editor-tabs" aria-label="Editor tabs">
         {tabs.map((tab) => (
-          <TabsTrigger className="editor-tab-trigger" key={tab.id} value={tab.id}>
-            <span>{tab.id === "draft" ? "📌 " : ""}</span>
-            <span>{tab.title}</span>
+          <span className="editor-tab-item" key={tab.id}>
+            <TabsTrigger className="editor-tab-trigger" value={tab.id}>
+              <span>{tab.id === "draft" ? "Pinned " : ""}</span>
+              <span>{tab.title}</span>
+            </TabsTrigger>
             {tab.id !== "draft" && (
               <button
                 className="tab-close"
                 type="button"
                 aria-label={`Close ${tab.title}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCloseTab(tab.id);
-                }}
+                onClick={() => onCloseTab(tab.id)}
               >
-                <X size={12} />
+                <X size={12} aria-hidden="true" />
               </button>
             )}
-          </TabsTrigger>
+          </span>
         ))}
       </TabsList>
       {tabs.map((tab) => (
