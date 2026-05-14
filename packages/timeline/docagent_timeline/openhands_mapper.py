@@ -46,6 +46,13 @@ def _classify(raw_event: RawRuntimeEvent) -> tuple[SemanticEventKind | None, str
     if raw_event.kind == "cancelled":
         return SemanticEventKind.ERROR, _SUMMARY[SemanticEventKind.ERROR]
 
+    # Conversation-level failures surfaced by the OpenHands runtime
+    if raw_event.kind == "ConversationErrorEvent":
+        code = raw_event.payload.get("code") or ""
+        detail = (raw_event.payload.get("detail") or "Conversation error")[:200]
+        summary = f"Agent error ({code}): {detail}" if code else detail
+        return SemanticEventKind.ERROR, summary
+
     # Extract LLM text responses from agent MessageEvents
     if raw_event.kind == "MessageEvent" and raw_event.payload.get("source") == "agent":
         llm_message = raw_event.payload.get("llm_message") or {}
@@ -56,7 +63,7 @@ def _classify(raw_event: RawRuntimeEvent) -> tuple[SemanticEventKind | None, str
                     return SemanticEventKind.AGENT_MESSAGE, text
         return None, ""
 
-    # Map visible tool call actions from ActionEvents (chat mode intermediate steps)
+    # Map visible chat-mode tool calls; file-writing actions fall through to path matching
     if raw_event.kind == "ActionEvent":
         action = raw_event.payload.get("action") or {}
         action_kind = action.get("kind", "")
@@ -68,6 +75,11 @@ def _classify(raw_event: RawRuntimeEvent) -> tuple[SemanticEventKind | None, str
                 n = len(action.get("task_list") or [])
                 return SemanticEventKind.AGENT_TOOL_CALL, f"Updating task list ({n} tasks)"
             return SemanticEventKind.AGENT_TOOL_CALL, "Checking task list"
+        # FileEditorAction, TerminalAction, etc. fall through to path-based matching
+
+    # Skip ObservationEvents — the preceding ActionEvent already captures the intent
+    # and has the same path, so this avoids duplicate semantic events for file writes
+    if raw_event.kind == "ObservationEvent":
         return None, ""
 
     path = _path(raw_event)
