@@ -1,6 +1,6 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import type { SessionRecord, TaskRecord } from "../../types";
 import { useDocTypes } from "./useDocTypes";
@@ -22,6 +22,7 @@ export function useActiveWorkspace() {
   const navigate = useNavigate({ from: "/" });
   const search = useSearch({ from: "/" });
   const queryClient = useQueryClient();
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   const docTypesQuery = useDocTypes();
   const tasksQuery = useTasks();
@@ -32,10 +33,15 @@ export function useActiveWorkspace() {
 
   const sessionsQuery = useSessions(activeTask?.id);
   const sessions = sessionsQuery.data ?? [];
+  const requestedSessionId = pendingSessionId ?? search.session;
 
   // Active session: resolved from URL param, then latest
   const activeSession =
-    sessions.find((s) => s.id === search.session) ?? latestByUpdatedAt(sessions) ?? null;
+    sessions.find((s) => s.id === requestedSessionId) ?? latestByUpdatedAt(sessions) ?? null;
+
+  useEffect(() => {
+    if (pendingSessionId && search.session === pendingSessionId) setPendingSessionId(null);
+  }, [pendingSessionId, search.session]);
 
   // Sync URL when session resolves to a default (no explicit URL param)
   useEffect(() => {
@@ -61,6 +67,7 @@ export function useActiveWorkspace() {
     (task: TaskRecord) => {
       window.localStorage.setItem(LAST_TASK_KEY, task.id);
       window.localStorage.removeItem(LAST_SESSION_KEY);
+      setPendingSessionId(null);
       void navigate({ search: { task: task.id }, replace: true });
     },
     [navigate],
@@ -69,6 +76,7 @@ export function useActiveWorkspace() {
   const selectSession = useCallback(
     (session: SessionRecord) => {
       window.localStorage.setItem(LAST_SESSION_KEY, session.id);
+      setPendingSessionId(session.id);
       void navigate({ search: (prev) => ({ ...prev, session: session.id }), replace: true });
     },
     [navigate],
@@ -93,10 +101,15 @@ export function useActiveWorkspace() {
       if (!activeTask) throw new Error("No active task");
       return api.createSession(activeTask.id);
     },
-    onSuccess: (session) => {
+    onSuccess: async (session) => {
       window.localStorage.setItem(LAST_SESSION_KEY, session.id);
-      void queryClient.invalidateQueries({ queryKey: ["sessions", activeTask?.id] });
-      void navigate({ search: (prev) => ({ ...prev, session: session.id }), replace: true });
+      setPendingSessionId(session.id);
+      queryClient.setQueryData<SessionRecord[]>(["sessions", session.task_id], (current = []) => [
+        session,
+        ...current.filter((existing) => existing.id !== session.id),
+      ]);
+      await navigate({ search: (prev) => ({ ...prev, session: session.id }), replace: true });
+      void queryClient.invalidateQueries({ queryKey: ["sessions", session.task_id], refetchType: "inactive" });
     },
   });
 

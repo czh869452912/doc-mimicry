@@ -272,6 +272,54 @@ describe("AppShell", () => {
     expect(await screen.findByText(/session-2/)).toBeTruthy();
   });
 
+  it("starts a fresh session from /start when the active session already has a draft", async () => {
+    vi.mocked(api.createSession).mockResolvedValue({
+      id: "session-2",
+      task_id: "task-1",
+      status: "idle",
+      created_at: "2026-05-06T10:00:00Z",
+      updated_at: "2026-05-06T10:00:00Z",
+    });
+    vi.mocked(api.startLoop).mockResolvedValue({ session_id: "session-2", accepted: true, status: "running_context" });
+    vi.mocked(api.listTaskSessions).mockResolvedValueOnce([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "draft_ready",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]).mockResolvedValue([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "draft_ready",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+      {
+        id: "session-2",
+        task_id: "task-1",
+        status: "running_context",
+        created_at: "2026-05-06T10:00:00Z",
+        updated_at: "2026-05-06T10:01:00Z",
+      },
+    ]);
+
+    const { router } = renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByText("Restored workspace");
+    await userEvent.type(screen.getByLabelText("Message"), "/start");
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(api.createSession).toHaveBeenCalledWith("task-1"));
+    await waitFor(() => expect(api.startLoop).toHaveBeenCalledWith("session-2"));
+    await waitFor(() => {
+      const search = router.state.location.search as { session?: string };
+      expect(search.session).toBe("session-2");
+    });
+  });
+
   it("restores task and session from URL search params", async () => {
     vi.mocked(api.listTasks).mockResolvedValue([
       {

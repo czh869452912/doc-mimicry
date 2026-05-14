@@ -39,6 +39,8 @@ function Harness(props: Partial<Parameters<typeof useDocAgentAssistantRuntime>[0
 
 function latestOptions() {
   return capturedRuntimeOptions.at(-1) as {
+    isDisabled?: boolean;
+    isSendDisabled?: boolean;
     onCancel?: () => Promise<void>;
     onNew: (message: AppendMessage) => Promise<void>;
     onReload?: (parentId: string | null, config: StartRunConfig) => Promise<void>;
@@ -74,6 +76,13 @@ describe("useDocAgentAssistantRuntime", () => {
     await latestOptions().onReload?.("parent-message", config);
 
     expect(onReloadInput).toHaveBeenCalledWith("parent-message", config);
+  });
+
+  it("passes disabled and send-disabled state through the assistant-ui runtime adapter", () => {
+    render(<Harness isDisabled isSendDisabled />);
+
+    expect(latestOptions().isDisabled).toBe(true);
+    expect(latestOptions().isSendDisabled).toBe(true);
   });
 
   it("takes attachments only for the requested task", () => {

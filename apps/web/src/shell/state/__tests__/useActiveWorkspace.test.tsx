@@ -7,8 +7,8 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
-import { render, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api";
 import type { AppSearch } from "../../../App";
 import { useActiveWorkspace } from "../useActiveWorkspace";
@@ -25,11 +25,14 @@ vi.mock("../../../api", () => ({
     getWorkspace: vi.fn().mockResolvedValue({ task_id: "t1", root: "w/t1", files: [] }),
     getDraft: vi.fn().mockResolvedValue({ task_id: "t1", markdown: "" }),
     getTimeline: vi.fn().mockResolvedValue([]),
+    createSession: vi.fn(),
   },
 }));
 
+let latestWorkspace: ReturnType<typeof useActiveWorkspace> | null = null;
+
 function TestApp() {
-  useActiveWorkspace();
+  latestWorkspace = useActiveWorkspace();
   return null;
 }
 
@@ -51,16 +54,46 @@ function makeRouter(initialUrl: string) {
 function renderWithRouter(initialUrl = "/") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = makeRouter(initialUrl);
-  return render(
+  return {
+    ...render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
-  );
+    ),
+    router,
+  };
 }
 
 describe("useActiveWorkspace", () => {
+  beforeEach(() => {
+    latestWorkspace = null;
+    vi.clearAllMocks();
+  });
+
   it("fetches sessions for task from URL ?task param", async () => {
     renderWithRouter("/?task=t1&session=s1");
     await waitFor(() => expect(api.listTaskSessions).toHaveBeenCalledWith("t1"));
+  });
+
+  it("keeps a newly created session active before the session query refetches", async () => {
+    vi.mocked(api.createSession).mockResolvedValue({
+      id: "s2",
+      task_id: "t1",
+      status: "idle",
+      created_at: "2026-01-01T00:01:00Z",
+      updated_at: "2026-01-01T00:01:00Z",
+    });
+
+    const { router } = renderWithRouter("/?task=t1&session=s1");
+
+    await waitFor(() => expect(latestWorkspace?.activeSession?.id).toBe("s1"));
+    await act(async () => {
+      await latestWorkspace?.createSessionForActiveTask();
+    });
+
+    await waitFor(() => expect(latestWorkspace?.activeSession?.id).toBe("s2"));
+    await waitFor(() => {
+      expect((router.state.location.search as { session?: string }).session).toBe("s2");
+    });
   });
 });

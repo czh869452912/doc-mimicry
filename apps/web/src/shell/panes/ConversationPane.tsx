@@ -11,6 +11,7 @@ import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashComman
 interface ConversationPaneProps {
   activeSession: SessionRecord | null;
   activeTask: TaskRecord | null;
+  createSession: () => Promise<SessionRecord | null>;
   ensureSession: () => Promise<SessionRecord | null>;
   events: TimelineEvent[];
   error: string | null;
@@ -28,6 +29,7 @@ interface ConversationPaneProps {
 export function ConversationPane({
   activeSession,
   activeTask,
+  createSession,
   ensureSession,
   events,
   error,
@@ -82,10 +84,13 @@ export function ConversationPane({
 
       try {
         const commandResult = await executeSlashCommand(input, {
+          activeSession,
           activeTask,
+          createSession,
           ensureSession,
           openArtifact: onOpenPath,
           openHelp: () => setShowHelp(true),
+          refreshSessions,
           refreshTimeline,
           refreshWorkspace,
         });
@@ -116,6 +121,7 @@ export function ConversationPane({
       activeSession,
       cancelActiveSession,
       activeTask,
+      createSession,
       ensureSession,
       onOpenPath,
       refreshTimeline,
@@ -141,7 +147,9 @@ export function ConversationPane({
   const runtime = useDocAgentAssistantRuntime({
     activeTaskId: activeTask?.id ?? null,
     events,
+    isDisabled: composerDisabled,
     isRunning,
+    isSendDisabled: isRunning || composerDisabled,
     onCancel: cancelActiveSession,
     onReloadInput: reloadInput,
     onSubmitInput: submitOrCancel,

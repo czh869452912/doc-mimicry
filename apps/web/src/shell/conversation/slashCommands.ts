@@ -2,7 +2,9 @@ import { api } from "../../api";
 import type { SessionRecord, TaskRecord } from "../../types";
 
 export interface SlashCommandContext {
+  activeSession: SessionRecord | null;
   activeTask: TaskRecord | null;
+  createSession: () => Promise<SessionRecord | null>;
   ensureSession: () => Promise<SessionRecord | null>;
   openArtifact: (path: string) => Promise<void>;
   openHelp: () => void;
@@ -34,14 +36,17 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
     return { handled: true, message: `/diff ${args.join(" ")} will open after version tabs are selected.` };
   }
 
-  const session = await context.ensureSession();
-  if (!session || !context.activeTask) return { handled: true, message: "Create a workspace first." };
-
   if (command === "/start") {
+    const session = context.activeSession?.status === "idle" ? context.activeSession : await context.createSession();
+    if (!session || !context.activeTask) return { handled: true, message: "Create a workspace first." };
     await api.startLoop(session.id);
     await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
     return { handled: true, message: "Outline loop starting…" };
   }
+
+  const session = await context.ensureSession();
+  if (!session || !context.activeTask) return { handled: true, message: "Create a workspace first." };
+
   if (command === "/check") {
     await api.runChecklist(session.id);
     await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);

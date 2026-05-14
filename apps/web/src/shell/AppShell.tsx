@@ -118,6 +118,7 @@ export function AppShell() {
               <ConversationPane
                 activeSession={workspaces.activeSession}
                 activeTask={workspaces.activeTask}
+                createSession={workspaces.createSessionForActiveTask}
                 ensureSession={workspaces.ensureSession}
                 events={timeline.events}
                 error={timeline.error}

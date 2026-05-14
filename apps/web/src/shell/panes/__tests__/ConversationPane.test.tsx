@@ -9,6 +9,7 @@ vi.mock("../../../api", () => ({
   api: {
     cancelSession: vi.fn(),
     sendMessage: vi.fn(),
+    startLoop: vi.fn(),
   },
 }));
 
@@ -49,6 +50,7 @@ function renderPane(overrides: Partial<React.ComponentProps<typeof ConversationP
     <ConversationPane
       activeSession={session}
       activeTask={task}
+      createSession={vi.fn().mockResolvedValue(session)}
       ensureSession={vi.fn().mockResolvedValue(session)}
       events={events}
       error={null}
@@ -88,6 +90,7 @@ describe("ConversationPane", () => {
       <ConversationPane
         activeSession={{ ...session, status: "running_chat" }}
         activeTask={task}
+        createSession={vi.fn().mockResolvedValue(session)}
         ensureSession={vi.fn().mockResolvedValue(session)}
         events={events}
         error={null}
@@ -120,6 +123,40 @@ describe("ConversationPane", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Adjust the outline", []);
+  });
+
+  it("refreshes sessions immediately after a slash command starts a background operation", async () => {
+    const refreshSessions = vi.fn().mockResolvedValue(undefined);
+    const refreshTimeline = vi.fn().mockResolvedValue(undefined);
+    const refreshWorkspace = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.startLoop).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_context" });
+    renderPane({
+      activeSession: { ...session, status: "idle" },
+      refreshSessions,
+      refreshTimeline,
+      refreshWorkspace,
+    });
+
+    await userEvent.type(screen.getByLabelText("Message"), "/start");
+    await userEvent.keyboard("{Enter}");
+
+    expect(api.startLoop).toHaveBeenCalledWith("session-1");
+    expect(refreshSessions).toHaveBeenCalledOnce();
+    expect(refreshTimeline).toHaveBeenCalledOnce();
+    expect(refreshWorkspace).toHaveBeenCalledOnce();
+  });
+
+  it("starts the outline loop in a fresh session when the current session is not idle", async () => {
+    const freshSession = { ...session, id: "session-fresh", status: "idle" };
+    const createSession = vi.fn().mockResolvedValue(freshSession);
+    vi.mocked(api.startLoop).mockResolvedValue({ session_id: "session-fresh", accepted: true, status: "running_context" });
+    renderPane({ activeSession: { ...session, status: "draft_ready" }, createSession });
+
+    await userEvent.type(screen.getByLabelText("Message"), "/start");
+    await userEvent.keyboard("{Enter}");
+
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(api.startLoop).toHaveBeenCalledWith("session-fresh");
   });
 
   it("does not submit or cancel when Enter is pressed while running", async () => {

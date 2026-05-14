@@ -9,7 +9,9 @@ import type { MessageAttachment } from "../../types";
 interface UseDocAgentAssistantRuntimeOptions {
   activeTaskId: string | null;
   events: TimelineEvent[];
+  isDisabled?: boolean;
   isRunning: boolean;
+  isSendDisabled?: boolean;
   onCancel?: () => Promise<void>;
   onReloadInput?: (parentMessageId: string | null, config: StartRunConfig) => Promise<void>;
   onSubmitInput: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
@@ -41,7 +43,9 @@ export function takeImportedAttachmentsForTask(
 export function useDocAgentAssistantRuntime({
   activeTaskId,
   events,
+  isDisabled = false,
   isRunning,
+  isSendDisabled = false,
   onCancel,
   onReloadInput,
   onSubmitInput,
@@ -68,7 +72,9 @@ export function useDocAgentAssistantRuntime({
     adapters: {
       attachments: attachmentAdapter,
     },
+    isDisabled,
     isRunning,
+    isSendDisabled,
     messages,
     onCancel,
     onNew: async (message: AppendMessage) => {
