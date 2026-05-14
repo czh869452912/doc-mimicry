@@ -13,8 +13,8 @@
 ## Scope
 
 - Primary audit source: `docs/reviews/active/2026-05-13-plugin-component-lifecycle-audit.md`.
-- Fix first: ISSUE-01, ISSUE-09, ISSUE-02, ISSUE-12, ISSUE-15, ISSUE-11, ISSUE-14, ISSUE-18, ISSUE-16, ISSUE-19, ISSUE-21.
-- Add guardrails for remaining confirmed low-risk issues: ISSUE-03, ISSUE-04, ISSUE-06, ISSUE-07, ISSUE-08, ISSUE-10, ISSUE-13, ISSUE-17, ISSUE-20.
+- Fix first: ISSUE-01, ISSUE-09, ISSUE-02, ISSUE-03, ISSUE-12, ISSUE-15, ISSUE-11, ISSUE-14, ISSUE-18, ISSUE-16, ISSUE-19, ISSUE-21.
+- Add guardrails for remaining confirmed low-risk issues: ISSUE-04, ISSUE-06, ISSUE-07, ISSUE-08, ISSUE-10, ISSUE-13, ISSUE-17, ISSUE-20.
 - Preserve the product direction from `AGENTS.md`: interactive document workbench, Markdown as internal format, management and authoring as separate UI surfaces.
 
 ## Non-Goals
@@ -26,10 +26,10 @@
 
 ## Files And Responsibilities
 
-- Modify `apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts`: assistant-ui adapter callbacks, task-scoped attachment references, runtime capability wrapper.
+- Modify `apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts`: assistant-ui adapter callbacks, reload config forwarding, task-scoped attachment references, runtime capability wrapper.
 - Create `apps/web/src/shell/assistant/__tests__/useDocAgentAssistantRuntime.test.tsx`: runtime adapter contract tests using a mocked `useExternalStoreRuntime`.
-- Modify `apps/web/src/shell/panes/ConversationPane.tsx`: single idempotent cancellation path and runtime cancellation wiring.
-- Modify `apps/web/src/shell/panes/__tests__/ConversationPane.test.tsx`: cancellation, reload, and refresh assertions.
+- Modify `apps/web/src/shell/panes/ConversationPane.tsx`: single idempotent cancellation path, runtime cancellation wiring, and reload callback signature compatibility.
+- Modify `apps/web/src/shell/panes/__tests__/ConversationPane.test.tsx`: cancellation idempotency, reload, and refresh assertions.
 - Modify `apps/web/src/shell/panes/EditorPane.tsx`: remove nested interactive tab close button.
 - Create `apps/web/src/shell/panes/__tests__/EditorPane.test.tsx`: tab close a11y and tab activation behavior.
 - Modify `apps/web/src/shell/theme/shell.css`: tab wrapper and close button spacing after markup changes.
@@ -54,7 +54,7 @@
 - Create `docs/quality/frontend-component-integration-checklist.md`: recurring checklist for third-party component integration.
 - Modify `AGENTS.md`: add one short pointer to the frontend integration checklist for `apps/web` changes.
 
-## Task 1: Assistant Runtime Cancellation And Scoped Attachments
+## Task 1: Assistant Runtime Cancellation, Reload Contract, And Scoped Attachments
 
 **Files:**
 - Modify: `apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts`
@@ -69,6 +69,7 @@ Create `apps/web/src/shell/assistant/__tests__/useDocAgentAssistantRuntime.test.
 ```tsx
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StartRunConfig } from "@assistant-ui/core";
 import type { AppendMessage } from "@assistant-ui/react";
 import {
   addImportedAttachmentForTask,
@@ -109,6 +110,7 @@ function latestOptions() {
   return capturedRuntimeOptions.at(-1) as {
     onCancel?: () => Promise<void>;
     onNew: (message: AppendMessage) => Promise<void>;
+    onReload?: (parentId: string | null, config: StartRunConfig) => Promise<void>;
   };
 }
 
@@ -126,6 +128,21 @@ describe("useDocAgentAssistantRuntime", () => {
     await latestOptions().onCancel?.();
 
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards assistant-ui reload config to the caller", async () => {
+    const onReloadInput = vi.fn().mockResolvedValue(undefined);
+    const config: StartRunConfig = {
+      parentId: "parent-message",
+      sourceId: "source-message",
+      runConfig: { custom: { retryReason: "manual" } },
+    };
+
+    render(<Harness onReloadInput={onReloadInput} />);
+
+    await latestOptions().onReload?.("parent-message", config);
+
+    expect(onReloadInput).toHaveBeenCalledWith("parent-message", config);
   });
 
   it("takes attachments only for the requested task", () => {
@@ -160,11 +177,15 @@ cd apps/web
 npm run test:unit -- src/shell/assistant/__tests__/useDocAgentAssistantRuntime.test.tsx src/shell/panes/__tests__/ConversationPane.test.tsx
 ```
 
-Expected: FAIL because `onCancel` is missing and attachment references are stored in one cross-task array.
+Expected: FAIL because `onCancel` is missing, reload config is not forwarded, and attachment references are stored in one cross-task array.
 
-- [ ] **Step 3: Implement task-scoped attachment storage and runtime cancellation**
+- [ ] **Step 3: Implement task-scoped attachment storage, reload forwarding, and runtime cancellation**
 
-In `apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts`, change the options interface and internal ref shape:
+In `apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts`, import the assistant-ui core run config type, then change the options interface and internal ref shape:
+
+```ts
+import type { StartRunConfig } from "@assistant-ui/core";
+```
 
 ```ts
 interface UseDocAgentAssistantRuntimeOptions {
@@ -172,7 +193,7 @@ interface UseDocAgentAssistantRuntimeOptions {
   events: TimelineEvent[];
   isRunning: boolean;
   onCancel?: () => Promise<void>;
-  onReloadInput?: (parentMessageId: string | null) => Promise<void>;
+  onReloadInput?: (parentMessageId: string | null, config: StartRunConfig) => Promise<void>;
   onSubmitInput: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
 }
 
@@ -232,16 +253,41 @@ return useExternalStoreRuntime<ThreadMessage>({
     importedAttachmentReferencesRef.current = result.nextStore;
     await onSubmitInput(textFromAppendMessage(message), result.attachments);
   },
-  onReload: async (parentId: string | null) => {
-    await onReloadInput?.(parentId);
+  onReload: async (parentId: string | null, config: StartRunConfig) => {
+    await onReloadInput?.(parentId, config);
   },
   unstable_capabilities: { copy: true },
 });
 ```
 
-- [ ] **Step 4: Consolidate cancellation in `ConversationPane`**
+- [ ] **Step 4: Add focused cancellation idempotency coverage**
 
-In `apps/web/src/shell/panes/ConversationPane.tsx`, make `cancelActiveSession` idempotent and pass it to the runtime:
+In `apps/web/src/shell/panes/__tests__/ConversationPane.test.tsx`, add:
+
+```tsx
+it("sends only one cancel request while cancellation is already in flight", async () => {
+  const user = userEvent.setup();
+  let resolveCancel!: (value: { session_id: string; status: string }) => void;
+  vi.mocked(api.cancelSession).mockReturnValue(
+    new Promise((resolve) => {
+      resolveCancel = resolve;
+    }) as ReturnType<typeof api.cancelSession>,
+  );
+
+  renderPane({ activeSession: { ...session, status: "running_chat" } });
+
+  const stopButton = screen.getByRole("button", { name: /stop the running agent/i });
+  await user.dblClick(stopButton);
+
+  expect(api.cancelSession).toHaveBeenCalledTimes(1);
+
+  resolveCancel({ session_id: "session-1", status: "cancelled" });
+});
+```
+
+- [ ] **Step 5: Consolidate cancellation in `ConversationPane`**
+
+In `apps/web/src/shell/panes/ConversationPane.tsx`, make `cancelActiveSession` idempotent and pass it to the runtime. Place `cancellationInFlightRef` and `cancelActiveSession` above `submitOrCancel`, because `submitOrCancel` calls `cancelActiveSession`:
 
 ```ts
 const cancellationInFlightRef = useRef(false);
@@ -262,7 +308,7 @@ const cancelActiveSession = useCallback(async () => {
 }, [activeSession, refreshTimeline, refreshSessions]);
 ```
 
-Update the running branch in `submitOrCancel`:
+Update the running branch in `submitOrCancel`, and add `cancelActiveSession` to the `useCallback` dependency list:
 
 ```ts
 if (isRunning && activeSession) {
@@ -273,6 +319,32 @@ if (isRunning && activeSession) {
   await cancelActiveSession();
   return;
 }
+```
+
+```ts
+}, [isRunning, activeSession, activeTask, ensureSession, onOpenPath, refreshTimeline, refreshWorkspace, refreshSessions, cancelActiveSession]);
+```
+
+Keep `reloadInput` compatible with `onReloadInput` by accepting the config parameter even though the current reload path only needs `parentMessageId`. This intentionally preserves ISSUE-03's runtime callback contract for future use:
+
+```ts
+const reloadInput = useCallback(
+  async (parentMessageId: string | null, _config?: StartRunConfig) => {
+    const input = inputForReload(eventsRef.current, parentMessageId);
+    if (!input) {
+      setStatus("No previous user message to reload.");
+      return;
+    }
+    await submitOrCancel(input);
+  },
+  [submitOrCancel],
+);
+```
+
+Import the type at the top of `ConversationPane.tsx`:
+
+```ts
+import type { StartRunConfig } from "@assistant-ui/core";
 ```
 
 Pass `onCancel`:
@@ -288,7 +360,7 @@ const runtime = useDocAgentAssistantRuntime({
 });
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [ ] **Step 6: Run focused tests**
 
 Run:
 
@@ -299,11 +371,11 @@ npm run test:unit -- src/shell/assistant/__tests__/useDocAgentAssistantRuntime.t
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```powershell
 git add apps/web/src/shell/assistant/useDocAgentAssistantRuntime.ts apps/web/src/shell/assistant/__tests__/useDocAgentAssistantRuntime.test.tsx apps/web/src/shell/panes/ConversationPane.tsx apps/web/src/shell/panes/__tests__/ConversationPane.test.tsx
-git commit -m "fix: wire assistant runtime cancellation"
+git commit -m "fix: wire assistant runtime cancellation and reload"
 ```
 
 ## Task 2: Tab Semantics And Command Palette Dismissal
@@ -731,6 +803,9 @@ describe("OutlineCard", () => {
       />,
     );
 
+    await waitFor(() => {
+      expect(api.getWorkspaceFile).toHaveBeenCalledTimes(1);
+    });
     expect(textarea).toHaveValue("User edited outline");
   });
 });
@@ -738,30 +813,42 @@ describe("OutlineCard", () => {
 
 - [ ] **Step 4: Implement dirty edit protection**
 
-In `apps/web/src/shell/conversation/cards/OutlineCard.tsx`, add a dirty ref:
-
-```ts
-const dirtyRef = useRef(false);
-```
-
-Import `useRef`:
+In `apps/web/src/shell/conversation/cards/OutlineCard.tsx`, import `useRef` and add a dirty ref:
 
 ```ts
 import { useEffect, useRef, useState } from "react";
 ```
 
-Change the fetch resolution:
-
 ```ts
-.then((file) => {
-  if (!cancelled && !dirtyRef.current) setOutline(file.content);
-})
-.catch(() => {
-  if (!cancelled && !dirtyRef.current) setOutline(event.summary);
-});
+const dirtyRef = useRef(false);
 ```
 
-Change the textarea:
+Replace the existing outline-fetch effect with one keyed by event identity, not summary text. The dependency list intentionally excludes `event.summary`: a status/summary refresh for the same event must not refetch and overwrite a user's dirty edit.
+
+```ts
+useEffect(() => {
+  dirtyRef.current = false;
+  setOutline(event.summary);
+  if (!taskId) return;
+  let cancelled = false;
+
+  api
+    .getWorkspaceFile(taskId, outlinePath)
+    .then((file) => {
+      if (!cancelled && !dirtyRef.current) setOutline(file.content);
+    })
+    .catch(() => {
+      if (!cancelled && !dirtyRef.current) setOutline(event.summary);
+    });
+
+  return () => {
+    cancelled = true;
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [event.id, outlinePath, taskId]);
+```
+
+Change the textarea so local typing marks the current outline as dirty:
 
 ```tsx
 <textarea
@@ -771,15 +858,6 @@ Change the textarea:
     setOutline(event.target.value);
   }}
 />
-```
-
-Reset dirty state only when the event identity changes. Do not include `event.summary` in this dependency list because a summary refresh for the same event must not clear a user's dirty edit:
-
-```ts
-useEffect(() => {
-  dirtyRef.current = false;
-  setOutline(event.summary);
-}, [event.id]);
 ```
 
 - [ ] **Step 5: Run focused tests**
@@ -1036,7 +1114,33 @@ await onCreateWorkspace(docTypeId, { title: values.title, description: values.de
 
 Zod `.trim()` already returns trimmed strings to `handleSubmit`.
 
-- [ ] **Step 3: Verify workspace creation object contract**
+- [ ] **Step 3: Update existing submit-error test to satisfy title validation**
+
+The existing `"shows a submit error when onCreateWorkspace rejects"` test in `apps/web/src/shell/panes/__tests__/WorkspacePane.test.tsx` currently types only a description. After title validation is added, that test must fill a valid title before submitting so it still covers the rejected `onCreateWorkspace` path:
+
+```tsx
+it("shows a submit error when onCreateWorkspace rejects", async () => {
+  const user = userEvent.setup();
+  const onCreateWorkspace = vi.fn().mockRejectedValue(new Error("Server error"));
+  render(<WorkspacePane {...defaultProps} onCreateWorkspace={onCreateWorkspace} />);
+
+  const openButtons = screen.getAllByRole("button", { name: /create workspace/i });
+  await user.click(openButtons[0]);
+
+  const form = screen.getByRole("form", { name: /create workspace/i });
+  await user.type(within(form).getByLabelText(/title/i), "Retryable workspace");
+  await user.type(within(form).getByLabelText(/description/i), "A test workspace description");
+  await user.click(within(form).getByRole("button", { name: /create workspace/i }));
+
+  await waitFor(() => {
+    expect(screen.getByText(/server error/i)).toBeTruthy();
+  });
+
+  expect(screen.getByRole("form", { name: /create workspace/i })).toBeTruthy();
+});
+```
+
+- [ ] **Step 4: Verify workspace creation object contract**
 
 Confirm `apps/web/src/shell/state/useActiveWorkspace.ts` still accepts object input:
 
@@ -1065,7 +1169,7 @@ onCreateWorkspace={async (docTypeId, brief) => {
 
 If any of those snippets differ on the implementation branch, update them to the snippets above before running the tests in this task.
 
-- [ ] **Step 4: Write unknown timeline status test**
+- [ ] **Step 5: Write unknown timeline status test**
 
 In `apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts`, add:
 
@@ -1084,7 +1188,7 @@ it("maps unknown timeline status to incomplete error instead of complete", () =>
 });
 ```
 
-- [ ] **Step 5: Implement unknown status fallback**
+- [ ] **Step 6: Implement unknown status fallback**
 
 In `apps/web/src/shell/assistant/docAgentAssistantMessages.ts`, replace the old thread-status mapper with `assistantStatusFromTimelineStatus`, make the status mapper explicit, and update every call site in the file:
 
@@ -1106,7 +1210,7 @@ status: assistantStatusFromTimelineStatus(event.status),
 
 After this change, the old mapper name must not appear anywhere in the file.
 
-- [ ] **Step 6: Run focused tests**
+- [ ] **Step 7: Run focused tests**
 
 Run:
 
@@ -1118,7 +1222,7 @@ npm run test
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
 git add apps/web/src/shell/panes/WorkspacePane.tsx apps/web/src/shell/panes/__tests__/WorkspacePane.test.tsx apps/web/src/shell/assistant/docAgentAssistantMessages.ts apps/web/src/shell/assistant/__tests__/docAgentAssistantMessages.test.ts
@@ -1283,7 +1387,8 @@ git commit -m "docs: close component lifecycle audit"
 ## Rollback Or Recovery Notes
 
 - Each task has its own commit. If a regression appears, use `git revert <commit>` for the affected task rather than reverting the whole sequence.
-- If assistant-ui runtime typings reject the `onCancel` field, inspect `apps/web/node_modules/@assistant-ui/core/dist/runtimes/external-store/external-store-adapter.d.ts` and update the adapter object to match the installed type name.
+- If assistant-ui runtime typings reject the `onCancel` or `onReload` fields, inspect `apps/web/node_modules/@assistant-ui/core/dist/runtimes/external-store/external-store-adapter.d.ts` and update the adapter object to match the installed type names.
+- If the `StartRunConfig` type import fails, verify it is imported from `@assistant-ui/core`; `@assistant-ui/react` re-exports `CreateStartRunConfig`, not `StartRunConfig`, in the installed 0.12.28 package.
 - If `CommandPalette` Escape behavior conflicts with cmdk internals, move the Escape handler from the overlay to the `Command` root and keep the same test expectations.
 - If the panel layout helper conflicts with `react-resizable-panels` constraints, adjust the helper constants so `left >= 12`, `right >= 18`, and `center >= 18` remain true.
 

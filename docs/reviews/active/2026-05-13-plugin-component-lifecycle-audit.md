@@ -43,7 +43,7 @@ Findings:
 Recommended fix order:
 
 1. ISSUE-01 / ISSUE-09: wire cancellation through assistant-ui runtime and make cancel idempotent.
-2. ISSUE-02: scope imported attachment references by task id.
+2. ISSUE-02 / ISSUE-03: scope imported attachment references by task id and preserve assistant-ui reload `StartRunConfig`.
 3. ISSUE-12 and ISSUE-15: fix invalid tab markup and keyboard-only command-palette dismissal.
 4. ISSUE-11 and ISSUE-14: stop editor reconfiguration churn and protect in-progress outline edits.
 5. ISSUE-18 and ISSUE-16: remove stale cross-task placeholder data from workspace/draft surfaces.
