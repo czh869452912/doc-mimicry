@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from docagent_contracts import (
+    AcpRuntimeAdapter,
+    AcpRuntimeUpdate,
     PromptBundle,
     RawRuntimeEvent,
     RuntimeEventSink,
@@ -79,3 +81,21 @@ def test_streaming_runtime_adapter_protocol_is_importable() -> None:
 def test_running_chat_state_exists() -> None:
     from docagent_contracts import RuntimeSessionState
     assert RuntimeSessionState.RUNNING_CHAT.value == "running_chat"
+
+
+def test_acp_runtime_update_shape() -> None:
+    update = AcpRuntimeUpdate(
+        session_id="session-1",
+        event_type="message_delta",
+        payload={"role": "assistant", "content": "Hello"},
+        projection={"timeline_kind": "agent_message"},
+    )
+
+    assert update.session_id == "session-1"
+    assert update.event_type == "message_delta"
+    assert update.payload["content"] == "Hello"
+    assert update.projection == {"timeline_kind": "agent_message"}
+
+
+def test_acp_runtime_adapter_protocol_is_importable() -> None:
+    assert AcpRuntimeAdapter is not None

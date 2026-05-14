@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from docagent_contracts import PromptBundle, RuntimeSessionState
-from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter
+from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter, map_openhands_payload_to_acp_update
 
 
 class FakeOpenHandsClient:
@@ -101,6 +101,17 @@ def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:
     assert result.raw_events == []
     assert streamed[0].payload["path"] == "draft/streamed.md"
     assert result.changed_paths == ["draft/streamed.md"]
+
+
+def test_openhands_payload_maps_to_acp_update() -> None:
+    update = map_openhands_payload_to_acp_update(
+        "session-001",
+        {"kind": "file_written", "path": "draft/draft.md"},
+    )
+
+    assert update.event_type == "file/write"
+    assert update.payload["path"] == "draft/draft.md"
+    assert update.projection["timeline_kind"] == "update_draft"
 
 
 def _prompt_bundle(workspace: Path) -> PromptBundle:

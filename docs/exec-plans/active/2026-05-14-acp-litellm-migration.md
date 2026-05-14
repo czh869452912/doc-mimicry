@@ -94,18 +94,18 @@ LiteLLM Proxy
 
 ### Phase 4: Add The Runtime ACP Boundary
 
-- [ ] Define the runtime-facing ACP session interface in the adapter layer.
+- [x] Define the runtime-facing ACP session interface in the adapter layer.
   - create or load session
   - send prompt
   - stream updates
   - cancel session
-- [ ] Implement an ACP mock runtime for deterministic tests.
-- [ ] Wrap the current OpenHands integration in an ACP shim.
+- [x] Implement an ACP mock runtime for deterministic tests.
+- [x] Wrap the current OpenHands integration in an ACP shim.
   - Convert OpenHands message events to ACP message updates.
   - Convert OpenHands tool/file/command events to ACP tool updates.
   - Preserve unsupported raw payloads in ACP event payloads rather than dropping them.
-- [ ] Add tests for cancel, resume gap handling, tool update ordering, and file-write projections.
-- [ ] Mark the current OpenHands-specific semantic mapper as legacy once the ACP shim is covered.
+- [x] Add tests for cancel, resume gap handling, tool update ordering, and file-write projections.
+- [x] Mark the current OpenHands-specific semantic mapper as legacy once the ACP shim is covered.
 
 ### Phase 5: Add LiteLLM Proxy As The Model Gateway
 

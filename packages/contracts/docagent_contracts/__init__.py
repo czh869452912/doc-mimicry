@@ -16,6 +16,8 @@ from .models import (
     WorkspaceLayout,
 )
 from .runtime import (
+    AcpRuntimeAdapter,
+    AcpRuntimeUpdate,
     PromptBundle,
     RawRuntimeEvent,
     RuntimeAdapter,
@@ -44,6 +46,8 @@ __all__ = [
     "TimelineStatus",
     "WorkspaceLayout",
     "PromptBundle",
+    "AcpRuntimeAdapter",
+    "AcpRuntimeUpdate",
     "RawRuntimeEvent",
     "RuntimeAdapter",
     "RuntimeEventSink",

@@ -48,12 +48,21 @@ class RawRuntimeEvent:
 
 
 @dataclass(frozen=True)
+class AcpRuntimeUpdate:
+    session_id: str
+    event_type: str
+    payload: dict[str, Any]
+    projection: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class RuntimeOperationResult:
     session_id: str
     next_state: RuntimeSessionState
     events: list[Any] = field(default_factory=list)
     changed_paths: list[str] = field(default_factory=list)
     raw_events: list[RawRuntimeEvent] = field(default_factory=list)
+    acp_updates: list[AcpRuntimeUpdate] = field(default_factory=list)
 
 
 RuntimeEventSink = Callable[[RawRuntimeEvent], None]
@@ -116,4 +125,23 @@ class StreamingRuntimeAdapter(RuntimeAdapter, Protocol):
         ...
 
     def export_markdown_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
+        ...
+
+
+class AcpRuntimeAdapter(Protocol):
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        ...
+
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> RuntimeOperationResult:
+        ...
+
+    def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
+        ...
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
         ...

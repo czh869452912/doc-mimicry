@@ -4,6 +4,7 @@ from typing import Any
 from uuid import uuid4
 
 from docagent_contracts import (
+    AcpRuntimeUpdate,
     PromptBundle,
     RawRuntimeEvent,
     RuntimeEventSink,
@@ -14,6 +15,54 @@ from docagent_contracts import (
 from docagent_contracts.time import utc_now
 
 from .client import OpenHandsClient
+
+
+def map_openhands_payload_to_acp_update(session_id: str, payload: dict[str, Any]) -> AcpRuntimeUpdate:
+    kind = str(payload.get("kind") or payload.get("type") or "event")
+    if kind in {"file_written", "file_write", "write_file"}:
+        path = payload.get("path")
+        paths = [str(path)] if path else []
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="file/write",
+            payload=payload,
+            projection={
+                "timeline_kind": "update_draft",
+                "actor": "tool",
+                "summary": f"Write {path}" if path else "File write",
+                "paths": paths,
+                "status": "succeeded",
+            },
+        )
+    if kind in {"message", "agent_message"}:
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="message_delta",
+            payload={
+                "role": "assistant",
+                "content": str(payload.get("content") or payload.get("message") or ""),
+                "message_id": str(payload.get("id") or payload.get("message_id") or "openhands-message"),
+                "raw": payload,
+            },
+        )
+    if kind == "cancelled":
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="session/cancelled",
+            payload=payload,
+            projection={
+                "timeline_kind": "session_status",
+                "actor": "system",
+                "summary": "Runtime session cancelled",
+                "paths": [],
+                "status": "cancelled",
+            },
+        )
+    return AcpRuntimeUpdate(
+        session_id=session_id,
+        event_type=f"openhands/{kind}",
+        payload=payload,
+    )
 
 
 class OpenHandsRuntimeAdapter:

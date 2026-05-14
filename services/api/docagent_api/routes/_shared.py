@@ -86,6 +86,12 @@ def append_runtime_result(
     session_id: str,
     result: RuntimeOperationResult,
 ) -> None:
+    for update in result.acp_updates:
+        state.append_acp_event(
+            session_id,
+            {"event_type": update.event_type, **update.payload},
+            projection=update.projection,
+        )
     append_events(state, session_id, result.events)
     for raw_event in result.raw_events:
         if raw_event.runtime_session_id:

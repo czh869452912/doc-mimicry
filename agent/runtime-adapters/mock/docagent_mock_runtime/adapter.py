@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from docagent_contracts import (
+    AcpRuntimeUpdate,
     PromptBundle,
     RuntimeOperationResult,
     RuntimeSessionState,
@@ -53,6 +54,37 @@ class MockRuntimeAdapter:
             events=events,
             changed_paths=_event_paths(events),
         )
+
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
+        result = self.send_message(session_id, prompt)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=result.next_state,
+            events=result.events,
+            changed_paths=result.changed_paths,
+            raw_events=result.raw_events,
+            acp_updates=[
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="message_delta",
+                    payload={"role": "assistant", "content": prompt, "message_id": f"{session_id}-mock-message"},
+                ),
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="message_completed",
+                    payload={"role": "assistant", "message_id": f"{session_id}-mock-message"},
+                ),
+            ],
+        )
+
+    def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
+        self._session(session_id)
+        return []
 
     def start_loop(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)

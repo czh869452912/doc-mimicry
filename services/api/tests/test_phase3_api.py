@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 import docagent_api.app as app_module
 from docagent_api.app import create_app
 from docagent_api.state import DocAgentState
-from docagent_contracts import PromptBundle, RuntimeOperationResult, RuntimeSessionState
+from docagent_contracts import AcpRuntimeUpdate, PromptBundle, RuntimeOperationResult, RuntimeSessionState
 
 
 def test_invalid_outline_approval_returns_409(tmp_path: Path) -> None:
@@ -80,6 +80,21 @@ class FailingSendAdapter:
 
     def get_state(self, session_id: str) -> RuntimeSessionState:
         return RuntimeSessionState.IDLE
+
+
+class AcpUpdateAdapter(FailingSendAdapter):
+    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.DRAFT_READY,
+            acp_updates=[
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="message_delta",
+                    payload={"role": "assistant", "content": "streamed", "message_id": "m1"},
+                )
+            ],
+        )
 
 
 class FailingCreateAdapter(FailingSendAdapter):
@@ -281,6 +296,28 @@ def test_prompt_endpoint_runs_chat_and_records_acp_prompt_and_projection_events(
     assert any(
         event["event_type"] == "docagent/projection"
         and event["projection"]["timeline_kind"] == "update_draft"
+        for event in acp_events
+    )
+
+
+def test_runtime_acp_updates_are_persisted_to_event_store(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=AcpUpdateAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": "# Outline\n"})
+
+    response = client.post(f"/sessions/{session['id']}/prompt", json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "message_delta"
+        and event["payload"]["content"] == "streamed"
         for event in acp_events
     )
 
