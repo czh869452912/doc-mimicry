@@ -18,6 +18,7 @@ from .models import (
 from .runtime import (
     AcpRuntimeAdapter,
     AcpRuntimeUpdate,
+    LegacyRuntimeAdapter,
     PromptBundle,
     RawRuntimeEvent,
     RuntimeAdapter,
@@ -25,7 +26,6 @@ from .runtime import (
     RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
-    StreamingRuntimeAdapter,
 )
 from .time import utc_now
 
@@ -48,12 +48,12 @@ __all__ = [
     "PromptBundle",
     "AcpRuntimeAdapter",
     "AcpRuntimeUpdate",
+    "LegacyRuntimeAdapter",
     "RawRuntimeEvent",
     "RuntimeAdapter",
     "RuntimeEventSink",
     "RuntimeKind",
     "RuntimeOperationResult",
     "RuntimeSessionState",
-    "StreamingRuntimeAdapter",
     "utc_now",
 ]

@@ -10,7 +10,7 @@ Owns:
 - Workspace initialization.
 - Runtime adapter integration.
 - Versions, artifacts, audit records.
-- Semantic timeline enrichment.
+- ACP event storage and semantic projection enrichment.
 
 Does not own:
 
@@ -38,6 +38,11 @@ docker compose logs -f api worker
 to inspect backend logs.
 
 ## Runtime Configuration
+
+The backend exposes ACP session events through `/sessions/{session_id}/events`
+and `/sessions/{session_id}/events/stream`. Runtime adapters that support ACP
+should accept prompts plus metadata and return ACP updates; operation-specific
+methods are compatibility fallbacks.
 
 Default:
 
@@ -88,6 +93,9 @@ For Docker Compose routing and container health without a real runtime, use:
 ```powershell
 python tools/runtime/compose_smoke.py --runtime mock
 ```
+
+The compose smoke checks the ACP event endpoint rather than the legacy semantic
+timeline endpoint.
 
 Check Docker Compose wiring, including LiteLLM, with:
 

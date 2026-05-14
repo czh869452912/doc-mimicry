@@ -7,7 +7,12 @@ from typing import Any
 
 from docagent_api.celery_app import celery_app
 from docagent_api.prompts import build_prompt_bundle
-from docagent_api.routes._shared import append_runtime_result, runtime_event_sink, set_session_state
+from docagent_api.routes._shared import (
+    append_acp_projection_event,
+    append_runtime_result,
+    runtime_event_sink,
+    set_session_state,
+)
 from docagent_api.session_state import RUNNING_STATES
 from docagent_contracts import RuntimeSessionState
 
@@ -118,6 +123,7 @@ def run_session(
             status=TimelineStatus.FAILED,
         )
         state.append_timeline_event(session_id, asdict(failure))
+        append_acp_projection_event(state, session_id, failure)
         # Use the state captured before the transition. If it is missing and the
         # current state is still running, fail closed instead of preserving a stale
         # running_* state forever.

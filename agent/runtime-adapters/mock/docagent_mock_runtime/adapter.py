@@ -61,7 +61,7 @@ class MockRuntimeAdapter:
         prompt: str,
         metadata: dict[str, object] | None = None,
     ) -> RuntimeOperationResult:
-        result = self.send_message(session_id, prompt)
+        result = self._run_prompt_action(session_id, prompt, metadata or {})
         return RuntimeOperationResult(
             session_id=session_id,
             next_state=result.next_state,
@@ -85,6 +85,25 @@ class MockRuntimeAdapter:
     def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
         self._session(session_id)
         return []
+
+    def _run_prompt_action(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object],
+    ) -> RuntimeOperationResult:
+        action = metadata.get("action")
+        if action == "start_loop":
+            return self.start_loop(session_id)
+        if action == "approve_outline":
+            return self.approve_outline(session_id)
+        if action == "revise_selection":
+            return self.revise_selection(session_id, str(metadata.get("selection", "")), prompt)
+        if action == "run_checklist":
+            return self.run_checklist(session_id)
+        if action == "export_markdown":
+            return self.export_markdown(session_id)
+        return self.send_message(session_id, prompt)
 
     def start_loop(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)

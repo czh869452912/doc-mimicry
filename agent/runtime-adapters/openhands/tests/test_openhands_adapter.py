@@ -90,6 +90,28 @@ def test_openhands_adapter_uses_persisted_runtime_session_id() -> None:
     assert client.messages == ["Revise"]
 
 
+def test_openhands_adapter_send_prompt_emits_acp_updates(tmp_path: Path) -> None:
+    client = FakeOpenHandsClient()
+    adapter = OpenHandsRuntimeAdapter(client)
+    adapter.create_session("session-001", _prompt_bundle(tmp_path))
+
+    result = adapter.send_prompt(
+        "session-001",
+        "Revise the draft",
+        {"action": "send_message"},
+    )
+
+    assert result.next_state == RuntimeSessionState.DRAFT_READY
+    assert len(result.raw_events) == 1
+    assert result.raw_events[0].kind == "session_created"
+    assert client.messages == ["Revise the draft"]
+    assert [update.event_type for update in result.acp_updates] == [
+        "openhands/session_created",
+        "file/write",
+    ]
+    assert result.acp_updates[1].projection["timeline_kind"] == "update_draft"
+
+
 def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:
     adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
     adapter.create_session("session-001", _prompt_bundle(tmp_path))

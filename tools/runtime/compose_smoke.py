@@ -58,9 +58,9 @@ def main() -> int:
         "draft/outline.md",
         args.timeout,
     )
-    timeline = wait_for_timeline(f"{args.web_url}/api/sessions/{session['id']}/timeline", args.timeout)
-    if not timeline:
-        raise RuntimeError("Expected at least one timeline event after background operation.")
+    acp_events = wait_for_acp_events(f"{args.web_url}/api/sessions/{session['id']}/events", args.timeout)
+    if not acp_events:
+        raise RuntimeError("Expected at least one ACP event after background operation.")
     print("compose smoke ok")
     return 0
 
@@ -98,12 +98,12 @@ def wait_for_workspace_file(url: str, path: str, timeout_seconds: int) -> None:
     raise TimeoutError(f"Timed out waiting for workspace file {path}")
 
 
-def wait_for_timeline(url: str, timeout_seconds: int) -> list[dict[str, object]]:
+def wait_for_acp_events(url: str, timeout_seconds: int) -> list[dict[str, object]]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        timeline = json.loads(wait_for_text(url, 5))
-        if timeline:
-            return timeline
+        events = json.loads(wait_for_text(url, 5))
+        if events:
+            return events
         time.sleep(2)
     return []
 

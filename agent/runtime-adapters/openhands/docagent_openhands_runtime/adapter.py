@@ -65,6 +65,17 @@ def map_openhands_payload_to_acp_update(session_id: str, payload: dict[str, Any]
     )
 
 
+def _next_state_for_prompt_action(action: object) -> RuntimeSessionState:
+    return {
+        "start_loop": RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+        "approve_outline": RuntimeSessionState.DRAFT_READY,
+        "revise_selection": RuntimeSessionState.DRAFT_READY,
+        "run_checklist": RuntimeSessionState.DRAFT_READY,
+        "export_markdown": RuntimeSessionState.COMPLETED,
+        "send_message": RuntimeSessionState.DRAFT_READY,
+    }.get(str(action or "send_message"), RuntimeSessionState.DRAFT_READY)
+
+
 class OpenHandsRuntimeAdapter:
     def __init__(self, client: OpenHandsClient) -> None:
         self.client = client
@@ -95,6 +106,34 @@ class OpenHandsRuntimeAdapter:
         next_state = RuntimeSessionState.DRAFT_READY
         self._states[session_id] = next_state
         return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
+
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> RuntimeOperationResult:
+        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
+        raw_payloads = self.client.send_message(runtime_session_id, prompt)
+        action = (metadata or {}).get("action")
+        next_state = _next_state_for_prompt_action(action)
+        self._states[session_id] = next_state
+        acp_updates = [
+            map_openhands_payload_to_acp_update(session_id, {**event.payload, "kind": event.kind})
+            for event in [creation_event]
+            if event is not None
+        ]
+        acp_updates.extend(
+            map_openhands_payload_to_acp_update(session_id, payload)
+            for payload in raw_payloads
+        )
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=next_state,
+            changed_paths=[str(payload["path"]) for payload in raw_payloads if "path" in payload],
+            raw_events=[creation_event] if creation_event is not None else [],
+            acp_updates=acp_updates,
+        )
 
     def send_message_stream(
         self,

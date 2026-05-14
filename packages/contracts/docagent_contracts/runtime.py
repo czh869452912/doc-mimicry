@@ -68,7 +68,7 @@ class RuntimeOperationResult:
 RuntimeEventSink = Callable[[RawRuntimeEvent], None]
 
 
-class RuntimeAdapter(Protocol):
+class LegacyRuntimeAdapter(Protocol):
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         ...
 
@@ -97,37 +97,6 @@ class RuntimeAdapter(Protocol):
         ...
 
 
-class StreamingRuntimeAdapter(RuntimeAdapter, Protocol):
-    def send_message_stream(
-        self,
-        session_id: str,
-        message: str,
-        sink: RuntimeEventSink,
-    ) -> RuntimeOperationResult:
-        ...
-
-    def start_loop_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        ...
-
-    def approve_outline_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        ...
-
-    def revise_selection_stream(
-        self,
-        session_id: str,
-        selection: str,
-        instruction: str,
-        sink: RuntimeEventSink,
-    ) -> RuntimeOperationResult:
-        ...
-
-    def run_checklist_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        ...
-
-    def export_markdown_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        ...
-
-
 class AcpRuntimeAdapter(Protocol):
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         ...
@@ -145,3 +114,6 @@ class AcpRuntimeAdapter(Protocol):
 
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         ...
+
+
+RuntimeAdapter = AcpRuntimeAdapter | LegacyRuntimeAdapter

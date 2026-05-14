@@ -15,7 +15,7 @@ This directory is the current project truth. The `reference/` directory contains
 - `architecture/boundaries.md`: ownership boundaries.
 - `architecture/workspace-contract.md`: task workspace layout and required files.
 - `architecture/agent-runtime.md`: runtime requirements and adapter strategy.
-- `architecture/event-model.md`: event and semantic timeline model.
+- `architecture/event-model.md`: ACP event log and semantic projection model.
 - `architecture/markdown-pipeline.md`: Markdown-only internal format and import/export conversion strategy.
 
 ## Decisions

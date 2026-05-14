@@ -3,13 +3,13 @@ from pathlib import Path
 from docagent_contracts import (
     AcpRuntimeAdapter,
     AcpRuntimeUpdate,
+    LegacyRuntimeAdapter,
     PromptBundle,
     RawRuntimeEvent,
     RuntimeEventSink,
     RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
-    StreamingRuntimeAdapter,
     utc_now,
 )
 
@@ -74,10 +74,6 @@ def test_runtime_event_sink_receives_raw_event() -> None:
     assert received == [event]
 
 
-def test_streaming_runtime_adapter_protocol_is_importable() -> None:
-    assert StreamingRuntimeAdapter is not None
-
-
 def test_running_chat_state_exists() -> None:
     from docagent_contracts import RuntimeSessionState
     assert RuntimeSessionState.RUNNING_CHAT.value == "running_chat"
@@ -99,3 +95,7 @@ def test_acp_runtime_update_shape() -> None:
 
 def test_acp_runtime_adapter_protocol_is_importable() -> None:
     assert AcpRuntimeAdapter is not None
+
+
+def test_legacy_runtime_adapter_protocol_is_importable_for_compatibility() -> None:
+    assert LegacyRuntimeAdapter is not None

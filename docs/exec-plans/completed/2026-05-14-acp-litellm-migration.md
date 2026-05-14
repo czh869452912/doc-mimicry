@@ -122,12 +122,12 @@ LiteLLM Proxy
 
 ### Phase 6: Retire The Old Interaction Chain
 
-- [ ] Remove the operation-specific streaming adapter methods after wrappers no longer need them.
-- [ ] Stop treating semantic timeline events as the timeline source of truth.
-- [ ] Keep semantic projections for product cards, reporting, and workspace invalidation.
-- [ ] Update docs so new work targets ACP events and projections.
-- [ ] Archive or update old OpenHands runtime adapter docs that recommend custom event mapping as the primary path.
-- [ ] Add a regression test that fails if a new runtime adapter bypasses ACP event storage.
+- [x] Remove the operation-specific streaming adapter methods after wrappers no longer need them.
+- [x] Stop treating semantic timeline events as the timeline source of truth.
+- [x] Keep semantic projections for product cards, reporting, and workspace invalidation.
+- [x] Update docs so new work targets ACP events and projections.
+- [x] Archive or update old OpenHands runtime adapter docs that recommend custom event mapping as the primary path.
+- [x] Add a regression test that fails if a new runtime adapter bypasses ACP event storage.
 
 ## Verification Commands
 

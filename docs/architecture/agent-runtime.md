@@ -20,29 +20,34 @@ OpenHands Agent Server / SDK is the first candidate because it already exposes m
 
 ## Current Direction
 
-Agent interaction should converge on ACP as the canonical session and timeline protocol. DocAgent should own an ACP gateway, durable ACP event log, and product projections for workspace, approvals, artifacts, and audit. The center timeline should render ACP events directly where possible, while DocAgent-specific cards are derived projections.
+Agent interaction uses ACP as the canonical session and timeline protocol.
+DocAgent owns an ACP gateway, durable ACP event log, and product projections for
+workspace, approvals, artifacts, and audit. The center timeline renders ACP
+events directly where possible, while DocAgent-specific cards are derived
+projections.
 
 LiteLLM Proxy should be used as the model gateway for real runtimes so provider compatibility, routing, fallback, and credentials are not spread across runtime adapters.
 
-See `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md` and `docs/exec-plans/active/2026-05-14-acp-litellm-migration.md`.
+See `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md`.
 
 ## Adapter Boundary
 
-The backend should call a runtime adapter, not the runtime directly.
+The backend should call a runtime adapter, not the runtime directly. ACP-capable
+adapters should expose this surface:
 
 Expected adapter operations:
 
 ```text
-create_session(task_id, workspace_config)
-send_message(session_id, message)
-stream_events(session_id)
-pause(session_id)
-resume(session_id)
+create_session(session_id, prompt_bundle)
+send_prompt(session_id, prompt, metadata)
+stream_updates(session_id)
 cancel(session_id)
-approve_action(session_id, action_id)
-reject_action(session_id, action_id)
-get_state(session_id)
 ```
+
+Older operation-specific methods such as `start_loop`, `approve_outline`, and
+their streaming variants are compatibility fallbacks for legacy adapters. New
+runtime integrations should not add more operation-specific methods; product
+actions are ACP prompts with metadata and product-owned expected states.
 
 ## Runtime-Agnostic Expectations
 
@@ -51,9 +56,12 @@ The rest of the product should reason about:
 - task id
 - session id
 - workspace paths
-- semantic events
+- ACP events
+- semantic projections
 - approvals
 - artifacts
 
-It should not depend on a specific runtime event payload outside the adapter and timeline mapper.
+It should not depend on a specific runtime event payload outside the adapter or
+ACP shim. Semantic timeline events are projections, not the primary runtime
+contract.
 

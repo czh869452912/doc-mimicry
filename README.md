@@ -66,7 +66,7 @@ Phase 0 validates the document-version Claude Code loop:
 5. Propose an outline and wait for user confirmation.
 6. Draft, checkpoint, revise locally, and update context files.
 7. Run a checklist and export DOCX.
-8. Show a semantic timeline of what the agent did.
+8. Stream ACP events in the center timeline and derive semantic DocAgent cards from projections.
 
 Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or a workflow designer.
 

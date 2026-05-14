@@ -26,7 +26,7 @@ Document type management and live document authoring are different jobs. Use a d
 
 ## Product State Outside The Agent
 
-The backend owns versions, artifacts, audit, permissions, and semantic timeline enrichment. The agent owns reasoning, drafting, and revision.
+The backend owns versions, artifacts, audit, permissions, ACP event storage, and semantic projection enrichment. The agent owns reasoning, drafting, and revision.
 
 ## Start Narrow
 

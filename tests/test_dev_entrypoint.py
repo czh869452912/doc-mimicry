@@ -164,3 +164,10 @@ def test_compose_smoke_uses_openhands_profile_for_openhands_runtime() -> None:
     assert '"--profile", "openhands"' in smoke
     assert '"openhands"' in smoke
     assert "OPENHANDS_CONTAINER_BASE_URL" in smoke
+
+
+def test_compose_smoke_checks_acp_events_not_legacy_timeline() -> None:
+    smoke = (ROOT / "tools" / "runtime" / "compose_smoke.py").read_text(encoding="utf-8")
+
+    assert "/api/sessions/{session['id']}/events" in smoke
+    assert "/api/sessions/{session['id']}/timeline" not in smoke

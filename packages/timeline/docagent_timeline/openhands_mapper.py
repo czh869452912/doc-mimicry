@@ -1,3 +1,9 @@
+"""Legacy OpenHands raw-event to semantic-projection mapper.
+
+New runtime integrations should emit ACP updates first. This mapper remains for
+raw-event audit compatibility and DocAgent projection backfill.
+"""
+
 from __future__ import annotations
 
 from docagent_contracts import (

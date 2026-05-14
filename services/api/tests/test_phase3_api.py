@@ -97,6 +97,53 @@ class AcpUpdateAdapter(FailingSendAdapter):
         )
 
 
+class PromptOnlyAdapter:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
+        prompt_metadata = metadata or {}
+        self.calls.append((prompt, prompt_metadata))
+        action = prompt_metadata.get("action")
+        next_state = {
+            "start_loop": RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
+            "send_message": RuntimeSessionState.DRAFT_READY,
+        }.get(action, RuntimeSessionState.DRAFT_READY)
+        return RuntimeOperationResult(session_id=session_id, next_state=next_state)
+
+    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy start_loop should not be used by ACP-capable adapters")
+
+    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy send_message should not be used by ACP-capable adapters")
+
+    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy approve_outline should not be used by ACP-capable adapters")
+
+    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy revise_selection should not be used by ACP-capable adapters")
+
+    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy run_checklist should not be used by ACP-capable adapters")
+
+    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
+        raise AssertionError("legacy export_markdown should not be used by ACP-capable adapters")
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    def get_state(self, session_id: str) -> RuntimeSessionState:
+        return RuntimeSessionState.IDLE
+
+
 class FailingCreateAdapter(FailingSendAdapter):
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         raise RuntimeError("OpenHands Agent Server is unreachable")
@@ -300,6 +347,66 @@ def test_prompt_endpoint_runs_chat_and_records_acp_prompt_and_projection_events(
     )
 
 
+def test_product_action_endpoint_prefers_acp_prompt_runtime_method(tmp_path: Path) -> None:
+    adapter = PromptOnlyAdapter()
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=adapter,
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/loop/start")
+
+    assert response.status_code == 200
+    assert response.json()["next_state"] == "await_outline_approval"
+    assert adapter.calls == [
+        (
+            "Build context files and propose an outline. Stop when outline approval is required.",
+            {"action": "start_loop"},
+        )
+    ]
+
+
+def test_background_revise_selection_passes_complete_acp_prompt_metadata(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
+    delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class FakeTask:
+        @staticmethod
+        def delay(*args: Any, **kwargs: Any) -> None:
+            delayed_calls.append((args, kwargs))
+
+    monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
+    assert client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": "# Outline\n"},
+    ).status_code == 200
+
+    response = client.post(
+        f"/sessions/{session['id']}/revision/selection?background=true",
+        json={
+            "selected_text": "Define the desired product outcome.",
+            "instruction": "Make it sharper",
+        },
+    )
+
+    assert response.status_code == 202
+    _, operation_name, operation_kwargs, _ = delayed_calls[0][0]
+    assert operation_name == "send_prompt"
+    assert operation_kwargs["metadata"] == {
+        "action": "revise_selection",
+        "selection": "Define the desired product outcome.",
+        "instruction": "Make it sharper",
+    }
+    assert operation_kwargs["prompt"].endswith("Instruction:\nMake it sharper")
+
+
 def test_runtime_acp_updates_are_persisted_to_event_store(tmp_path: Path) -> None:
     client = TestClient(create_app(
         state_root=tmp_path / "state",
@@ -318,6 +425,32 @@ def test_runtime_acp_updates_are_persisted_to_event_store(tmp_path: Path) -> Non
     assert any(
         event["event_type"] == "message_delta"
         and event["payload"]["content"] == "streamed"
+        for event in acp_events
+    )
+
+
+def test_fallback_user_message_projection_is_mirrored_to_acp_event_store(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=AcpUpdateAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    client.post(f"/sessions/{session['id']}/outline/approve", json={"outline_markdown": "# Outline\n"})
+
+    response = client.post(f"/sessions/{session['id']}/prompt", json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    timeline_events = client.get(f"/sessions/{session['id']}/timeline").json()
+    user_events = [event for event in timeline_events if event["kind"] == "user_message"]
+    assert len(user_events) == 1
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/projection"
+        and event["projection"]["timeline_kind"] == "user_message"
+        and event["projection"]["timeline_id"] == user_events[0]["id"]
         for event in acp_events
     )
 
@@ -416,7 +549,15 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
 
     assert response.status_code == 202
     # previous_state is draft_ready (the state before transitioning to running_chat)
-    assert delayed_calls == [((session["id"], "send_message", {"message": "hello"}, "draft_ready"), {})]
+    assert delayed_calls == [(
+        (
+            session["id"],
+            "send_prompt",
+            {"prompt": "hello", "metadata": {"action": "send_message"}},
+            "draft_ready",
+        ),
+        {},
+    )]
 
 
 def test_background_message_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:

@@ -24,6 +24,7 @@ from docagent_api.response_models import AcpEventResponse, LoopActionResponse, S
 from docagent_api.routes._shared import (
     append_runtime_result,
     append_acp_prompt_event,
+    append_acp_projection_event,
     manual_event,
     prepare_transition,
     require_session,
@@ -40,9 +41,25 @@ from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineA
 
 logger = logging.getLogger(__name__)
 
+START_LOOP_PROMPT = "Build context files and propose an outline. Stop when outline approval is required."
+APPROVE_OUTLINE_PROMPT = "The outline is approved. Generate the draft in Markdown."
+RUN_CHECKLIST_PROMPT = "Run the document type checklist and write reviews/checklist_result.md."
+EXPORT_MARKDOWN_PROMPT = "Export the current draft to artifacts/prd-draft.md."
+
 
 def create_sessions_router(state: DocAgentState, adapter: Any, runner: BackgroundRuntimeRunner) -> APIRouter:
     router = APIRouter()
+
+    def _adapter_prompt_operation(
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object],
+        legacy_operation: Any,
+    ) -> Any:
+        send_prompt_method = getattr(adapter, "send_prompt", None)
+        if callable(send_prompt_method):
+            return lambda: send_prompt_method(session_id, prompt, metadata)
+        return legacy_operation
 
     @router.get("/sessions/{session_id}", response_model=SessionResponse)
     def get_session(session_id: str) -> dict[str, Any]:
@@ -59,15 +76,22 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_acp_prompt_event(
             state,
             session_id,
-            "Start the document authoring loop.",
+            START_LOOP_PROMPT,
             {"action": "start_loop"},
         )
         if background:
-            operation = stream_or_sync(
+            legacy_operation = stream_or_sync(
                 adapter,
                 "start_loop_stream",
                 lambda: adapter.start_loop(session_id),
                 lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
+            operation = _adapter_prompt_operation(
+                session_id,
+                START_LOOP_PROMPT,
+                {"action": "start_loop"},
+                legacy_operation,
             )
             response.status_code = 202
             return start_background_runtime_operation(
@@ -77,10 +101,22 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CONTEXT,
                 operation,
                 runner,
-                operation_name="start_loop_stream" if callable(getattr(adapter, "start_loop_stream", None)) else "start_loop",
+                operation_name="send_prompt" if use_acp_prompt else (
+                    "start_loop_stream" if callable(getattr(adapter, "start_loop_stream", None)) else "start_loop"
+                ),
+                operation_kwargs={
+                    "prompt": START_LOOP_PROMPT,
+                    "metadata": {"action": "start_loop"},
+                } if use_acp_prompt else None,
             )
+        operation = _adapter_prompt_operation(
+            session_id,
+            START_LOOP_PROMPT,
+            {"action": "start_loop"},
+            lambda: adapter.start_loop(session_id),
+        )
         result = run_runtime_operation(
-            state, session, RuntimeSessionState.RUNNING_CONTEXT, lambda: adapter.start_loop(session_id),
+            state, session, RuntimeSessionState.RUNNING_CONTEXT, operation,
             task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
@@ -101,8 +137,11 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_acp_prompt_event(
             state,
             session_id,
-            outline_text,
-            {"action": "approve_outline"},
+            APPROVE_OUTLINE_PROMPT,
+            {
+                "action": "approve_outline",
+                "outline_markdown": outline_text,
+            },
         )
         if not outline_text.endswith("\n"):
             outline_text = f"{outline_text}\n"
@@ -110,11 +149,21 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         outline_path.parent.mkdir(parents=True, exist_ok=True)
         outline_path.write_text(outline_text, encoding="utf-8")
         if background:
-            operation = stream_or_sync(
+            legacy_operation = stream_or_sync(
                 adapter,
                 "approve_outline_stream",
                 lambda: adapter.approve_outline(session_id),
                 lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
+            operation = _adapter_prompt_operation(
+                session_id,
+                APPROVE_OUTLINE_PROMPT,
+                {
+                    "action": "approve_outline",
+                    "outline_markdown": outline_text,
+                },
+                legacy_operation,
             )
             response.status_code = 202
             return start_background_runtime_operation(
@@ -122,10 +171,30 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 runner,
                 previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
                 transition_prepared=True,
-                operation_name="approve_outline_stream" if callable(getattr(adapter, "approve_outline_stream", None)) else "approve_outline",
+                operation_name="send_prompt" if use_acp_prompt else (
+                    "approve_outline_stream"
+                    if callable(getattr(adapter, "approve_outline_stream", None))
+                    else "approve_outline"
+                ),
+                operation_kwargs={
+                    "prompt": APPROVE_OUTLINE_PROMPT,
+                    "metadata": {
+                        "action": "approve_outline",
+                        "outline_markdown": outline_text,
+                    },
+                } if use_acp_prompt else None,
             )
         try:
-            result = adapter.approve_outline(session_id)
+            operation = _adapter_prompt_operation(
+                session_id,
+                APPROVE_OUTLINE_PROMPT,
+                {
+                    "action": "approve_outline",
+                    "outline_markdown": outline_text,
+                },
+                lambda: adapter.approve_outline(session_id),
+            )
+            result = operation()
         except Exception as exc:
             set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL, task_id=task["id"])
             raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
@@ -143,19 +212,24 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
         previous_state = RuntimeSessionState(session["status"])
+        revision_prompt = (
+            "Revise this selected text according to the instruction.\n\n"
+            f"Selection:\n{request.selected_text}\n\nInstruction:\n{request.instruction}"
+        )
         append_acp_prompt_event(
             state,
             session_id,
-            request.instruction,
+            revision_prompt,
             {
                 "action": "revise_selection",
                 "selection": request.selected_text,
+                "instruction": request.instruction,
             },
         )
         try:
             prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
             if background:
-                operation = stream_or_sync(
+                legacy_operation = stream_or_sync(
                     adapter,
                     "revise_selection_stream",
                     lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
@@ -164,22 +238,50 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                         runtime_event_sink(state, task["id"], session_id),
                     ),
                 )
+                use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
+                operation = _adapter_prompt_operation(
+                    session_id,
+                    revision_prompt,
+                    {
+                        "action": "revise_selection",
+                        "selection": request.selected_text,
+                        "instruction": request.instruction,
+                    },
+                    legacy_operation,
+                )
                 response.status_code = 202
                 return start_background_runtime_operation(
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
                     runner,
                     previous_state_on_failure=previous_state, transition_prepared=True,
-                    operation_name=(
+                    operation_name="send_prompt" if use_acp_prompt else (
                         "revise_selection_stream"
                         if callable(getattr(adapter, "revise_selection_stream", None))
                         else "revise_selection"
                     ),
                     operation_kwargs={
+                        "prompt": revision_prompt,
+                        "metadata": {
+                            "action": "revise_selection",
+                            "selection": request.selected_text,
+                            "instruction": request.instruction,
+                        },
+                    } if use_acp_prompt else {
                         "selection": request.selected_text,
                         "instruction": request.instruction,
                     },
                 )
-            result = adapter.revise_selection(session_id, request.selected_text, request.instruction)
+            operation = _adapter_prompt_operation(
+                session_id,
+                revision_prompt,
+                {
+                    "action": "revise_selection",
+                    "selection": request.selected_text,
+                    "instruction": request.instruction,
+                },
+                lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
+            )
+            result = operation()
         except HTTPException:
             raise
         except FileNotFoundError as exc:
@@ -206,15 +308,22 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_acp_prompt_event(
             state,
             session_id,
-            "Run the document checklist.",
+            RUN_CHECKLIST_PROMPT,
             {"action": "run_checklist"},
         )
         if background:
-            operation = stream_or_sync(
+            legacy_operation = stream_or_sync(
                 adapter,
                 "run_checklist_stream",
                 lambda: adapter.run_checklist(session_id),
                 lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
+            operation = _adapter_prompt_operation(
+                session_id,
+                RUN_CHECKLIST_PROMPT,
+                {"action": "run_checklist"},
+                legacy_operation,
             )
             response.status_code = 202
             return start_background_runtime_operation(
@@ -224,10 +333,22 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CHECKLIST,
                 operation,
                 runner,
-                operation_name="run_checklist_stream" if callable(getattr(adapter, "run_checklist_stream", None)) else "run_checklist",
+                operation_name="send_prompt" if use_acp_prompt else (
+                    "run_checklist_stream" if callable(getattr(adapter, "run_checklist_stream", None)) else "run_checklist"
+                ),
+                operation_kwargs={
+                    "prompt": RUN_CHECKLIST_PROMPT,
+                    "metadata": {"action": "run_checklist"},
+                } if use_acp_prompt else None,
             )
+        operation = _adapter_prompt_operation(
+            session_id,
+            RUN_CHECKLIST_PROMPT,
+            {"action": "run_checklist"},
+            lambda: adapter.run_checklist(session_id),
+        )
         result = run_runtime_operation(
-            state, session, RuntimeSessionState.RUNNING_CHECKLIST, lambda: adapter.run_checklist(session_id),
+            state, session, RuntimeSessionState.RUNNING_CHECKLIST, operation,
             task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
@@ -245,15 +366,22 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_acp_prompt_event(
             state,
             session_id,
-            "Export the current draft as Markdown.",
+            EXPORT_MARKDOWN_PROMPT,
             {"action": "export_markdown"},
         )
         if background:
-            operation = stream_or_sync(
+            legacy_operation = stream_or_sync(
                 adapter,
                 "export_markdown_stream",
                 lambda: adapter.export_markdown(session_id),
                 lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
+            )
+            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
+            operation = _adapter_prompt_operation(
+                session_id,
+                EXPORT_MARKDOWN_PROMPT,
+                {"action": "export_markdown"},
+                legacy_operation,
             )
             response.status_code = 202
             return start_background_runtime_operation(
@@ -263,14 +391,24 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_EXPORT,
                 operation,
                 runner,
-                operation_name=(
+                operation_name="send_prompt" if use_acp_prompt else (
                     "export_markdown_stream"
                     if callable(getattr(adapter, "export_markdown_stream", None))
                     else "export_markdown"
                 ),
+                operation_kwargs={
+                    "prompt": EXPORT_MARKDOWN_PROMPT,
+                    "metadata": {"action": "export_markdown"},
+                } if use_acp_prompt else None,
             )
+        operation = _adapter_prompt_operation(
+            session_id,
+            EXPORT_MARKDOWN_PROMPT,
+            {"action": "export_markdown"},
+            lambda: adapter.export_markdown(session_id),
+        )
         result = run_runtime_operation(
-            state, session, RuntimeSessionState.RUNNING_EXPORT, lambda: adapter.export_markdown(session_id),
+            state, session, RuntimeSessionState.RUNNING_EXPORT, operation,
             task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
@@ -331,8 +469,12 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 TimelineActor.USER, SemanticEventKind.USER_MESSAGE, runtime_message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
+            append_acp_projection_event(state, session_id, user_event)
+            send_prompt_method = getattr(adapter, "send_prompt", None)
             stream_method = getattr(adapter, "send_message_stream", None)
-            if callable(stream_method):
+            if callable(send_prompt_method):
+                operation = lambda: send_prompt_method(session_id, runtime_message, prompt_metadata)
+            elif callable(stream_method):
                 operation = lambda: stream_method(
                     session_id, runtime_message,
                     runtime_event_sink(state, task["id"], session_id),
@@ -348,15 +490,26 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 operation,
                 runner,
                 operation_name=(
-                    "send_message_stream"
+                    "send_prompt"
+                    if callable(send_prompt_method)
+                    else "send_message_stream"
                     if callable(getattr(adapter, "send_message_stream", None))
                     else "send_message"
                 ),
-                operation_kwargs={"message": runtime_message},
+                operation_kwargs={
+                    "prompt": runtime_message,
+                    "metadata": prompt_metadata,
+                } if callable(send_prompt_method) else {"message": runtime_message},
             )
+        operation = _adapter_prompt_operation(
+            session_id,
+            runtime_message,
+            prompt_metadata,
+            lambda: adapter.send_message(session_id, runtime_message),
+        )
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,
-            lambda: adapter.send_message(session_id, runtime_message),
+            operation,
             task_id=task["id"],
         )
         append_runtime_result(state, task["id"], session_id, result)
@@ -366,6 +519,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 TimelineActor.USER, SemanticEventKind.USER_MESSAGE, runtime_message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
+            append_acp_projection_event(state, session_id, user_event)
         set_session_state(state, session, result.next_state, task_id=task["id"])
         return runtime_result_response(result)
 
