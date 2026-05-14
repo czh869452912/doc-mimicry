@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 
 export function useWorkspaceTree(taskId: string | null | undefined) {
@@ -7,6 +7,5 @@ export function useWorkspaceTree(taskId: string | null | undefined) {
     queryFn: () => api.getWorkspace(taskId!),
     enabled: !!taskId,
     staleTime: 10_000,
-    placeholderData: keepPreviousData,
   });
 }
