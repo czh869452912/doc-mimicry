@@ -181,6 +181,8 @@ describe("AppShell", () => {
     // Wait for the query to fire so resolveTaskTwoDraft is initialized
     await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-2"));
 
+    expect(screen.queryByRole("heading", { name: "Task one draft" })).toBeNull();
+
     // The key invariant: task-1 draft must NOT be auto-saved into task-2
     expect(api.updateDraft).not.toHaveBeenCalledWith("task-2", "# Task one draft");
 

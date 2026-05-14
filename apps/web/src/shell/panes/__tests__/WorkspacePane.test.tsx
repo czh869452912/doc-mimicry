@@ -45,6 +45,26 @@ describe("WorkspacePane creation form", () => {
     expect(defaultProps.onCreateWorkspace).not.toHaveBeenCalled();
   });
 
+  it("shows validation error when title is empty", async () => {
+    const user = userEvent.setup();
+    const onCreateWorkspace = vi.fn().mockResolvedValue(undefined);
+    render(<WorkspacePane {...defaultProps} onCreateWorkspace={onCreateWorkspace} />);
+
+    const openButtons = screen.getAllByRole("button", { name: /create workspace/i });
+    await user.click(openButtons[0]);
+
+    const form = screen.getByRole("form", { name: /create workspace/i });
+    await user.clear(screen.getByLabelText("Title"));
+    await user.type(screen.getByLabelText("Description"), "Build a search feature");
+    await user.click(within(form).getByRole("button", { name: /create workspace/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/title is required/i)).toBeTruthy();
+    });
+
+    expect(onCreateWorkspace).not.toHaveBeenCalled();
+  });
+
   it("calls onCreateWorkspace with form values on valid submit", async () => {
     const user = userEvent.setup();
     const onCreateWorkspace = vi.fn().mockResolvedValue(undefined);
@@ -102,6 +122,7 @@ describe("WorkspacePane creation form", () => {
     await user.click(openButtons[0]);
 
     const form = screen.getByRole("form", { name: /create workspace/i });
+    await user.type(within(form).getByLabelText(/title/i), "Retryable workspace");
     await user.type(within(form).getByLabelText(/description/i), "A test workspace description");
     await user.click(within(form).getByRole("button", { name: /create workspace/i }));
 

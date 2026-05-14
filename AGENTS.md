@@ -28,6 +28,7 @@ This is not a fixed workflow builder, template generator, or semantic RAG writin
 - Keep Markdown as the only internal document format. Convert at import/export boundaries.
 - Keep management and authoring as separate UI surfaces.
 - Treat `reference/` as research/history and `docs/` as current project truth.
+- For `apps/web` changes that touch third-party React components, runtime adapters, editor widgets, overlays, or persisted UI layout, consult `docs/quality/frontend-component-integration-checklist.md` and add focused contract tests.
 
 ## Directory Boundaries
 

@@ -284,6 +284,12 @@
   border-bottom: 1px solid var(--color-hairline);
 }
 
+.editor-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .editor-tab-trigger {
   display: inline-flex;
   align-items: center;
@@ -306,6 +312,7 @@
 
 .tab-close {
   display: inline-flex;
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
   align-items: center;

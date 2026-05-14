@@ -27,19 +27,25 @@ export function AppShell() {
   const queryClient = useQueryClient();
 
   const workspaces = useActiveWorkspace();
-  const workspaceTreeQuery = useWorkspaceTree(workspaces.activeTask?.id);
-  const draftQuery = useDraft(workspaces.activeTask?.id);
+  const activeTaskId = workspaces.activeTask?.id ?? null;
+  const workspaceTreeQuery = useWorkspaceTree(activeTaskId);
+  const draftQuery = useDraft(activeTaskId);
   const editorTabs = useTabs();
   const collapse = useCollapse();
-  const timeline = useTimeline(workspaces.activeSession?.id, workspaces.activeTask?.id);
+  const timeline = useTimeline(workspaces.activeSession?.id, activeTaskId);
 
-  const activeTaskId = workspaces.activeTask?.id;
   useEffect(() => {
     setLocalDraft(null);
   }, [activeTaskId]);
 
-  const draft = localDraft ?? draftQuery.data?.markdown ?? "";
-  const draftTaskId = draftQuery.isSuccess ? (workspaces.activeTask?.id ?? null) : null;
+  const draftQueryTaskId = draftQuery.isSuccess ? activeTaskId : null;
+  const draft = localDraft ?? (draftQueryTaskId === activeTaskId ? draftQuery.data?.markdown : undefined) ?? "";
+  const draftTaskId = draftQueryTaskId;
+  const panelLayout = {
+    left: collapse.leftPanelSize,
+    center: 100 - collapse.leftPanelSize - collapse.rightPanelSize,
+    right: collapse.rightPanelSize,
+  };
 
   const treeData = buildWorkspaceTreeData(
     workspaces.tasks,
@@ -70,7 +76,7 @@ export function AppShell() {
       <ResizablePanelGroup
         orientation="horizontal"
         className="docagent-shell__panels"
-        defaultLayout={{ left: collapse.leftPanelSize, center: 100 - collapse.leftPanelSize - collapse.rightPanelSize, right: collapse.rightPanelSize }}
+        defaultLayout={panelLayout}
         onLayoutChanged={collapse.rememberLayout}
       >
         <ResizablePanel id="left" defaultSize={collapse.leftPanelSize} minSize={12} collapsedSize={4} collapsible>

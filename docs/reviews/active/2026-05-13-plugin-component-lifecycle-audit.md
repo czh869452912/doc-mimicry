@@ -526,3 +526,29 @@ name: task.title ?? task.brief,
 **Consequence:** A user who submits the form with a blank title receives no validation error, creates a workspace with no visible name in the tree, and cannot rename it after creation. The `description` field correctly blocks empty input but `title` does not, creating inconsistent UX.
 
 ---
+
+## Remediation status - 2026-05-14
+
+Implemented fixes:
+
+- ISSUE-01 and ISSUE-09: assistant-ui runtime cancellation is wired through the external store adapter and shares the same idempotent cancellation path as the composer button.
+- ISSUE-02 and ISSUE-03: imported attachment references are scoped by active task before submit, and assistant-ui reload `StartRunConfig` is forwarded through the runtime boundary.
+- ISSUE-06: unknown timeline statuses now map to incomplete error instead of complete.
+- ISSUE-11 and ISSUE-14: CodeMirror extensions are memoized and outline edits are protected from late async fetches.
+- ISSUE-12 and ISSUE-15: editor tabs avoid nested interactive controls and the command palette supports keyboard dismissal.
+- ISSUE-16 and ISSUE-18: draft and workspace queries no longer show previous task data across task switches.
+- ISSUE-19: persisted panel sizes are clamped and normalized before use.
+- ISSUE-21: workspace title validation rejects empty strings.
+
+Prevention:
+
+- Added frontend component integration checklist in `docs/quality/frontend-component-integration-checklist.md`.
+- Linked the checklist from `AGENTS.md` and `docs/quality/testing.md`.
+- Added focused Vitest coverage for runtime callbacks, scoped async state, accessibility semantics, stale query data, persisted layout values, timeline status fallback, and form validation.
+
+Verification:
+
+- `cd apps/web; npm run test`
+- `cd apps/web; npm run test:unit`
+- `cd apps/web; npm run build`
+- `Get-ChildItem -Recurse -File | Select-Object FullName`

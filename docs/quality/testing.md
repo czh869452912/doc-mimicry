@@ -19,6 +19,10 @@ Testing will be added as implementation begins.
 - Integration tests for workspace happy path.
 - Manual agent-loop smoke tests until runtime integration stabilizes.
 
+## Frontend Component Integration
+
+For `apps/web` changes that touch third-party React components or runtime adapters, add focused Vitest coverage for the component contract. Use `docs/quality/frontend-component-integration-checklist.md` to check runtime callbacks, entity-scoped async state, keyboard behavior, invalid DOM nesting, stale TanStack Query data, and persisted layout values.
+
 ## Phase 0 Foundation
 
 Run foundation tests with:
