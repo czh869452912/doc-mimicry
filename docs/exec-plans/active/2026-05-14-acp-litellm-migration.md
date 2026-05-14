@@ -43,17 +43,17 @@ LiteLLM Proxy
 
 ### Phase 1: Define The ACP Event Store Contract
 
-- [ ] Create shared ACP event envelope models.
+- [x] Create shared ACP event envelope models.
   - Include session id, sequence number, ACP method or event type, payload, created timestamp, and optional projection metadata.
   - Keep the payload as structured JSON so newly supported ACP events do not require schema churn.
-- [ ] Add backend persistence for ACP events.
+- [x] Add backend persistence for ACP events.
   - Store raw ACP event payloads separately from DocAgent semantic projections.
   - Use monotonically increasing row ids for stream resume.
-- [ ] Add API read endpoints for ACP events.
+- [x] Add API read endpoints for ACP events.
   - `GET /sessions/{session_id}/events`
   - `GET /sessions/{session_id}/events/stream`
-- [ ] Add tests proving events are append-only, ordered, resumable, and session-scoped.
-- [ ] Keep the current semantic timeline endpoint during this phase for compatibility.
+- [x] Add tests proving events are append-only, ordered, resumable, and session-scoped.
+- [x] Keep the current semantic timeline endpoint during this phase for compatibility.
 
 ### Phase 2: Make The Center Timeline Render ACP Events
 

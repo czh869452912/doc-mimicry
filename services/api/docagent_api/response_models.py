@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -89,4 +91,14 @@ class TimelineEventResponse(BaseModel):
     summary: str
     paths: list[str]
     status: str
+    created_at: str
+
+
+class AcpEventResponse(BaseModel):
+    id: str
+    session_id: str
+    sequence: int
+    event_type: str
+    payload: dict[str, Any]
+    projection: dict[str, Any] = Field(default_factory=dict)
     created_at: str

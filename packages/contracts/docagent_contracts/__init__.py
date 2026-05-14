@@ -1,4 +1,5 @@
 from .models import (
+    AcpEventEnvelope,
     Artifact,
     ArtifactKind,
     ConversionEngine,
@@ -27,6 +28,7 @@ from .runtime import (
 from .time import utc_now
 
 __all__ = [
+    "AcpEventEnvelope",
     "Artifact",
     "ArtifactKind",
     "ConversionEngine",

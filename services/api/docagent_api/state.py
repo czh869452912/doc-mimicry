@@ -9,6 +9,7 @@ from sqlalchemy import update
 
 from docagent_contracts import RawRuntimeEvent
 from docagent_api.db import (
+    AcpEventRow,
     RawRuntimeEventRow,
     SessionRow,
     TaskRow,
@@ -213,6 +214,50 @@ class DocAgentState:
             )
             return [(r.id, _with_created_at(r.payload, r.created_at)) for r in rows]
 
+    # ── ACP events ───────────────────────────────────────────────────────────
+
+    def append_acp_event(
+        self,
+        session_id: str,
+        payload: dict[str, Any],
+        projection: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        event_type = _acp_event_type(payload)
+        with self._Session() as db:
+            row = AcpEventRow(
+                session_id=session_id,
+                event_type=event_type,
+                payload=payload,
+                projection=projection or {},
+            )
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return _acp_event_row_to_dict(row)
+
+    def list_acp_events(self, session_id: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = (
+                db.query(AcpEventRow)
+                .filter(AcpEventRow.session_id == session_id)
+                .order_by(AcpEventRow.id)
+                .all()
+            )
+            return [_acp_event_row_to_dict(row) for row in rows]
+
+    def list_acp_events_after(self, session_id: str, after_sequence: int) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = (
+                db.query(AcpEventRow)
+                .filter(
+                    AcpEventRow.session_id == session_id,
+                    AcpEventRow.id > after_sequence,
+                )
+                .order_by(AcpEventRow.id)
+                .all()
+            )
+            return [_acp_event_row_to_dict(row) for row in rows]
+
     # ── raw runtime events ────────────────────────────────────────────────────
 
     def append_raw_runtime_event(self, session_id: str, event: RawRuntimeEvent) -> None:
@@ -297,3 +342,20 @@ def _with_created_at(payload: dict[str, Any], row_created_at: datetime | str | N
     if payload.get("created_at"):
         return payload
     return {**payload, "created_at": _format_iso(row_created_at)}
+
+
+def _acp_event_type(payload: dict[str, Any]) -> str:
+    event_type = payload.get("method") or payload.get("type") or payload.get("event_type")
+    return str(event_type or "unknown")
+
+
+def _acp_event_row_to_dict(row: AcpEventRow) -> dict[str, Any]:
+    return {
+        "id": f"acp-{row.id}",
+        "session_id": row.session_id,
+        "sequence": row.id,
+        "event_type": row.event_type,
+        "payload": row.payload,
+        "projection": row.projection or {},
+        "created_at": _format_iso(row.created_at),
+    }

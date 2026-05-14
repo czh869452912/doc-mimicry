@@ -19,7 +19,7 @@ from docagent_api.request_models import (
     ReviseSelectionRequest,
     SendMessageRequest,
 )
-from docagent_api.response_models import LoopActionResponse, SessionResponse, TimelineEventResponse
+from docagent_api.response_models import AcpEventResponse, LoopActionResponse, SessionResponse, TimelineEventResponse
 from docagent_api.routes._shared import (
     append_runtime_result,
     manual_event,
@@ -327,6 +327,44 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         if state.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Session not found")
         return state.list_timeline_events(session_id)
+
+    @router.get("/sessions/{session_id}/events", response_model=list[AcpEventResponse])
+    def get_acp_events(session_id: str) -> list[dict[str, Any]]:
+        if state.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return state.list_acp_events(session_id)
+
+    @router.get("/sessions/{session_id}/events/stream")
+    async def stream_acp_events_sse(session_id: str, request: Request) -> StreamingResponse:
+        if state.get_session(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        max_polls = int(os.environ.get("DOCAGENT_SSE_MAX_POLLS", "1500"))
+        poll_interval = float(os.environ.get("DOCAGENT_SSE_POLL_INTERVAL", "0.2"))
+
+        async def generate():
+            try:
+                last_sequence = int(request.headers.get("last-event-id", "0") or "0")
+            except ValueError:
+                last_sequence = 0
+            for _ in range(max_polls):
+                if await request.is_disconnected():
+                    return
+                new_events = await asyncio.to_thread(
+                    state.list_acp_events_after, session_id, last_sequence
+                )
+                for event in new_events:
+                    sequence = int(event["sequence"])
+                    yield f"id: {sequence}\n"
+                    yield f"data: {_json.dumps(event)}\n\n"
+                    last_sequence = sequence
+                await asyncio.sleep(poll_interval)
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @router.get("/sessions/{session_id}/timeline/stream")
     async def stream_timeline_sse(session_id: str, request: Request) -> StreamingResponse:

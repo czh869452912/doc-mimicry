@@ -1,4 +1,5 @@
 from docagent_contracts import (
+    AcpEventEnvelope,
     Artifact,
     ArtifactKind,
     ConversionEngine,
@@ -112,3 +113,33 @@ def test_phase2_semantic_event_kinds_are_available() -> None:
     assert SemanticEventKind.APPROVE_OUTLINE.value == "approve_outline"
     assert SemanticEventKind.REVISE_SELECTION.value == "revise_selection"
     assert SemanticEventKind.EXPORT_MARKDOWN.value == "export_markdown"
+
+
+def test_acp_event_envelope_keeps_raw_payload_and_projection_separate() -> None:
+    event = AcpEventEnvelope(
+        id="acp-1",
+        session_id="session-001",
+        sequence=1,
+        event_type="session/update",
+        payload={"method": "session/update", "params": {"delta": "Hello"}},
+        projection={"timeline_kind": "agent_message"},
+        created_at="2026-05-14T00:00:00Z",
+    )
+
+    assert event.sequence == 1
+    assert event.event_type == "session/update"
+    assert event.payload == {"method": "session/update", "params": {"delta": "Hello"}}
+    assert event.projection == {"timeline_kind": "agent_message"}
+
+
+def test_acp_event_envelope_defaults_projection_metadata() -> None:
+    event = AcpEventEnvelope(
+        id="acp-2",
+        session_id="session-001",
+        sequence=2,
+        event_type="session/update",
+        payload={"method": "session/update", "params": {"delta": "Hello"}},
+        created_at="2026-05-14T00:00:00Z",
+    )
+
+    assert event.projection == {}

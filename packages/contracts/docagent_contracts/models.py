@@ -179,6 +179,17 @@ class SemanticTimelineEvent:
 
 
 @dataclass(frozen=True)
+class AcpEventEnvelope:
+    id: str
+    session_id: str
+    sequence: int
+    event_type: str
+    payload: dict[str, Any]
+    created_at: str
+    projection: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class DraftVersion:
     id: str
     task_id: str

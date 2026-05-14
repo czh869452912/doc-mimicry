@@ -270,6 +270,48 @@ def test_list_timeline_events_after(pg_state) -> None:
     assert len(later) == 2
 
 
+def test_acp_events_are_ordered_resumable_and_session_scoped(pg_state) -> None:
+    pg_state.save_task({
+        "id": "t-acp", "doc_type_id": "prd", "brief": "b", "title": "T ACP",
+        "description": "", "workspace_root": "w/t-acp",
+        "created_at": "2026-05-14T00:00:00Z", "updated_at": "2026-05-14T00:00:00Z",
+    })
+    for session_id in ("s-acp-1", "s-acp-2"):
+        pg_state.save_session({
+            "id": session_id, "task_id": "t-acp", "status": "pending",
+            "created_at": "2026-05-14T00:00:00Z", "updated_at": "2026-05-14T00:00:00Z",
+        })
+
+    first = pg_state.append_acp_event(
+        "s-acp-1",
+        {"method": "session/update", "params": {"delta": "Hello"}},
+        projection={"timeline_kind": "agent_message"},
+    )
+    second = pg_state.append_acp_event(
+        "s-acp-1",
+        {"method": "tool/call", "params": {"name": "write_file"}},
+        projection={"timeline_kind": "tool_call", "status": "running"},
+    )
+    pg_state.append_acp_event(
+        "s-acp-2",
+        {"method": "session/update", "params": {"delta": "Other session"}},
+    )
+
+    events = pg_state.list_acp_events("s-acp-1")
+
+    assert [event["sequence"] for event in events] == [first["sequence"], second["sequence"]]
+    assert [event["event_type"] for event in events] == ["session/update", "tool/call"]
+    assert events[0]["payload"] == {"method": "session/update", "params": {"delta": "Hello"}}
+    assert events[0]["projection"] == {"timeline_kind": "agent_message"}
+    assert events[1]["projection"] == {"timeline_kind": "tool_call", "status": "running"}
+    assert all(event["session_id"] == "s-acp-1" for event in events)
+    assert all(event["created_at"].endswith("Z") for event in events)
+
+    resumed = pg_state.list_acp_events_after("s-acp-1", after_sequence=first["sequence"])
+
+    assert [event["id"] for event in resumed] == [second["id"]]
+
+
 def test_database_enforces_session_task_foreign_key(pg_state) -> None:
     try:
         pg_state.save_session({
@@ -286,12 +328,16 @@ def test_database_enforces_session_task_foreign_key(pg_state) -> None:
 
 def test_schema_has_runtime_state_foreign_keys(pg_engine) -> None:
     inspector = inspect(pg_engine)
+    tables = set(inspector.get_table_names())
     session_columns = {column["name"] for column in inspector.get_columns("sessions")}
     session_fks = inspector.get_foreign_keys("sessions")
     timeline_fks = inspector.get_foreign_keys("timeline_events")
     raw_fks = inspector.get_foreign_keys("raw_runtime_events")
 
+    assert "acp_events" in tables
     assert {"runtime", "runtime_session_id", "celery_task_id"}.issubset(session_columns)
     assert any(fk["referred_table"] == "tasks" and fk["constrained_columns"] == ["task_id"] for fk in session_fks)
     assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in timeline_fks)
     assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in raw_fks)
+    acp_fks = inspector.get_foreign_keys("acp_events")
+    assert any(fk["referred_table"] == "sessions" and fk["constrained_columns"] == ["session_id"] for fk in acp_fks)

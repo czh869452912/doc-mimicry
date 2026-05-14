@@ -82,6 +82,18 @@ class TimelineEventRow(Base):
     __table_args__ = (Index("idx_timeline_session_id", "session_id", "id"),)
 
 
+class AcpEventRow(Base):
+    __tablename__ = "acp_events"
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    session_id = Column(String, ForeignKey("sessions.id"), nullable=False)
+    event_type = Column(String, nullable=False)
+    payload = Column(JSONB, nullable=False)
+    projection = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (Index("idx_acp_events_session_id", "session_id", "id"),)
+
+
 class RawRuntimeEventRow(Base):
     __tablename__ = "raw_runtime_events"
     id = Column(BigInteger, primary_key=True, autoincrement=True)

@@ -33,7 +33,7 @@ def _db_isolation(pg_engine):
     os.environ.pop("DATABASE_URL", None)
     with pg_engine.connect() as conn:
         conn.execute(text(
-            "TRUNCATE raw_runtime_events, timeline_events, sessions, tasks "
+            "TRUNCATE acp_events, raw_runtime_events, timeline_events, sessions, tasks "
             "RESTART IDENTITY CASCADE"
         ))
         conn.commit()
