@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 from docagent_api.app import state_root_from_env
+from docagent_api.request_models import PromptRequest
 from docagent_api.state import DocAgentState
 from docagent_contracts import (
     PromptBundle,
@@ -83,6 +84,15 @@ def test_health_endpoint(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "runtime": "mock-acp"}
+
+
+def test_prompt_request_metadata_default_is_not_shared() -> None:
+    first = PromptRequest(prompt="one")
+    second = PromptRequest(prompt="two")
+
+    first.metadata["action"] = "send_message"
+
+    assert second.metadata == {}
 
 
 def test_create_app_uses_state_root_from_environment(tmp_path: Path, monkeypatch) -> None:

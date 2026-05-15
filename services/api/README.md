@@ -76,7 +76,8 @@ $env:LLM_API_KEY = "sk-docagent-local"
 ```
 
 Configure provider-backed LiteLLM aliases in `config/litellm.yaml` using `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, and the `DOCAGENT_LITELLM_*_MODEL` variables. Runtime
+`ANTHROPIC_API_KEY`, `DOCAGENT_LITELLM_*_MODEL`, and provider-specific
+`DOCAGENT_LITELLM_*_API_KEY` variables. Runtime
 configuration should target LiteLLM aliases; direct provider endpoints are not
 the supported product contract.
 

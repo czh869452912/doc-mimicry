@@ -90,7 +90,7 @@ def append_runtime_result(
     for update in result.acp_updates:
         state.append_acp_event(
             session_id,
-            {"event_type": update.event_type, **update.payload},
+            {**update.payload, "event_type": update.event_type},
             projection=update.projection,
         )
     append_events(state, session_id, result.events)

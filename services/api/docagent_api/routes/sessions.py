@@ -551,21 +551,21 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
 
     @router.get("/sessions/{session_id}/timeline", response_model=list[TimelineEventResponse])
     def get_timeline(session_id: str) -> list[dict[str, Any]]:
-        if state.get_session(session_id) is None:
-            raise HTTPException(status_code=404, detail="Session not found")
+        session = require_session(state, session_id)
+        require_task(state, session["task_id"])
         # Compatibility/read-model endpoint only. Authoring UI reads ACP events.
         return state.list_timeline_events(session_id)
 
     @router.get("/sessions/{session_id}/events", response_model=list[AcpEventResponse])
     def get_acp_events(session_id: str) -> list[dict[str, Any]]:
-        if state.get_session(session_id) is None:
-            raise HTTPException(status_code=404, detail="Session not found")
+        session = require_session(state, session_id)
+        require_task(state, session["task_id"])
         return state.list_acp_events(session_id)
 
     @router.get("/sessions/{session_id}/events/stream")
     async def stream_acp_events_sse(session_id: str, request: Request) -> StreamingResponse:
-        if state.get_session(session_id) is None:
-            raise HTTPException(status_code=404, detail="Session not found")
+        session = require_session(state, session_id)
+        require_task(state, session["task_id"])
 
         max_polls = int(os.environ.get("DOCAGENT_SSE_MAX_POLLS", "1500"))
         poll_interval = float(os.environ.get("DOCAGENT_SSE_POLL_INTERVAL", "0.2"))
@@ -596,8 +596,8 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
 
     @router.get("/sessions/{session_id}/timeline/stream")
     async def stream_timeline_sse(session_id: str, request: Request) -> StreamingResponse:
-        if state.get_session(session_id) is None:
-            raise HTTPException(status_code=404, detail="Session not found")
+        session = require_session(state, session_id)
+        require_task(state, session["task_id"])
 
         # Compatibility/read-model stream only. Authoring UI uses /events/stream.
         # Bounded polling cycles so that connections don't live forever; clients

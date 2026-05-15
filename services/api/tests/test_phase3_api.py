@@ -97,6 +97,21 @@ class AcpUpdateAdapter(FailingSendAdapter):
         )
 
 
+class ConflictingEventTypeAdapter(FailingSendAdapter):
+    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.DRAFT_READY,
+            acp_updates=[
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="tool/result",
+                    payload={"event_type": "message_delta", "content": "done"},
+                )
+            ],
+        )
+
+
 class PromptOnlyAdapter:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
@@ -448,6 +463,25 @@ def test_runtime_acp_updates_are_persisted_to_event_store(tmp_path: Path) -> Non
         and event["payload"]["content"] == "streamed"
         for event in acp_events
     )
+
+
+def test_runtime_acp_update_event_type_cannot_be_overridden_by_payload(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=ConflictingEventTypeAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/prompt", json={"prompt": "hello"})
+
+    assert response.status_code == 200
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    stored = [event for event in acp_events if event["payload"].get("content") == "done"]
+    assert len(stored) == 1
+    assert stored[0]["event_type"] == "tool/result"
+    assert stored[0]["payload"]["event_type"] == "tool/result"
 
 
 def test_fallback_user_message_projection_is_mirrored_to_acp_event_store(tmp_path: Path) -> None:

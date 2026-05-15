@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateTaskRequest(BaseModel):
@@ -19,12 +19,12 @@ class MessageAttachment(BaseModel):
 
 class SendMessageRequest(BaseModel):
     message: str
-    attachments: list[MessageAttachment] = []
+    attachments: list[MessageAttachment] = Field(default_factory=list)
 
 
 class PromptRequest(BaseModel):
     prompt: str
-    metadata: dict[str, object] = {}
+    metadata: dict[str, object] = Field(default_factory=dict)
 
 
 class ImportTextRequest(BaseModel):

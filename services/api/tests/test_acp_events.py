@@ -62,6 +62,46 @@ def test_get_acp_events_unknown_session_returns_404(tmp_path: Path) -> None:
     assert response.status_code == 404
 
 
+def test_get_acp_events_requires_session_task_to_exist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP events"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    original_get_task = DocAgentState.get_task
+
+    def missing_task(self: DocAgentState, task_id: str):
+        if task_id == task["id"]:
+            return None
+        return original_get_task(self, task_id)
+
+    monkeypatch.setattr(DocAgentState, "get_task", missing_task)
+
+    response = client.get(f"/sessions/{session['id']}/events")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found"
+
+
+def test_stream_acp_events_requires_session_task_to_exist(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP events"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    original_get_task = DocAgentState.get_task
+
+    def missing_task(self: DocAgentState, task_id: str):
+        if task_id == task["id"]:
+            return None
+        return original_get_task(self, task_id)
+
+    monkeypatch.setattr(DocAgentState, "get_task", missing_task)
+
+    response = client.get(f"/sessions/{session['id']}/events/stream")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found"
+
+
 def test_stream_acp_events_sends_sse_ids_and_honors_last_event_id(tmp_path: Path) -> None:
     client = _client(tmp_path)
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP SSE events"}).json()

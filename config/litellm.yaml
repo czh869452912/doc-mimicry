@@ -10,7 +10,7 @@ model_list:
   - model_name: docagent/reasoning
     litellm_params:
       model: ${DOCAGENT_LITELLM_REASONING_MODEL:-openai/gpt-4o}
-      api_key: ${OPENAI_API_KEY}
+      api_key: ${DOCAGENT_LITELLM_REASONING_API_KEY}
 
 general_settings:
   master_key: ${LITELLM_MASTER_KEY}

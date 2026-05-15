@@ -42,8 +42,9 @@ exposes it on `http://127.0.0.1:8001`, and connects API/worker containers to it
 through the ACP runtime adapter with the shared workspace volume mounted.
 Provider-backed model traffic goes through LiteLLM at `http://litellm:4000`
 with model aliases such as `docagent/default`, `docagent/fast`, and
-`docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` only for live
-runtime runs; mock runtime development does not need them.
+`docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` or a
+provider-specific `DOCAGENT_LITELLM_REASONING_API_KEY` only for live runtime
+runs; mock runtime development does not need them.
 
 Smoke-test the mock Docker Compose stack with:
 

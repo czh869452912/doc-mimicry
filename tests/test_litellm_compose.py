@@ -26,3 +26,12 @@ def test_litellm_config_declares_docagent_model_aliases() -> None:
     aliases = {entry["model_name"] for entry in config["model_list"]}
 
     assert {"docagent/default", "docagent/fast", "docagent/reasoning"}.issubset(aliases)
+
+
+def test_litellm_reasoning_alias_has_provider_specific_api_key() -> None:
+    config = yaml.safe_load((ROOT / "config" / "litellm.yaml").read_text(encoding="utf-8"))
+    aliases = {entry["model_name"]: entry["litellm_params"] for entry in config["model_list"]}
+
+    assert aliases["docagent/default"]["api_key"] == "${OPENAI_API_KEY}"
+    assert aliases["docagent/fast"]["api_key"] == "${OPENAI_API_KEY}"
+    assert aliases["docagent/reasoning"]["api_key"] == "${DOCAGENT_LITELLM_REASONING_API_KEY}"
