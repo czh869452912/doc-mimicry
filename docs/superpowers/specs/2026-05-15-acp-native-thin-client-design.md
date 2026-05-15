@@ -96,10 +96,22 @@ The backend should expose a small ACP gateway surface:
 - answer permission or approval requests
 - expose product state derived from workspace files and ACP events
 
+The existing product authorization and scoping model applies to every gateway
+operation. Each request resolves `session_id` to its task and checks that the
+caller can access that task before reading events, sending prompts, cancelling,
+or answering approvals. Phase 0 single-user deployments may keep the auth layer
+minimal, but endpoint code must still be session- and task-scoped so it cannot
+accidentally cross streams between tasks.
+
 The backend should stop treating semantic timeline events as the center thread
 contract. The `/timeline` endpoint can remain temporarily as a compatibility
 read endpoint, but new frontend work should consume `/sessions/{id}/events` and
 `/sessions/{id}/events/stream`.
+
+The `/timeline` endpoint is deprecated for authoring UI use once the ACP center
+pane no longer imports `TimelineEvent` and authoring routes no longer call
+`GET /sessions/{id}/timeline`. After that trigger, `/timeline` may remain only
+for compatibility, reports, or a short cleanup window.
 
 Product-owned derived state may still exist. Examples include artifact lists,
 draft version lists, approval status, workspace tree invalidation, conversion
@@ -120,6 +132,35 @@ runtime event remapping. The runtime client should know how to:
 
 The mock runtime should also speak the same ACP subset, so backend and frontend
 tests can switch between mock and OpenHands without changing product code.
+The maintained mock implementation lives in `agent/runtime-adapters/mock` and
+is selected with `DOCAGENT_RUNTIME=mock-acp`. CI uses it as an in-process test
+runtime by default; it should not require a separate service or provider
+credentials.
+
+## Interim Migration State
+
+Before the OpenHands connection is fully native ACP, the frontend `AcpEvent[]`
+source is still the backend ACP event store. Existing runtime shims may continue
+to wrap OpenHands or mock runtime updates into ACP event envelopes, but that
+compatibility wrapping is allowed only inside the backend runtime adapter or ACP
+shim. The frontend must not read raw OpenHands events, and it must not use
+semantic timeline events as the source for the center pane.
+
+During this interim state:
+
+- `AcpInteractionSurface` reads `GET /sessions/{id}/events` and
+  `/sessions/{id}/events/stream`.
+- The backend stores user prompts, runtime updates, permission requests,
+  session status changes, and unknown runtime payloads as ACP event envelopes.
+- If an event is synthesized by a shim, the original runtime payload is
+  preserved in `payload` or raw audit storage, and compatibility metadata stays
+  optional.
+- Product cards may use render slots or read models, but they cannot become the
+  event source for the conversation.
+
+This keeps temporary conversion code at one boundary: the runtime adapter or
+shim. Step 3 of the migration replaces that source with the thinnest possible
+OpenHands-native ACP client path without changing the frontend contract.
 
 ## Frontend Boundary
 
@@ -128,21 +169,26 @@ pane changes from an assistant-ui thread backed by `TimelineEvent[]` into an
 ACP-native interaction surface backed by `AcpEvent[]`.
 
 The local UI port is named `AcpInteractionSurface`. This is a DocAgent-owned
-interface, not a third-party API:
+interface, not a third-party API. The implementation should be close to this
+shape:
 
-```text
-AcpInteractionSurface
-  inputs:
-    session id
-    ACP events
-    connection and running state
-    workspace/product render slots
-  actions:
-    send message
-    cancel or interrupt
-    answer approval or permission
-    open workspace path
-    attach imported context
+```ts
+interface AcpInteractionSurfaceProps {
+  sessionId: string | null;
+  events: AcpEvent[];
+  status: {
+    connected: boolean;
+    running: boolean;
+    error: string | null;
+  };
+  renderSlots: AcpRenderSlots;
+  onSendMessage(input: string, attachments?: MessageAttachment[]): Promise<void>;
+  onCancel(): Promise<void>;
+  onAnswerPermission(requestId: string, decision: PermissionDecision): Promise<void>;
+  onOpenWorkspacePath(path: string): Promise<void>;
+  onAttachContext(attachments: MessageAttachment[]): Promise<void>;
+  onCopyContent?(content: { text: string; eventId?: string }): Promise<void>;
+}
 ```
 
 All third-party ACP UI components must sit behind this interface. Until a strong
@@ -153,6 +199,37 @@ local implementation as long as the interface remains unchanged.
 assistant-ui can be removed from the core conversation path after parity exists.
 During migration it may remain as a temporary implementation detail, but no new
 ACP work should depend on assistant-ui message schemas or data-part contracts.
+
+## ACP Event Contract
+
+`AcpEvent[]` is the TypeScript shape of the backend
+`AcpEventEnvelope` contract defined in `packages/contracts/schemas.md` and
+currently mirrored in `apps/web/src/types.ts`:
+
+```ts
+interface AcpEvent {
+  id: string;
+  session_id: string;
+  sequence: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  projection: Record<string, unknown>;
+  created_at: string;
+}
+```
+
+The ACP center surface must handle these event families directly:
+
+- message events: user prompts, assistant text deltas, and completed messages
+- tool events: tool call start, progress, result, failure, and cancellation
+- file events: workspace file reads, writes, diffs, and path references
+- permission events: approval or permission request and resolution
+- status events: session start, pause, resume, cancel, completion, and error
+- unknown events: any ACP payload the UI does not yet recognize
+
+The renderer classifies events from `event_type` and `payload`. `projection`
+may provide optional product hints, but it is not the source of truth for the
+center conversation.
 
 ## UI Component Choice
 
@@ -254,10 +331,11 @@ runtime contract.
    ACP client layer.
 4. Move DocAgent cards to ACP render slots and product read models.
 5. Remove assistant-ui from the core conversation path after send, stream,
-   cancel, reload, attachment, approval, and copy behavior have ACP-native
-   equivalents.
-6. Deprecate `/timeline` for authoring UI use, keeping it only for compatibility
-   or reports until no consumers remain.
+   cancel, reload, attachment, approval, and message/content copy-to-clipboard
+   behavior have ACP-native equivalents.
+6. Deprecate `/timeline` for authoring UI use when no center-pane route imports
+   `TimelineEvent` and no authoring UI call site fetches
+   `GET /sessions/{id}/timeline`.
 7. Simplify Docker Compose, `.env.example`, and dev scripts around the ACP
    runtime endpoint and LiteLLM gateway.
 
@@ -286,12 +364,6 @@ End-to-end:
 - runtime file write refreshes the draft preview or workspace tree.
 - approval request can be answered from the UI.
 - mock ACP and OpenHands ACP runs share the same frontend contract.
-
-Documentation-only verification for this spec:
-
-```powershell
-Get-ChildItem -Recurse -File | Select-Object FullName
-```
 
 ## Risks And Mitigations
 
