@@ -43,6 +43,10 @@ export function mergeAcpEvents(events: AcpEvent[]): AcpEvent[] {
       order.push(mergeId);
       continue;
     }
+    if (existing.sequence === event.sequence) {
+      byId.set(mergeId, { ...existing, ...event, id: mergeId, payload: { ...existing.payload, ...event.payload }, projection: { ...existing.projection, ...event.projection } });
+      continue;
+    }
     byId.set(mergeId, mergeEvent(existing, event, mergeId));
   }
 
@@ -158,8 +162,32 @@ function mergeIdForEvent(event: AcpEvent): string {
 }
 
 function mergeEvent(existing: AcpEvent, incoming: AcpEvent, mergeId: string): AcpEvent {
+  if (classifyAcpEvent(existing).family !== "message" || classifyAcpEvent(incoming).family !== "message") {
+    return {
+      ...incoming,
+      id: mergeId,
+      payload: { ...existing.payload, ...incoming.payload },
+      projection: { ...existing.projection, ...incoming.projection },
+    };
+  }
   const existingText = textFromAcpEvent(existing);
   const incomingText = textFromAcpEvent(incoming);
+  if (incoming.id === mergeId && (!existingText || incomingText.includes(existingText))) {
+    return {
+      ...incoming,
+      id: mergeId,
+      payload: { ...existing.payload, ...incoming.payload },
+      projection: { ...existing.projection, ...incoming.projection },
+    };
+  }
+  if (existing.id === mergeId && (!incomingText || existingText.includes(incomingText))) {
+    return {
+      ...incoming,
+      id: mergeId,
+      payload: { ...incoming.payload, ...existing.payload },
+      projection: { ...incoming.projection, ...existing.projection },
+    };
+  }
   const nextPayload = {
     ...existing.payload,
     ...incoming.payload,

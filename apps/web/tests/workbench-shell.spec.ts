@@ -7,7 +7,7 @@ test("workbench shell mounts core surfaces", async ({ page }) => {
   await expect(page.locator(".acp-thread")).toBeVisible();
   await expect(page.locator(".acp-composer")).toBeVisible();
   await expect(page.locator(".conversation-stream")).toHaveCount(0);
-  await expect(page.getByLabel("Message")).toBeVisible();
+  await expect(messageBox(page)).toBeVisible();
   await expect(page.getByRole("tab", { name: /draft/i })).toBeVisible();
 });
 
@@ -39,8 +39,7 @@ test("ACP center pane sends messages and renders timeline updates", async ({ pag
   await createDraftReadyWorkspace(page, `Assistant UI PRD ${Date.now()}`);
 
   await expect(page.locator(".acp-composer")).toBeVisible();
-  await page.getByLabel("Message").fill("Revise the launch scope");
-  await page.getByLabel("Message").press("Enter");
+  await sendComposer(page, "Revise the launch scope");
 
   await expect(page.locator(".acp-thread")).toContainText("Revise the launch scope");
   await expect(page.getByRole("button", { name: /copy text/i }).first()).toBeVisible();
@@ -51,8 +50,7 @@ test("ACP reload action resends the previous user message", async ({ page }) => 
   await page.goto("/");
   await createDraftReadyWorkspace(page, `Reload PRD ${Date.now()}`);
 
-  await page.getByLabel("Message").fill("Revise the launch scope");
-  await page.getByLabel("Message").press("Enter");
+  await sendComposer(page, "Revise the launch scope");
   await expect(page.locator(".acp-thread")).toContainText("Revise the launch scope");
 
   const initialCount = await page.locator(".acp-event--user").filter({ hasText: "Revise the launch scope" }).count();
@@ -77,20 +75,17 @@ test("ACP composer imports text attachments before sending", async ({ page }) =>
   });
 
   await expect(page.getByText("scope-notes.md")).toBeVisible();
-  await page.getByLabel("Message").fill("Use the attached notes");
-  await page.getByLabel("Message").press("Enter");
+  await sendComposer(page, "Use the attached notes");
 
-  await expect(page.locator(".acp-thread")).toContainText(
-    "Imported attachment scope-notes.md as inputs/markdown/scope-notes.md.",
-    { timeout: 8_000 },
-  );
+  await expect(page.locator(".acp-thread")).toContainText("Attached workspace inputs:", { timeout: 8_000 });
+  await expect(page.locator(".acp-thread")).toContainText("- scope-notes.md: inputs/markdown/scope-notes.md");
   await expect(page.getByText("scope-notes.md").first()).toBeVisible();
 });
 
 test("ACP composer exposes slash command suggestions", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByLabel("Message").fill("/");
+  await messageBox(page).fill("/");
 
   await expect(page.getByRole("listbox", { name: "Slash commands" })).toBeVisible();
   await expect(page.getByRole("button", { name: /\/start start outline loop/i })).toBeVisible();
@@ -134,16 +129,13 @@ test("URL params deep-link to a task and session on reload", async ({ page }) =>
 
 async function createDraftReadyWorkspace(page: import("@playwright/test").Page, title: string) {
   await createWorkspace(page, title);
-  await page.getByLabel("Message").fill("/start");
-  await page.getByLabel("Message").press("Enter");
-  await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
-  const approveButton = page
-    .locator(".acp-event--card")
-    .filter({ hasText: "Outline · waiting for review" })
-    .getByRole("button", { name: /approve/i });
+  await sendComposer(page, "/start");
+  await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
+  const approveButton = outlineCard(page).getByRole("button", { name: /approve/i });
   await expect(approveButton).toBeVisible({ timeout: 8_000 });
   await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
-  await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 8_000 });
+  await expect(messageBox(page)).toBeEnabled({ timeout: 8_000 });
+  await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
 }
 
 async function createWorkspace(page: import("@playwright/test").Page, title: string) {
@@ -159,5 +151,22 @@ async function createWorkspace(page: import("@playwright/test").Page, title: str
     .filter({ has: page.getByLabel(/description/i) })
     .getByRole("button", { name: /^create workspace$/i })
     .click();
-  await expect(page.getByLabel("Message")).toBeEnabled({ timeout: 8_000 });
+  await expect(messageBox(page)).toBeEnabled({ timeout: 8_000 });
+}
+
+function messageBox(page: import("@playwright/test").Page) {
+  return page.getByRole("textbox", { name: "Message" });
+}
+
+async function sendComposer(page: import("@playwright/test").Page, text: string) {
+  await messageBox(page).fill(text);
+  await page.getByRole("button", { name: /send message/i }).click();
+}
+
+function outlineCard(page: import("@playwright/test").Page) {
+  return page.locator(".acp-event--card").filter({ hasText: "Outline · waiting for review" }).first();
+}
+
+function activeSession(page: import("@playwright/test").Page) {
+  return page.getByRole("button", { name: /session-[a-f0-9]+/i }).first();
 }

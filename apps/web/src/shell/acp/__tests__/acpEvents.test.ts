@@ -76,6 +76,33 @@ describe("ACP event helpers", () => {
     expect(merged[0].sequence).toBe(2);
   });
 
+  it("does not synthesize content when duplicate non-message events are merged", () => {
+    const event = acp({
+      id: "status-1",
+      sequence: 1,
+      event_type: "session/draft_ready",
+      payload: { status: "draft_ready", message: "Session status changed to draft_ready" },
+    });
+
+    const merged = mergeAcpEvents([event, event]);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0].payload).toEqual(event.payload);
+  });
+
+  it("is idempotent when already merged message events are merged with their source delta", () => {
+    const sourceEvents = [
+      acp({ id: "a1", sequence: 1, event_type: "message_delta", payload: { message_id: "m1", content: "Hello" } }),
+      acp({ id: "a2", sequence: 2, event_type: "message_completed", payload: { message_id: "m1", role: "assistant" } }),
+    ];
+    const mergedOnce = mergeAcpEvents(sourceEvents);
+
+    const mergedTwice = mergeAcpEvents([sourceEvents[0], ...mergedOnce]);
+
+    expect(mergedTwice).toHaveLength(1);
+    expect(textFromAcpEvent(mergedTwice[0])).toBe("Hello");
+  });
+
   it("derives workspace, draft, and session invalidation hints from ACP events", () => {
     const hints = deriveAcpInvalidationHints([
       acp({ id: "file", sequence: 1, event_type: "file/write", payload: { path: "draft/draft.md" } }),

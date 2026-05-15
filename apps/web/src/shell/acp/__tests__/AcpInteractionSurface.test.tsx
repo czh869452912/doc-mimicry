@@ -124,6 +124,95 @@ describe("AcpInteractionSurface", () => {
     expect(renderSlots).toHaveBeenCalled();
   });
 
+  it("keeps compatibility projection mirrors out of the center pane when a native ACP event carries the same projection", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "native-checklist",
+            sequence: 1,
+            event_type: "file/write",
+            payload: { path: "reviews/checklist_result.md" },
+            projection: {
+              timeline_id: "timeline-checklist",
+              timeline_kind: "run_checklist",
+              summary: "Run checklist",
+              paths: ["reviews/checklist_result.md"],
+              status: "succeeded",
+            },
+          }),
+          acp({
+            id: "projection-checklist",
+            sequence: 2,
+            event_type: "docagent/projection",
+            payload: { method: "docagent/projection", timeline_event_id: "timeline-checklist" },
+            projection: {
+              timeline_id: "timeline-checklist",
+              timeline_kind: "run_checklist",
+              summary: "Run checklist",
+              paths: ["reviews/checklist_result.md"],
+              status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("Checklist · succeeded")).toHaveLength(1);
+    expect(screen.queryByText("docagent/projection")).toBeNull();
+  });
+
+  it("keeps projection-backed product cards visible when no native ACP event exists yet", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "projection-checklist",
+            sequence: 1,
+            event_type: "docagent/projection",
+            payload: { method: "docagent/projection", timeline_event_id: "timeline-checklist" },
+            projection: {
+              timeline_id: "timeline-checklist",
+              timeline_kind: "run_checklist",
+              summary: "Run checklist",
+              paths: ["reviews/checklist_result.md"],
+              status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Checklist · succeeded")).toBeTruthy();
+  });
+
+  it("does not render non-card DocAgent projection mirrors in the center pane", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "projection-status",
+            sequence: 1,
+            event_type: "docagent/projection",
+            payload: { method: "docagent/projection", timeline_event_id: "timeline-status" },
+            projection: {
+              timeline_id: "timeline-status",
+              timeline_kind: "session_status",
+              summary: "Session status changed to draft_ready",
+              status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText("Session status changed to draft_ready")).toBeNull();
+    expect(screen.queryByText("docagent/projection")).toBeNull();
+  });
+
   it("requests reload from the selected event id", async () => {
     const user = userEvent.setup();
     const onReloadInput = vi.fn();

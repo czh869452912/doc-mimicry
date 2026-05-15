@@ -4,6 +4,7 @@ import type { AcpEvent, MessageAttachment } from "../../types";
 import { findReloadInput, mergeAcpEvents, textFromAcpEvent } from "./acpEvents";
 import { AcpComposer } from "./AcpComposer";
 import { AcpEventRenderer } from "./AcpEventRenderer";
+import { hasAcpRenderSlot } from "./AcpRenderSlots";
 
 export type AcpPermissionDecision = "allow" | "deny";
 
@@ -58,7 +59,7 @@ export function AcpInteractionSurface({
   sessionId,
   taskId,
 }: AcpInteractionSurfaceProps) {
-  const mergedEvents = mergeAcpEvents(events);
+  const mergedEvents = visibleCenterEvents(mergeAcpEvents(events));
   const canReloadLastInput = findReloadInput(mergedEvents, null) !== null;
 
   async function copyEvent(event: AcpEvent) {
@@ -116,4 +117,25 @@ export function AcpInteractionSurface({
       {error && <p className="pane-note pane-note--error">{error}</p>}
     </section>
   );
+}
+
+function visibleCenterEvents(events: AcpEvent[]): AcpEvent[] {
+  const nativeProjectionIds = new Set(
+    events
+      .filter((event) => event.event_type !== "docagent/projection")
+      .map(projectionId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  return events.filter((event) => {
+    if (event.event_type !== "docagent/projection") return true;
+    if (!hasAcpRenderSlot(event)) return false;
+    return !nativeProjectionIds.has(projectionId(event) ?? "");
+  });
+}
+
+function projectionId(event: AcpEvent): string | null {
+  const timelineId = event.projection.timeline_id;
+  if (typeof timelineId === "string" && timelineId.length > 0) return timelineId;
+  const payloadTimelineId = event.payload.timeline_event_id;
+  return typeof payloadTimelineId === "string" && payloadTimelineId.length > 0 ? payloadTimelineId : null;
 }
