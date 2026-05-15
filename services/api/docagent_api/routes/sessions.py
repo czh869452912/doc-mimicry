@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
+from fastapi import WebSocket
 
 from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.celery_app import celery_app
@@ -37,6 +38,7 @@ from docagent_api.routes._shared import (
     start_background_runtime_operation,
     stream_or_sync,
 )
+from docagent_api.routes.acp_ws import handle_acp_websocket
 from docagent_api.state import DocAgentState
 from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
 
@@ -630,6 +632,10 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @router.websocket("/sessions/{session_id}/acp/ws")
+    async def acp_websocket(session_id: str, websocket: WebSocket) -> None:
+        await handle_acp_websocket(websocket, session_id, state, adapter)
 
     @router.get("/sessions/{session_id}/timeline/stream")
     async def stream_timeline_sse(session_id: str, request: Request) -> StreamingResponse:

@@ -159,6 +159,106 @@ def test_prompt_records_user_prompt_without_requiring_timeline_projection(tmp_pa
     )
 
 
+def test_acp_websocket_initialize_and_replay_existing_session_events(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP websocket"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    state = DocAgentState(tmp_path / "state")
+    state.append_acp_event(
+        session["id"],
+        {"event_type": "message_delta", "role": "assistant", "content": "Replay me"},
+    )
+
+    with client.websocket_connect(f"/sessions/{session['id']}/acp/ws") as ws:
+        ws.send_json({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": 1}})
+        assert ws.receive_json() == {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "protocolVersion": 1,
+                "agentCapabilities": {"loadSession": False},
+                "agentInfo": {"name": "docagent", "title": "DocAgent Workbench", "version": "0"},
+            },
+        }
+
+        ws.send_json({"jsonrpc": "2.0", "id": 2, "method": "session/new", "params": {"cwd": str(tmp_path)}})
+        assert ws.receive_json() == {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "result": {"sessionId": session["id"]},
+        }
+        assert ws.receive_json()["params"] == {
+            "sessionId": session["id"],
+            "update": {
+                "sessionUpdate": "agent_message_chunk",
+                "content": {"type": "text", "text": "Replay me"},
+            },
+        }
+
+
+def test_acp_websocket_prompt_sends_docagent_prompt_and_agent_update(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP prompt"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    with client.websocket_connect(f"/sessions/{session['id']}/acp/ws") as ws:
+        ws.send_json({"jsonrpc": "2.0", "id": 1, "method": "session/new", "params": {}})
+        assert ws.receive_json()["result"]["sessionId"] == session["id"]
+
+        ws.send_json({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "session/prompt",
+            "params": {
+                "sessionId": session["id"],
+                "prompt": [{"type": "text", "text": "Write through ACP UI"}],
+            },
+        })
+
+        updates = []
+        while True:
+            message = ws.receive_json()
+            if message.get("id") == 2:
+                response = message
+                break
+            updates.append(message)
+
+    assert any(
+        message["params"]["update"]["sessionUpdate"] == "agent_message_chunk"
+        and "Write through ACP UI" in message["params"]["update"]["content"]["text"]
+        for message in updates
+    )
+    assert any(
+        message["params"]["update"]["sessionUpdate"] == "tool_call"
+        for message in updates
+    )
+    assert response == {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": {"stopReason": "end_turn"},
+    }
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/prompt"
+        and event["payload"]["prompt"] == "Write through ACP UI"
+        for event in acp_events
+    )
+
+
+def test_acp_websocket_cancel_maps_to_session_cancel(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP cancel"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    with client.websocket_connect(f"/sessions/{session['id']}/acp/ws") as ws:
+        ws.send_json({"jsonrpc": "2.0", "method": "session/cancel", "params": {"sessionId": session["id"]}})
+        notification = ws.receive_json()
+
+    assert notification["method"] == "session/update"
+    assert notification["params"]["update"]["sessionUpdate"] == "tool_call_update"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "cancelled"
+
+
 def test_acp_events_are_session_scoped(tmp_path: Path) -> None:
     client = _client(tmp_path)
     task_one = client.post("/tasks", json={"doc_type_id": "prd", "brief": "One"}).json()
