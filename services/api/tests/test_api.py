@@ -82,7 +82,7 @@ def test_health_endpoint(tmp_path: Path) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "runtime": "mock"}
+    assert response.json() == {"status": "ok", "runtime": "mock-acp"}
 
 
 def test_create_app_uses_state_root_from_environment(tmp_path: Path, monkeypatch) -> None:
