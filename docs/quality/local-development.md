@@ -44,10 +44,11 @@ real agent runtime.
 Runtime-specific environment is supplied by `docker-compose.override.yml` and
 the startup script. The override passes `DOCAGENT_RUNTIME`, `LLM_API_KEY`,
 `LLM_MODEL`, `LLM_BASE_URL`, and container-safe `DOCAGENT_ACP_RUNTIME_URL` to
-both the API and worker. In OpenHands ACP mode, the default container URL is
-`http://openhands:8001`, which points at the Compose `openhands` service. That
-service mounts the same `/workspace` volume as the API and worker, so runtime
-file operations see the same task workspace.
+both the API and worker. The startup script sets
+`DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001` in OpenHands ACP
+mode, which points at the Compose `openhands` service. That service mounts the
+same `/workspace` volume as the API and worker, so runtime file operations see
+the same task workspace.
 
 The script reads `.env` first and `.env.local` second. Existing shell variables
 win over both files, and `.env.local` only fills values that were not already

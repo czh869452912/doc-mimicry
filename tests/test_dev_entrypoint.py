@@ -84,7 +84,7 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     assert "entrypoint: []" in compose
     assert "python -m openhands.agent_server --host 0.0.0.0 --port 8001" in compose
     assert "target: /workspace" in compose
-    assert "DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}" in override
+    assert "DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-}" in override
 
 
 def test_runtime_services_share_single_api_image_build() -> None:
