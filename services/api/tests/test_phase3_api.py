@@ -112,6 +112,30 @@ class ConflictingEventTypeAdapter(FailingSendAdapter):
         )
 
 
+class PermissionAnswerAdapter(FailingSendAdapter):
+    def __init__(self) -> None:
+        self.answers: list[tuple[str, str, str]] = []
+
+    def answer_permission(
+        self,
+        session_id: str,
+        request_id: str,
+        decision: str,
+    ) -> RuntimeOperationResult:
+        self.answers.append((session_id, request_id, decision))
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.IDLE,
+            acp_updates=[
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="permission/resolved",
+                    payload={"request_id": request_id, "decision": decision},
+                )
+            ],
+        )
+
+
 class PromptOnlyAdapter:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
@@ -482,6 +506,94 @@ def test_runtime_acp_update_event_type_cannot_be_overridden_by_payload(tmp_path:
     assert len(stored) == 1
     assert stored[0]["event_type"] == "tool/result"
     assert stored[0]["payload"]["event_type"] == "tool/result"
+
+
+def test_permission_answer_gateway_is_task_scoped_and_persists_response(tmp_path: Path) -> None:
+    adapter = PermissionAnswerAdapter()
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=adapter,
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/permissions/permission-1/answer",
+        json={"decision": "allow"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["session_id"] == session["id"]
+    assert body["next_state"] == "idle"
+    assert body["accepted"] is True
+    assert body["status"] == "idle"
+    assert adapter.answers == [(session["id"], "permission-1", "allow")]
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "permission/response"
+        and event["payload"]["request_id"] == "permission-1"
+        and event["payload"]["decision"] == "allow"
+        for event in acp_events
+    )
+    assert any(event["event_type"] == "permission/resolved" for event in acp_events)
+
+
+def test_permission_answer_gateway_requires_session_task_to_exist(tmp_path: Path, monkeypatch: Any) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    original_get_task = DocAgentState.get_task
+
+    def missing_task(self: DocAgentState, task_id: str):
+        if task_id == task["id"]:
+            return None
+        return original_get_task(self, task_id)
+
+    monkeypatch.setattr(DocAgentState, "get_task", missing_task)
+
+    response = client.post(
+        f"/sessions/{session['id']}/permissions/permission-1/answer",
+        json={"decision": "deny"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Task not found"
+
+
+def test_permission_answer_gateway_rejects_unknown_decision(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/permissions/permission-1/answer",
+        json={"decision": "maybe"},
+    )
+
+    assert response.status_code == 422
+    assert "allow" in str(response.json()["detail"])
+    assert "deny" in str(response.json()["detail"])
+
+
+def test_permission_answer_gateway_does_not_record_response_when_runtime_cannot_answer(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=FailingSendAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/sessions/{session['id']}/permissions/permission-1/answer",
+        json={"decision": "allow"},
+    )
+
+    assert response.status_code == 501
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert not any(event["event_type"] == "permission/response" for event in acp_events)
 
 
 def test_fallback_user_message_projection_is_mirrored_to_acp_event_store(tmp_path: Path) -> None:

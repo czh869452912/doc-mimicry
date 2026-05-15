@@ -75,6 +75,25 @@ class MockRuntimeAdapter:
         self._session(session_id)
         return []
 
+    def answer_permission(
+        self,
+        session_id: str,
+        request_id: str,
+        decision: str,
+    ) -> RuntimeOperationResult:
+        self._session(session_id)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=self.get_state(session_id),
+            acp_updates=[
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="permission/resolved",
+                    payload={"request_id": request_id, "decision": decision},
+                )
+            ],
+        )
+
     def _acp_updates_for_events(
         self,
         session_id: str,
@@ -91,6 +110,11 @@ class MockRuntimeAdapter:
                 session_id=session_id,
                 event_type="message_completed",
                 payload={"role": "assistant", "message_id": f"{session_id}-mock-message"},
+            ),
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="mock/status",
+                payload={"status": "running", "message": "Mock runtime accepted the prompt."},
             ),
         ]
         for event in events:
@@ -114,6 +138,19 @@ class MockRuntimeAdapter:
                     },
                 )
             )
+        updates.append(
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="mock/unknown",
+                payload={
+                    "source": "mock-acp",
+                    "raw": {
+                        "prompt": prompt,
+                        "event_count": len(events),
+                    },
+                },
+            )
+        )
         return updates
 
     def _run_prompt_action(

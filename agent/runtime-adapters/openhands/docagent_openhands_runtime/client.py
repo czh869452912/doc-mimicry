@@ -22,6 +22,9 @@ class OpenHandsClient(Protocol):
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
         ...
 
+    def answer_permission(self, runtime_session_id: str, request_id: str, decision: str) -> list[dict[str, Any]]:
+        ...
+
 
 class OpenHandsAgentServerClient:
     def __init__(self, base_url: str | None = None, timeout_seconds: int = 900) -> None:
@@ -116,6 +119,14 @@ class OpenHandsAgentServerClient:
             close()
         self._conversations.pop(runtime_session_id, None)
         return [{"kind": "cancelled"}]
+
+    def answer_permission(self, runtime_session_id: str, request_id: str, decision: str) -> list[dict[str, Any]]:
+        conversation = self._conversation(runtime_session_id)
+        answer = getattr(conversation, "answer_permission", None)
+        if callable(answer):
+            result = answer(request_id, decision)
+            return [_event_to_payload(event) for event in (result or [])]
+        raise NotImplementedError("OpenHands client does not expose permission response forwarding yet.")
 
     def _conversation(self, runtime_session_id: str) -> Any:
         try:

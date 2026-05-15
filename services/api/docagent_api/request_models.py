@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -34,6 +36,10 @@ class ImportTextRequest(BaseModel):
 
 class ApproveOutlineRequest(BaseModel):
     outline_markdown: str
+
+
+class PermissionAnswerRequest(BaseModel):
+    decision: Literal["allow", "deny"]
 
 
 class ReviseSelectionRequest(BaseModel):

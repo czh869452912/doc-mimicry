@@ -1,36 +1,43 @@
-import { Copy, RefreshCcw } from "lucide-react";
+import { Check, Copy, RefreshCcw, X } from "lucide-react";
+import type { ReactNode } from "react";
 import type { AcpEvent } from "../../types";
 import { classifyAcpEvent, textFromAcpEvent } from "./acpEvents";
 import { AcpRenderSlot, hasAcpRenderSlot } from "./AcpRenderSlots";
+import type { AcpPermissionDecision, AcpRenderSlots } from "./AcpInteractionSurface";
 
 interface AcpEventRendererProps {
   event: AcpEvent;
   sessionId: string | null;
   taskId: string | null;
+  renderSlots?: AcpRenderSlots;
   onApproved: () => Promise<void>;
+  onAnswerPermission?: (requestId: string, decision: AcpPermissionDecision) => Promise<void>;
   onCopy: (event: AcpEvent) => Promise<void>;
   onOpenPath: (path: string) => Promise<void>;
-  onReloadInput: (eventId: string) => Promise<void>;
+  onReloadInput: (eventId: string | null) => Promise<void>;
 }
 
 export function AcpEventRenderer({
   event,
   onApproved,
+  onAnswerPermission,
   onCopy,
   onOpenPath,
   onReloadInput,
+  renderSlots,
   sessionId,
   taskId,
 }: AcpEventRendererProps) {
   const classified = classifyAcpEvent(event);
   const text = textFromAcpEvent(event);
   const isAssistantMessage = classified.family === "message" && classified.role === "assistant";
+  const permissionRequestId = classified.family === "permission" ? requestIdFromPermissionEvent(event) : null;
   const alignment = classified.role === "user" ? "user" : "assistant";
 
   if (hasAcpRenderSlot(event)) {
     return (
       <article className="acp-event acp-event--card" data-family={classified.family}>
-        <AcpRenderSlot event={event} sessionId={sessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />
+        {renderSlot(renderSlots, { event, sessionId, taskId, onApproved, onOpenPath })}
       </article>
     );
   }
@@ -52,6 +59,28 @@ export function AcpEventRenderer({
                 {classified.paths.join(", ")}
               </button>
             )}
+            {permissionRequestId && onAnswerPermission && (
+              <div className="acp-permission-actions">
+                <button
+                  type="button"
+                  className="acp-decision-button acp-decision-button--allow"
+                  aria-label="Allow permission request"
+                  onClick={() => void onAnswerPermission(permissionRequestId, "allow")}
+                >
+                  <Check size={13} />
+                  Allow
+                </button>
+                <button
+                  type="button"
+                  className="acp-decision-button"
+                  aria-label="Deny permission request"
+                  onClick={() => void onAnswerPermission(permissionRequestId, "deny")}
+                >
+                  <X size={13} />
+                  Deny
+                </button>
+              </div>
+            )}
             {classified.family === "unknown" && (
               <pre className="acp-event__payload">{JSON.stringify(event.payload, null, 2)}</pre>
             )}
@@ -72,4 +101,20 @@ export function AcpEventRenderer({
       </div>
     </article>
   );
+}
+
+function renderSlot(renderSlots: AcpRenderSlots | undefined, props: Parameters<AcpRenderSlots>[0]): ReactNode {
+  return renderSlots?.(props) ?? <AcpRenderSlot {...props} />;
+}
+
+function requestIdFromPermissionEvent(event: AcpEvent): string | null {
+  return stringValue(event.payload.request_id)
+    ?? stringValue(event.payload.permission_id)
+    ?? stringValue(event.payload.id)
+    ?? stringValue(event.projection.request_id)
+    ?? event.id;
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }

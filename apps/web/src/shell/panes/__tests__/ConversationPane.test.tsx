@@ -7,6 +7,7 @@ import { ConversationPane } from "../ConversationPane";
 
 vi.mock("../../../api", () => ({
   api: {
+    answerPermission: vi.fn(),
     cancelSession: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),
@@ -111,6 +112,34 @@ describe("ConversationPane", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise this section", []);
+  });
+
+  it("answers ACP permission requests through the backend gateway", async () => {
+    const user = userEvent.setup();
+    const refreshTimeline = vi.fn().mockResolvedValue(undefined);
+    const refreshSessions = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.answerPermission).mockResolvedValue({ session_id: "session-1", accepted: true, status: "idle" });
+    renderPane({
+      events: [
+        {
+          id: "permission-event",
+          session_id: "session-1",
+          sequence: 1,
+          event_type: "permission/request",
+          payload: { request_id: "permission-1", message: "Allow file write?" },
+          projection: {},
+          created_at: "2026-05-15T00:00:00Z",
+        },
+      ],
+      refreshTimeline,
+      refreshSessions,
+    });
+
+    await user.click(screen.getByRole("button", { name: /allow permission request/i }));
+
+    expect(api.answerPermission).toHaveBeenCalledWith("session-1", "permission-1", "allow");
+    expect(refreshTimeline).toHaveBeenCalledOnce();
+    expect(refreshSessions).toHaveBeenCalledOnce();
   });
 
   it("allows chat from an outline-approval session", async () => {

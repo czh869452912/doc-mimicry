@@ -312,6 +312,31 @@ def test_acp_events_are_ordered_resumable_and_session_scoped(pg_state) -> None:
     assert [event["id"] for event in resumed] == [second["id"]]
 
 
+def test_acp_event_type_prefers_explicit_event_type_over_runtime_method(pg_state) -> None:
+    pg_state.save_task({
+        "id": "t-acp-priority", "doc_type_id": "prd", "brief": "b", "title": "T ACP Priority",
+        "description": "", "workspace_root": "w/t-acp-priority",
+        "created_at": "2026-05-15T00:00:00Z", "updated_at": "2026-05-15T00:00:00Z",
+    })
+    pg_state.save_session({
+        "id": "s-acp-priority", "task_id": "t-acp-priority", "status": "pending",
+        "created_at": "2026-05-15T00:00:00Z", "updated_at": "2026-05-15T00:00:00Z",
+    })
+
+    event = pg_state.append_acp_event(
+        "s-acp-priority",
+        {
+            "method": "agent/tool_call",
+            "type": "vendor/action",
+            "event_type": "tool/call",
+            "name": "write_file",
+        },
+    )
+
+    assert event["event_type"] == "tool/call"
+    assert event["payload"]["method"] == "agent/tool_call"
+
+
 def test_database_enforces_session_task_foreign_key(pg_state) -> None:
     try:
         pg_state.save_session({

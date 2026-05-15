@@ -112,6 +112,14 @@ class AcpRuntimeAdapter(Protocol):
     def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
         ...
 
+    def answer_permission(
+        self,
+        session_id: str,
+        request_id: str,
+        decision: str,
+    ) -> RuntimeOperationResult:
+        ...
+
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         ...
 

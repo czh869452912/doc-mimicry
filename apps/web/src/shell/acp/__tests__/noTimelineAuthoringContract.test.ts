@@ -6,6 +6,9 @@ import useTimelineSource from "../../state/useTimeline.ts?raw";
 import interactionSurfaceSource from "../AcpInteractionSurface.tsx?raw";
 import rendererSource from "../AcpEventRenderer.tsx?raw";
 
+// AcpRenderSlots.tsx is intentionally excluded: it adapts product cards that
+// still consume TimelineEvent-shaped read models, but it is not the authoring
+// event source or center-pane protocol.
 const authoringSources = [
   apiSource,
   appShellSource,

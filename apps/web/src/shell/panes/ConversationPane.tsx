@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import type { AcpEvent, MessageAttachment, SessionRecord, TaskRecord } from "../../types";
-import { AcpInteractionSurface } from "../acp/AcpInteractionSurface";
+import { type AcpPermissionDecision, AcpInteractionSurface } from "../acp/AcpInteractionSurface";
 import { findReloadInput } from "../acp/acpEvents";
 import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashCommands";
 
@@ -139,6 +139,24 @@ export function ConversationPane({
     [submitOrCancel],
   );
 
+  const answerPermission = useCallback(
+    async (requestId: string, decision: AcpPermissionDecision) => {
+      if (!activeSession) {
+        setStatus("Create a session before answering permissions.");
+        return;
+      }
+      try {
+        await api.answerPermission(activeSession.id, requestId, decision);
+        await refreshTimeline();
+        await refreshSessions?.();
+        setStatus("");
+      } catch (caught) {
+        setStatus(caught instanceof Error ? caught.message : "Permission response failed.");
+      }
+    },
+    [activeSession, refreshTimeline, refreshSessions],
+  );
+
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);
 
@@ -168,6 +186,7 @@ export function ConversationPane({
           await refreshWorkspace();
           await refreshTimeline();
         }}
+        onAnswerPermission={answerPermission}
         onCancel={cancelActiveSession}
         onOpenPath={onOpenPath}
         onQueuedComposerDraftHandled={onQueuedComposerDraftHandled}

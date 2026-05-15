@@ -86,6 +86,14 @@ export const api = {
     ),
   cancelSession: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
+  answerPermission: (sessionId: string, requestId: string, decision: "allow" | "deny") =>
+    request<LoopActionResult>(
+      `/sessions/${sessionId}/permissions/${encodeURIComponent(requestId)}/answer`,
+      {
+        method: "POST",
+        body: JSON.stringify({ decision }),
+      },
+    ),
   getAcpEvents: (sessionId: string) => request<AcpEvent[]>(`/sessions/${sessionId}/events`),
   getDraft: (taskId: string) => request<{ markdown: string }>(`/tasks/${taskId}/draft`),
   updateDraft: (taskId: string, markdown: string) =>

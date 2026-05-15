@@ -97,5 +97,9 @@ def test_acp_runtime_adapter_protocol_is_importable() -> None:
     assert AcpRuntimeAdapter is not None
 
 
+def test_acp_runtime_adapter_protocol_includes_permission_response() -> None:
+    assert "answer_permission" in AcpRuntimeAdapter.__dict__
+
+
 def test_legacy_runtime_adapter_protocol_is_importable_for_compatibility() -> None:
     assert LegacyRuntimeAdapter is not None

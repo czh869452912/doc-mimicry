@@ -75,7 +75,20 @@ def test_mock_runtime_send_prompt_emits_required_acp_event_families(tmp_path: Pa
     assert any("tool" in event_type for event_type in event_types)
     assert any("file" in event_type for event_type in event_types)
     assert any("permission" in event_type or "approval" in event_type for event_type in event_types)
+    assert any(event_type.startswith("session/") or "status" in event_type for event_type in event_types)
+    assert any("unknown" in event_type for event_type in event_types)
     assert all(update.payload for update in result.acp_updates)
+
+
+def test_mock_runtime_answers_permission_requests(tmp_path: Path) -> None:
+    adapter = MockRuntimeAdapter()
+    adapter.create_session("session-001", _prompt_bundle(tmp_path))
+
+    result = adapter.answer_permission("session-001", "permission-1", "deny")
+
+    assert result.next_state is RuntimeSessionState.IDLE
+    assert [update.event_type for update in result.acp_updates] == ["permission/resolved"]
+    assert result.acp_updates[0].payload == {"request_id": "permission-1", "decision": "deny"}
 
 
 def _prompt_bundle(workspace: Path) -> PromptBundle:

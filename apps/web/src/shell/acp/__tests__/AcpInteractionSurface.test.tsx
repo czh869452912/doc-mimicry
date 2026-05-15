@@ -80,6 +80,43 @@ describe("AcpInteractionSurface", () => {
     expect(writeText).toHaveBeenCalledWith("Copy me");
   });
 
+  it("delegates copy behavior through the stable surface callback when supplied", async () => {
+    const user = userEvent.setup();
+    const onCopyContent = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        onCopyContent={onCopyContent}
+        events={[acp({ id: "a", sequence: 1, event_type: "message_delta", payload: { content: "Copy through port" } })]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /copy/i }));
+    expect(onCopyContent).toHaveBeenCalledWith({ text: "Copy through port", eventId: "a" });
+  });
+
+  it("uses injected render slots for product cards", () => {
+    const renderSlots = vi.fn(({ event }: { event: AcpEvent }) => <div>Custom slot for {event.id}</div>);
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        renderSlots={renderSlots}
+        events={[
+          acp({
+            id: "slot-1",
+            sequence: 1,
+            event_type: "file/write",
+            payload: { path: "reviews/checklist_result.md" },
+            projection: { timeline_kind: "run_checklist" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Custom slot for slot-1")).toBeTruthy();
+    expect(renderSlots).toHaveBeenCalled();
+  });
+
   it("requests reload from the selected event id", async () => {
     const user = userEvent.setup();
     const onReloadInput = vi.fn();
@@ -96,5 +133,48 @@ describe("AcpInteractionSurface", () => {
 
     await user.click(screen.getByRole("button", { name: /reload response/i }));
     expect(onReloadInput).toHaveBeenCalledWith("a");
+  });
+
+  it("requests reload for the latest user input when no event is selected", async () => {
+    const user = userEvent.setup();
+    const onReloadInput = vi.fn();
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        onReloadInput={onReloadInput}
+        events={[
+          acp({ id: "u", sequence: 1, event_type: "docagent/prompt", payload: { prompt: "Original" } }),
+          acp({ id: "a", sequence: 2, event_type: "message_delta", payload: { role: "assistant", content: "Answer" } }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /reload last user message/i }));
+    expect(onReloadInput).toHaveBeenCalledWith(null);
+  });
+
+  it("answers permission requests with the request id and decision", async () => {
+    const user = userEvent.setup();
+    const onAnswerPermission = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        onAnswerPermission={onAnswerPermission}
+        events={[
+          acp({
+            id: "p",
+            sequence: 1,
+            event_type: "permission/request",
+            payload: { request_id: "permission-1", message: "Allow file write?" },
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /allow permission request/i }));
+    await user.click(screen.getByRole("button", { name: /deny permission request/i }));
+
+    expect(onAnswerPermission).toHaveBeenNthCalledWith(1, "permission-1", "allow");
+    expect(onAnswerPermission).toHaveBeenNthCalledWith(2, "permission-1", "deny");
   });
 });

@@ -345,7 +345,7 @@ def _with_created_at(payload: dict[str, Any], row_created_at: datetime | str | N
 
 
 def _acp_event_type(payload: dict[str, Any]) -> str:
-    event_type = payload.get("method") or payload.get("type") or payload.get("event_type")
+    event_type = payload.get("event_type") or payload.get("method") or payload.get("type")
     return str(event_type or "unknown")
 
 

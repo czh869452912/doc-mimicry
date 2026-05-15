@@ -25,6 +25,9 @@ class FakeOpenHandsClient:
     def cancel_session(self, runtime_session_id: str) -> list[dict[str, Any]]:
         return [{"kind": "cancelled"}]
 
+    def answer_permission(self, runtime_session_id: str, request_id: str, decision: str) -> list[dict[str, Any]]:
+        return [{"kind": "permission_resolved", "request_id": request_id, "decision": decision}]
+
 
 class MixedPayloadOpenHandsClient(FakeOpenHandsClient):
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
@@ -75,6 +78,18 @@ def test_openhands_adapter_cancel_sets_cancelled(tmp_path: Path) -> None:
 
     assert result.next_state == RuntimeSessionState.CANCELLED
     assert adapter.get_state("session-001") == RuntimeSessionState.CANCELLED
+
+
+def test_openhands_adapter_forwards_permission_answers(tmp_path: Path) -> None:
+    adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
+    adapter.create_session("session-001", _prompt_bundle(tmp_path))
+    adapter.start_loop("session-001")
+
+    result = adapter.answer_permission("session-001", "permission-1", "allow")
+
+    assert result.next_state == RuntimeSessionState.AWAIT_OUTLINE_APPROVAL
+    assert result.raw_events[0].payload["request_id"] == "permission-1"
+    assert result.raw_events[0].payload["decision"] == "allow"
 
 
 def test_openhands_adapter_reports_missing_runtime_session() -> None:

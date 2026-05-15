@@ -17,8 +17,10 @@ export function useTimeline(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const invalidatedEventIdsRef = useRef<Set<string>>(new Set());
+  const taskIdRef = useRef(taskId);
 
   useEffect(() => {
+    taskIdRef.current = taskId;
     invalidatedEventIdsRef.current.clear();
   }, [sessionId, taskId]);
 
@@ -30,18 +32,19 @@ export function useTimeline(
         return true;
       });
       const hints = deriveAcpInvalidationHints(freshEvents);
+      const activeTaskId = taskIdRef.current;
 
       if (hints.workspace) {
-        void queryClient.invalidateQueries({ queryKey: ["workspace", taskId] });
+        void queryClient.invalidateQueries({ queryKey: ["workspace", activeTaskId] });
       }
       if (hints.draft) {
-        void queryClient.invalidateQueries({ queryKey: ["draft", taskId] });
+        void queryClient.invalidateQueries({ queryKey: ["draft", activeTaskId] });
       }
       if (hints.sessions) {
-        void queryClient.invalidateQueries({ queryKey: ["sessions", taskId] });
+        void queryClient.invalidateQueries({ queryKey: ["sessions", activeTaskId] });
       }
     },
-    [queryClient, taskId],
+    [queryClient],
   );
 
   const loadTimeline = useCallback(
@@ -72,7 +75,7 @@ export function useTimeline(
         if (shouldApply()) setLoading(false);
       }
     },
-    [invalidateRelatedQueries, taskId],
+    [invalidateRelatedQueries],
   );
 
   const refreshTimeline = useCallback(
@@ -157,7 +160,7 @@ export function useTimeline(
       if (pollId !== undefined) window.clearInterval(pollId);
       if (reconnectId !== undefined) window.clearTimeout(reconnectId);
     };
-  }, [sessionId, taskId, invalidateRelatedQueries, loadTimeline]);
+  }, [sessionId, invalidateRelatedQueries, loadTimeline]);
 
   const resetTimeline = useCallback(() => {
     setEvents([]);

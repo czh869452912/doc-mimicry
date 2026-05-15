@@ -256,6 +256,21 @@ class OpenHandsRuntimeAdapter:
             creation_event=creation_event,
         )
 
+    def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
+        self._runtime_session_id(session_id)
+        return []
+
+    def answer_permission(
+        self,
+        session_id: str,
+        request_id: str,
+        decision: str,
+    ) -> RuntimeOperationResult:
+        runtime_session_id = self._runtime_session_id(session_id)
+        raw_payloads = self.client.answer_permission(runtime_session_id, request_id, decision)
+        next_state = self._states.get(session_id, RuntimeSessionState.IDLE)
+        return self._result(session_id, next_state, raw_payloads)
+
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         runtime_session_id = self._runtime_session_ids.get(session_id)
         raw_payloads = self.client.cancel_session(runtime_session_id) if runtime_session_id else [{"kind": "cancelled"}]

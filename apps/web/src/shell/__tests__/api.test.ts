@@ -26,4 +26,14 @@ describe("api request helper", () => {
     const headers = init?.headers as Record<string, string>;
     expect(headers?.["Content-Type"]).toBe("application/json");
   });
+
+  it("posts permission answers through the ACP gateway", async () => {
+    const { api } = await import("../../api");
+    await api.answerPermission("session-1", "permission-1", "deny");
+
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/sessions/session-1/permissions/permission-1/answer");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ decision: "deny" }));
+  });
 });

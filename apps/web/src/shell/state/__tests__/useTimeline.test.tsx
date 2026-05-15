@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { useTimeline } from "../useTimeline";
 import { api } from "../../../api";
@@ -10,9 +10,11 @@ vi.mock("../../../api", () => ({
   streamAcpEventsUrl: vi.fn().mockReturnValue("http://localhost/events/stream"),
 }));
 
-function wrapper({ children }: { children: React.ReactNode }) {
+function createWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  };
 }
 
 function acp(overrides: Partial<AcpEvent> & Pick<AcpEvent, "id" | "sequence" | "event_type">): AcpEvent {
@@ -27,6 +29,7 @@ function acp(overrides: Partial<AcpEvent> & Pick<AcpEvent, "id" | "sequence" | "
 
 describe("useTimeline", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(api.getAcpEvents).mockResolvedValue([]);
   });
 
@@ -36,7 +39,7 @@ describe("useTimeline", () => {
     ]);
     const { result, rerender } = renderHook(
       ({ sid, tid }: { sid: string; tid: string }) => useTimeline(sid, tid),
-      { wrapper, initialProps: { sid: "session-1", tid: "task-1" } },
+      { wrapper: createWrapper(), initialProps: { sid: "session-1", tid: "task-1" } },
     );
     // Events loaded
     await vi.waitFor(() => expect(result.current.events).toHaveLength(1));
@@ -57,8 +60,28 @@ describe("useTimeline", () => {
       }),
     ]);
 
-    const { result } = renderHook(() => useTimeline("session-1", "task-1"), { wrapper });
+    const { result } = renderHook(() => useTimeline("session-1", "task-1"), { wrapper: createWrapper() });
 
     await vi.waitFor(() => expect(result.current.events.map((event) => event.id)).toEqual(["acp-1"]));
+  });
+
+  it("does not refetch events when only task id changes for the same session", async () => {
+    vi.mocked(api.getAcpEvents).mockResolvedValue([
+      acp({ id: "e1", sequence: 1, event_type: "message_delta", payload: { content: "Hi" } }),
+    ]);
+    const { rerender } = renderHook(
+      ({ sid, tid }: { sid: string; tid: string }) => useTimeline(sid, tid),
+      { wrapper: createWrapper(), initialProps: { sid: "session-1", tid: "task-1" } },
+    );
+
+    await vi.waitFor(() => expect(api.getAcpEvents).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      rerender({ sid: "session-1", tid: "task-2" });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(api.getAcpEvents).toHaveBeenCalledTimes(1);
   });
 });

@@ -16,6 +16,7 @@ from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.celery_app import celery_app
 from docagent_api.request_models import (
     ApproveOutlineRequest,
+    PermissionAnswerRequest,
     PromptRequest,
     ReviseSelectionRequest,
     SendMessageRequest,
@@ -548,6 +549,40 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_runtime_result(state, task["id"], session_id, result)
         set_session_state(state, session, result.next_state, task_id=task["id"])
         return runtime_result_response(result)
+
+    @router.post("/sessions/{session_id}/permissions/{request_id}/answer", response_model=LoopActionResponse)
+    def answer_permission(
+        session_id: str,
+        request_id: str,
+        request: PermissionAnswerRequest,
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        answer_method = getattr(adapter, "answer_permission", None)
+        if not callable(answer_method):
+            raise HTTPException(status_code=501, detail="Runtime adapter does not support permission responses.")
+        try:
+            result = answer_method(session_id, request_id, request.decision)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Runtime permission response failed: {exc}") from exc
+        state.append_acp_event(
+            session_id,
+            {
+                "event_type": "permission/response",
+                "request_id": request_id,
+                "decision": request.decision,
+            },
+        )
+        append_runtime_result(state, task["id"], session_id, result)
+        set_session_state(state, session, result.next_state, task_id=task["id"])
+        return {
+            "session_id": session_id,
+            "next_state": result.next_state.value,
+            "accepted": True,
+            "status": result.next_state.value,
+        }
 
     @router.get("/sessions/{session_id}/timeline", response_model=list[TimelineEventResponse])
     def get_timeline(session_id: str) -> list[dict[str, Any]]:

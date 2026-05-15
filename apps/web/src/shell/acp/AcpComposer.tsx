@@ -15,7 +15,7 @@ interface AcpComposerProps {
   disabled: boolean;
   draftText?: string | null;
   isRunning?: boolean;
-  onCancel?: () => void;
+  onCancel?: () => void | Promise<void>;
   onDraftTextApplied?: () => void;
   onSend: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
   taskId?: string | null;
@@ -140,7 +140,7 @@ export function AcpComposer({
         <Paperclip size={15} />
       </button>
       {isRunning ? (
-        <button type="button" className="acp-send-button acp-send-button--stop" aria-label="Stop the running agent" onClick={() => onCancel?.()}>
+        <button type="button" className="acp-send-button acp-send-button--stop" aria-label="Stop the running agent" onClick={() => void onCancel?.()}>
           <Square size={13} />
         </button>
       ) : (
