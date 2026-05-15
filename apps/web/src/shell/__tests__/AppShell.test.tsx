@@ -15,7 +15,6 @@ vi.mock("../../api", () => ({
     exportMarkdown: vi.fn(),
     getAcpEvents: vi.fn(),
     getDraft: vi.fn(),
-    getTimeline: vi.fn(),
     getWorkspace: vi.fn(),
     getWorkspaceFile: vi.fn(),
     importTextInput: vi.fn(),
@@ -30,7 +29,6 @@ vi.mock("../../api", () => ({
     updateDraft: vi.fn(),
   },
   streamAcpEventsUrl: (sessionId: string) => `/sessions/${sessionId}/events/stream`,
-  streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
 vi.mock("../editor/LazyDraftEditor", () => ({
@@ -100,7 +98,6 @@ describe("AppShell", () => {
     ]);
     vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-1", root: "workspace/task-1", files: [] });
     vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline).mockResolvedValue([]);
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
     vi.mocked(api.importTextInput).mockResolvedValue({
       id: "input-scope-notes",
@@ -499,7 +496,6 @@ describe("AppShell", () => {
     await screen.findByText("Restored workspace");
     vi.mocked(api.getWorkspace).mockClear();
     vi.mocked(api.getAcpEvents).mockClear();
-    vi.mocked(api.getTimeline).mockClear();
 
     await userEvent.type(screen.getByLabelText("Message"), "Revise the draft");
     await userEvent.keyboard("{Enter}");
@@ -685,7 +681,6 @@ describe("AppShell", () => {
     await screen.findByText("I updated the launch scope.");
     vi.mocked(api.sendMessage).mockClear();
     vi.mocked(api.getAcpEvents).mockClear();
-    vi.mocked(api.getTimeline).mockClear();
 
     const reloadButton = screen.getByRole("button", { name: /reload response/i });
     expect(reloadButton.hasAttribute("disabled")).toBe(false);

@@ -21,10 +21,8 @@ function renderWithQuery(ui: React.ReactElement, queryClient = createTestQueryCl
 vi.mock("../../api", () => ({
   api: {
     getAcpEvents: vi.fn(),
-    getTimeline: vi.fn(),
   },
   streamAcpEventsUrl: (sessionId: string) => `/sessions/${sessionId}/events/stream`,
-  streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
 const eventOne: AcpEvent = {
@@ -54,9 +52,7 @@ function Harness({
 describe("useTimeline", () => {
   beforeEach(() => {
     vi.mocked(api.getAcpEvents).mockReset();
-    vi.mocked(api.getTimeline).mockReset();
     vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -81,7 +77,6 @@ describe("useTimeline", () => {
 
     await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["acp-1"]));
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
-    expect(api.getTimeline).not.toHaveBeenCalled();
   });
 
   it("returns ACP events directly and does not fetch semantic timeline fallback", async () => {
@@ -92,7 +87,6 @@ describe("useTimeline", () => {
 
     await waitFor(() => expect(latest.events).toEqual([]));
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
-    expect(api.getTimeline).not.toHaveBeenCalled();
   });
 
   it("clears events when there is no session", async () => {

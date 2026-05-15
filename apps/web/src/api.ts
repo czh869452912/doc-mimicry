@@ -6,15 +6,11 @@ import type {
   MessageAttachment,
   SessionRecord,
   TaskRecord,
-  TimelineEvent,
   WorkspaceFileContent,
   WorkspaceTree,
 } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
-
-export const streamTimelineUrl = (sessionId: string): string =>
-  `${API_BASE}/sessions/${sessionId}/timeline/stream`;
 
 export const streamAcpEventsUrl = (sessionId: string): string =>
   `${API_BASE}/sessions/${sessionId}/events/stream`;
@@ -91,7 +87,6 @@ export const api = {
   cancelSession: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/cancel`, { method: "POST" }),
   getAcpEvents: (sessionId: string) => request<AcpEvent[]>(`/sessions/${sessionId}/events`),
-  getTimeline: (sessionId: string) => request<TimelineEvent[]>(`/sessions/${sessionId}/timeline`),
   getDraft: (taskId: string) => request<{ markdown: string }>(`/tasks/${taskId}/draft`),
   updateDraft: (taskId: string, markdown: string) =>
     request<{ markdown: string }>(`/tasks/${taskId}/draft`, {

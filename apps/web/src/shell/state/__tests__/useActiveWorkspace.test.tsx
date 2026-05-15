@@ -24,7 +24,6 @@ vi.mock("../../../api", () => ({
     ]),
     getWorkspace: vi.fn().mockResolvedValue({ task_id: "t1", root: "w/t1", files: [] }),
     getDraft: vi.fn().mockResolvedValue({ task_id: "t1", markdown: "" }),
-    getTimeline: vi.fn().mockResolvedValue([]),
     createSession: vi.fn(),
   },
 }));

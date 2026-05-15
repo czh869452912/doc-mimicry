@@ -6,9 +6,8 @@ import { api } from "../../../api";
 import type { AcpEvent } from "../../../types";
 
 vi.mock("../../../api", () => ({
-  api: { getAcpEvents: vi.fn(), getTimeline: vi.fn() },
+  api: { getAcpEvents: vi.fn() },
   streamAcpEventsUrl: vi.fn().mockReturnValue("http://localhost/events/stream"),
-  streamTimelineUrl: vi.fn().mockReturnValue("http://localhost/stream"),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -29,7 +28,6 @@ function acp(overrides: Partial<AcpEvent> & Pick<AcpEvent, "id" | "sequence" | "
 describe("useTimeline", () => {
   beforeEach(() => {
     vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline).mockResolvedValue([]);
   });
 
   it("does not clear events when session changes (keepPreviousData)", async () => {
@@ -62,6 +60,5 @@ describe("useTimeline", () => {
     const { result } = renderHook(() => useTimeline("session-1", "task-1"), { wrapper });
 
     await vi.waitFor(() => expect(result.current.events.map((event) => event.id)).toEqual(["acp-1"]));
-    expect(api.getTimeline).not.toHaveBeenCalled();
   });
 });
