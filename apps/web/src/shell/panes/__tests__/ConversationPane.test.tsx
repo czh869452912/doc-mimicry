@@ -6,6 +6,7 @@ import type { AcpEvent } from "../../../types";
 import { ConversationPane } from "../ConversationPane";
 
 vi.mock("../../../api", () => ({
+  API_BASE: "http://127.0.0.1:8000",
   api: {
     answerPermission: vi.fn(),
     cancelSession: vi.fn(),
@@ -73,6 +74,7 @@ describe("ConversationPane", () => {
 
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it("renders the center pane through the ACP interaction surface", () => {
@@ -83,6 +85,17 @@ describe("ConversationPane", () => {
     expect(screen.getByRole("button", { name: /copy text/i })).toBeTruthy();
     expect(container.querySelector(".conversation-stream")).toBeFalsy();
     expect(screen.getByText("Write a launch PRD")).toBeTruthy();
+  });
+
+  it("can replace the local center pane with an external ACP UI iframe", async () => {
+    vi.stubEnv("VITE_ACP_UI_URL", "http://127.0.0.1:4173/acp-ui/");
+    const { container } = renderPane();
+
+    const frame = screen.getByTitle("ACP interaction client") as HTMLIFrameElement;
+    expect(frame).toBeTruthy();
+    expect(frame.src).toContain("docagentSessionId=session-1");
+    expect(container.querySelector(".acp-thread")).toBeFalsy();
+    vi.unstubAllEnvs();
   });
 
   it("renders running status inside the ACP thread", () => {

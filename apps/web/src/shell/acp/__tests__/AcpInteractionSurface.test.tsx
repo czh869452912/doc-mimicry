@@ -46,7 +46,7 @@ describe("AcpInteractionSurface", () => {
     });
   });
 
-  it("renders ACP user, assistant, tool, file, status, and unknown events", () => {
+  it("renders ACP user, assistant, tool, file, status, and unknown event titles", () => {
     render(
       <AcpInteractionSurface
         {...baseProps}
@@ -67,6 +67,35 @@ describe("AcpInteractionSurface", () => {
     expect(screen.getAllByText(/draft\/draft\.md/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Session status/i)).toBeTruthy();
     expect(screen.getByText(/vendor\/custom/i)).toBeTruthy();
+    expect(screen.queryByText(/"hello"/i)).toBeNull();
+  });
+
+  it("hides OpenHands housekeeping events from the fallback center pane", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "session-created",
+            sequence: 1,
+            event_type: "openhands/session_created",
+            payload: { workspace_root: "/workspace/state/workspaces/task-1" },
+          }),
+          acp({
+            id: "state-update",
+            sequence: 2,
+            event_type: "openhands/ConversationStateUpdateEvent",
+            payload: { key: "execution_status", value: "running" },
+          }),
+          acp({ id: "message", sequence: 3, event_type: "message_delta", payload: { role: "assistant", content: "Visible" } }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Visible")).toBeTruthy();
+    expect(screen.queryByText(/session_created/i)).toBeNull();
+    expect(screen.queryByText(/ConversationStateUpdateEvent/i)).toBeNull();
+    expect(screen.queryByText(/execution_status/i)).toBeNull();
   });
 
   it("copies event text with local ACP actions", async () => {

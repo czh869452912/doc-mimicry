@@ -131,10 +131,9 @@ def test_openhands_adapter_send_prompt_emits_acp_updates(tmp_path: Path) -> None
     assert result.raw_events[0].kind == "session_created"
     assert client.messages == ["Revise the draft"]
     assert [update.event_type for update in result.acp_updates] == [
-        "openhands/session_created",
         "file/write",
     ]
-    assert result.acp_updates[1].projection["timeline_kind"] == "update_draft"
+    assert result.acp_updates[0].projection["timeline_kind"] == "update_draft"
 
 
 def test_send_prompt_returns_acp_updates_and_preserves_raw_payload(tmp_path: Path) -> None:
@@ -145,7 +144,6 @@ def test_send_prompt_returns_acp_updates_and_preserves_raw_payload(tmp_path: Pat
     result = adapter.send_prompt("session-001", "Write", {"action": "send_message"})
 
     assert [update.event_type for update in result.acp_updates] == [
-        "openhands/session_created",
         "message_delta",
         "file/write",
         "openhands/strange_event",
@@ -172,9 +170,75 @@ def test_openhands_payload_maps_to_acp_update() -> None:
         {"kind": "file_written", "path": "draft/draft.md"},
     )
 
+    assert update is not None
     assert update.event_type == "file/write"
     assert update.payload["path"] == "draft/draft.md"
     assert update.projection["timeline_kind"] == "update_draft"
+
+
+def test_openhands_message_event_maps_to_message_delta() -> None:
+    update = map_openhands_payload_to_acp_update(
+        "session-001",
+        {
+            "kind": "MessageEvent",
+            "source": "agent",
+            "llm_message": {"content": [{"type": "text", "text": "Here is the outline."}]},
+        },
+    )
+
+    assert update is not None
+    assert update.event_type == "message_delta"
+    assert update.payload["content"] == "Here is the outline."
+
+
+def test_openhands_action_event_maps_to_file_or_tool_update() -> None:
+    file_update = map_openhands_payload_to_acp_update(
+        "session-001",
+        {
+            "kind": "ActionEvent",
+            "action": {"kind": "FileEditorAction", "path": "draft/draft.md"},
+        },
+    )
+    tool_update = map_openhands_payload_to_acp_update(
+        "session-001",
+        {
+            "kind": "ActionEvent",
+            "action": {"kind": "TaskTrackerAction", "command": "plan", "task_list": [{"title": "Draft"}]},
+        },
+    )
+
+    assert file_update is not None
+    assert file_update.event_type == "file/write"
+    assert file_update.payload["path"] == "draft/draft.md"
+    assert tool_update is not None
+    assert tool_update.event_type == "tool/call"
+    assert tool_update.projection["summary"] == "Updating task list (1 tasks)"
+
+
+def test_openhands_housekeeping_payloads_do_not_emit_acp_updates() -> None:
+    for payload in [
+        {"kind": "session_created", "workspace_root": "/workspace/task-1"},
+        {"kind": "ConversationStateUpdateEvent", "key": "execution_status", "value": "running"},
+        {"kind": "SystemPromptEvent", "system_prompt": "..."},
+        {"kind": "ObservationEvent", "path": "draft/draft.md"},
+    ]:
+        assert map_openhands_payload_to_acp_update("session-001", payload) is None
+
+
+def test_openhands_error_payload_maps_to_failed_acp_update() -> None:
+    update = map_openhands_payload_to_acp_update(
+        "session-001",
+        {
+            "kind": "ConversationErrorEvent",
+            "code": "APIError",
+            "detail": "provider connection failed",
+        },
+    )
+
+    assert update is not None
+    assert update.event_type == "runtime/error"
+    assert update.projection["status"] == "failed"
+    assert "APIError" in update.projection["summary"]
 
 
 def _prompt_bundle(workspace: Path) -> PromptBundle:

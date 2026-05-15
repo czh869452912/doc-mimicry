@@ -31,3 +31,18 @@ npm run dev
 ```
 
 The app expects the API at `http://127.0.0.1:8000` unless `VITE_API_BASE` is set.
+
+## External ACP UI
+
+The center agent pane can be delegated to an existing ACP client UI instead of
+DocAgent's local fallback renderer:
+
+```powershell
+$env:VITE_ACP_UI_URL = "http://127.0.0.1:4173/"
+npm run dev
+```
+
+Serve the ACP UI locally or from the same deployment origin when possible. The
+embed passes `docagentSessionId`, `docagentTaskId`, `docagentApiBase`, and the
+`docagentAcpWsUrl` query parameter for `/sessions/{session_id}/acp/ws`. Unset
+`VITE_ACP_UI_URL` to return to the built-in fallback surface.

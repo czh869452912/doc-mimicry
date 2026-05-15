@@ -17,8 +17,84 @@ from docagent_contracts.time import utc_now
 from .client import OpenHandsClient
 
 
-def map_openhands_payload_to_acp_update(session_id: str, payload: dict[str, Any]) -> AcpRuntimeUpdate:
+HOUSEKEEPING_KINDS = {
+    "ConversationStateUpdateEvent",
+    "ObservationEvent",
+    "SystemPromptEvent",
+    "session_created",
+}
+
+
+def map_openhands_payload_to_acp_update(session_id: str, payload: dict[str, Any]) -> AcpRuntimeUpdate | None:
     kind = str(payload.get("kind") or payload.get("type") or "event")
+    if kind in HOUSEKEEPING_KINDS:
+        return None
+    if kind == "ConversationErrorEvent":
+        detail = str(payload.get("detail") or payload.get("message") or "Runtime error")
+        code = payload.get("code")
+        summary = f"Agent error ({code}): {detail}" if code else detail
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="runtime/error",
+            payload=payload,
+            projection={
+                "timeline_kind": "error",
+                "actor": "system",
+                "summary": summary[:240],
+                "paths": [],
+                "status": "failed",
+            },
+        )
+    if kind == "MessageEvent":
+        text = _message_event_text(payload)
+        if not text:
+            return None
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="message_delta",
+            payload={
+                "role": "assistant",
+                "content": text,
+                "message_id": str(payload.get("id") or payload.get("message_id") or "openhands-message"),
+                "raw": payload,
+            },
+        )
+    if kind == "ActionEvent":
+        action = payload.get("action") if isinstance(payload.get("action"), dict) else {}
+        action_kind = str(action.get("kind") or payload.get("tool_name") or "tool")
+        if action_kind in {"ThinkAction", "FinishAction"}:
+            return None
+        path = payload.get("path") or action.get("path") or action.get("file_path")
+        if path:
+            path = str(path)
+            return AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="file/write",
+                payload={**payload, "path": path},
+                projection={
+                    "timeline_kind": "update_draft",
+                    "actor": "tool",
+                    "summary": f"Write {path}",
+                    "paths": [path],
+                    "status": "succeeded",
+                },
+            )
+        return AcpRuntimeUpdate(
+            session_id=session_id,
+            event_type="tool/call",
+            payload={
+                "name": action_kind,
+                "status": "succeeded",
+                "raw": payload,
+            },
+            projection={
+                "timeline_kind": "agent_tool_call",
+                "actor": "tool",
+                "summary": _tool_summary(action_kind, action),
+                "paths": [],
+                "status": "succeeded",
+            },
+        )
     if kind in {"file_written", "file_write", "write_file"}:
         path = payload.get("path")
         paths = [str(path)] if path else []
@@ -63,6 +139,34 @@ def map_openhands_payload_to_acp_update(session_id: str, payload: dict[str, Any]
         event_type=f"openhands/{kind}",
         payload=payload,
     )
+
+
+def _message_event_text(payload: dict[str, Any]) -> str:
+    if payload.get("source") not in {None, "agent"}:
+        return ""
+    llm_message = payload.get("llm_message")
+    if not isinstance(llm_message, dict):
+        return ""
+    parts = llm_message.get("content")
+    if isinstance(parts, str):
+        return parts.strip()
+    if not isinstance(parts, list):
+        return ""
+    text_parts = [
+        str(part.get("text")).strip()
+        for part in parts
+        if isinstance(part, dict) and part.get("type") == "text" and part.get("text")
+    ]
+    return "\n".join(part for part in text_parts if part)
+
+
+def _tool_summary(action_kind: str, action: dict[str, Any]) -> str:
+    if action_kind == "TaskTrackerAction":
+        command = action.get("command")
+        if command == "plan":
+            return f"Updating task list ({len(action.get('task_list') or [])} tasks)"
+        return "Checking task list"
+    return action_kind
 
 
 def _next_state_for_prompt_action(action: object) -> RuntimeSessionState:
@@ -119,13 +223,17 @@ class OpenHandsRuntimeAdapter:
         next_state = _next_state_for_prompt_action(action)
         self._states[session_id] = next_state
         acp_updates = [
-            map_openhands_payload_to_acp_update(session_id, {**event.payload, "kind": event.kind})
+            update
             for event in [creation_event]
             if event is not None
+            for update in [map_openhands_payload_to_acp_update(session_id, {**event.payload, "kind": event.kind})]
+            if update is not None
         ]
         acp_updates.extend(
-            map_openhands_payload_to_acp_update(session_id, payload)
+            update
             for payload in raw_payloads
+            for update in [map_openhands_payload_to_acp_update(session_id, payload)]
+            if update is not None
         )
         return RuntimeOperationResult(
             session_id=session_id,

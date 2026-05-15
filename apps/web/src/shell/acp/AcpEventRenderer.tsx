@@ -82,9 +82,6 @@ export function AcpEventRenderer({
                 </button>
               </div>
             )}
-            {classified.family === "unknown" && (
-              <pre className="acp-event__payload">{JSON.stringify(event.payload, null, 2)}</pre>
-            )}
           </>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { RefreshCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AcpEvent, MessageAttachment } from "../../types";
-import { findReloadInput, mergeAcpEvents, textFromAcpEvent } from "./acpEvents";
+import { findReloadInput, isOpenHandsHousekeepingEvent, mergeAcpEvents, textFromAcpEvent } from "./acpEvents";
 import { AcpComposer } from "./AcpComposer";
 import { AcpEventRenderer } from "./AcpEventRenderer";
 import { hasAcpRenderSlot } from "./AcpRenderSlots";
@@ -127,6 +127,7 @@ function visibleCenterEvents(events: AcpEvent[]): AcpEvent[] {
       .filter((id): id is string => Boolean(id)),
   );
   return events.filter((event) => {
+    if (isOpenHandsHousekeepingEvent(event)) return false;
     if (event.event_type !== "docagent/projection") return true;
     if (!hasAcpRenderSlot(event)) return false;
     return !nativeProjectionIds.has(projectionId(event) ?? "");

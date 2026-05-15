@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../api";
+import { API_BASE, api } from "../../api";
 import type { AcpEvent, MessageAttachment, SessionRecord, TaskRecord } from "../../types";
 import { type AcpPermissionDecision, AcpInteractionSurface } from "../acp/AcpInteractionSurface";
+import { AcpUiEmbed } from "../acp/AcpUiEmbed";
+import { configuredAcpUiUrl } from "../acp/acpUiEmbedUrl";
 import { findReloadInput } from "../acp/acpEvents";
 import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashCommands";
 
@@ -166,6 +168,7 @@ export function ConversationPane({
 
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);
+  const acpUiUrl = configuredAcpUiUrl();
 
   const queuedCommandHandlingRef = useRef(false);
   useEffect(() => {
@@ -180,27 +183,36 @@ export function ConversationPane({
 
   return (
     <section className="conversation-pane">
-      <AcpInteractionSurface
-        sessionId={activeSession?.id ?? null}
-        taskId={activeTask?.id ?? null}
-        events={events}
-        emptyMessage={emptyMessage(activeTask, activeSession)}
-        loading={loading}
-        running={isRunning}
-        error={error}
-        queuedComposerDraft={queuedComposerDraft}
-        onApproved={async () => {
-          await refreshWorkspace();
-          await refreshTimeline();
-        }}
-        onAnswerPermission={answerPermission}
-        onAttachContext={attachContext}
-        onCancel={cancelActiveSession}
-        onOpenPath={onOpenPath}
-        onQueuedComposerDraftHandled={onQueuedComposerDraftHandled}
-        onReloadInput={reloadInput}
-        onSendMessage={submitOrCancel}
-      />
+      {acpUiUrl ? (
+        <AcpUiEmbed
+          acpUiUrl={acpUiUrl}
+          apiBase={API_BASE}
+          sessionId={activeSession?.id ?? null}
+          taskId={activeTask?.id ?? null}
+        />
+      ) : (
+        <AcpInteractionSurface
+          sessionId={activeSession?.id ?? null}
+          taskId={activeTask?.id ?? null}
+          events={events}
+          emptyMessage={emptyMessage(activeTask, activeSession)}
+          loading={loading}
+          running={isRunning}
+          error={error}
+          queuedComposerDraft={queuedComposerDraft}
+          onApproved={async () => {
+            await refreshWorkspace();
+            await refreshTimeline();
+          }}
+          onAnswerPermission={answerPermission}
+          onAttachContext={attachContext}
+          onCancel={cancelActiveSession}
+          onOpenPath={onOpenPath}
+          onQueuedComposerDraftHandled={onQueuedComposerDraftHandled}
+          onReloadInput={reloadInput}
+          onSendMessage={submitOrCancel}
+        />
+      )}
       {showHelp && (
         <article className="inline-card">
           <header>

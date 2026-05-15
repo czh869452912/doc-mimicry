@@ -53,6 +53,21 @@ export function mergeAcpEvents(events: AcpEvent[]): AcpEvent[] {
   return order.map((id) => byId.get(id)).filter((event): event is AcpEvent => Boolean(event));
 }
 
+export function isOpenHandsHousekeepingEvent(event: AcpEvent): boolean {
+  const eventType = event.event_type.toLowerCase();
+  const payloadKind = stringValue(event.payload.kind)?.toLowerCase() ?? "";
+  const payloadType = stringValue(event.payload.type)?.toLowerCase() ?? "";
+  const kind = eventType.startsWith("openhands/")
+    ? eventType.slice("openhands/".length)
+    : payloadKind || payloadType;
+  return [
+    "conversationstateupdateevent",
+    "observationevent",
+    "session_created",
+    "systempromptevent",
+  ].includes(kind);
+}
+
 export function textFromAcpEvent(event: AcpEvent): string {
   return (
     stringValue(event.payload.prompt)

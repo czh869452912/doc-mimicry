@@ -4,6 +4,7 @@ import {
   classifyAcpEvent,
   deriveAcpInvalidationHints,
   findReloadInput,
+  isOpenHandsHousekeepingEvent,
   mergeAcpEvents,
   textFromAcpEvent,
 } from "../acpEvents";
@@ -62,6 +63,24 @@ describe("ACP event helpers", () => {
       event_type: "message_delta",
       payload: { role: "assistant", content: "Working" },
     }))).toBe("Working");
+  });
+
+  it("recognizes OpenHands housekeeping events that should not be center-pane content", () => {
+    expect(isOpenHandsHousekeepingEvent(acp({
+      id: "created",
+      sequence: 1,
+      event_type: "openhands/session_created",
+    }))).toBe(true);
+    expect(isOpenHandsHousekeepingEvent(acp({
+      id: "state",
+      sequence: 2,
+      event_type: "openhands/ConversationStateUpdateEvent",
+    }))).toBe(true);
+    expect(isOpenHandsHousekeepingEvent(acp({
+      id: "message",
+      sequence: 3,
+      event_type: "message_delta",
+    }))).toBe(false);
   });
 
   it("merges message deltas by message id and keeps sequence ordering", () => {
