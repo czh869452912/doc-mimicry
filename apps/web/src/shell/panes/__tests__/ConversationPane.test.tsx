@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api";
@@ -9,6 +9,7 @@ vi.mock("../../../api", () => ({
   api: {
     answerPermission: vi.fn(),
     cancelSession: vi.fn(),
+    importTextInput: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),
   },
@@ -112,6 +113,45 @@ describe("ConversationPane", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(api.sendMessage).toHaveBeenCalledWith("session-1", "Revise this section", []);
+  });
+
+  it("refreshes workspace when the ACP surface imports composer attachments", async () => {
+    const user = userEvent.setup();
+    const refreshWorkspace = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.importTextInput).mockResolvedValue({
+      id: "input-1",
+      status: "converted",
+      source_path: "inputs/original/context.txt",
+      markdown_path: "inputs/markdown/context.md",
+      conversion_report_path: "inputs/reports/context.json",
+      original_filename: "context.txt",
+      created_at: "2026-05-15T00:00:00Z",
+    });
+    vi.mocked(api.sendMessage).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_chat" });
+    renderPane({ refreshWorkspace });
+
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["Attachment context"], "context.txt", { type: "text/plain" }),
+    );
+    await user.type(screen.getByLabelText("Message"), "Use context");
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledWith(
+      "session-1",
+      "Use context",
+      [
+        {
+          name: "context.txt",
+          markdown_path: "inputs/markdown/context.md",
+          source_path: "inputs/original/context.txt",
+          conversion_report_path: "inputs/reports/context.json",
+        },
+      ],
+    ));
+    expect(refreshWorkspace.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(api.sendMessage).mock.invocationCallOrder[0],
+    );
   });
 
   it("answers ACP permission requests through the backend gateway", async () => {

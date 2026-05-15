@@ -138,8 +138,8 @@ function statusForEventType(eventType: string, payloadStatus: unknown): AcpDispl
   if (status === "failed" || status === "cancelled" || status === "pending" || status === "running" || status === "succeeded") return status;
   if (eventType.includes("fail") || eventType.includes("error")) return "failed";
   if (eventType.includes("cancel")) return "cancelled";
-  if (eventType.includes("request")) return "pending";
   if (eventType.includes("permission/resolved") || eventType.includes("permission/response")) return "succeeded";
+  if (eventType.includes("request")) return "pending";
   if (eventType.includes("complete") || eventType.includes("result") || eventType.includes("done")) return "succeeded";
   return "running";
 }

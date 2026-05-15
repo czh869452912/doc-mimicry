@@ -31,11 +31,19 @@ describe("ACP event helpers", () => {
   it("classifies completed permission events without request-state labels", () => {
     expect(classifyAcpEvent(acp({ id: "r", sequence: 1, event_type: "permission/resolved" }))).toMatchObject({
       family: "permission",
+      role: "system",
       status: "succeeded",
       title: "Permission resolved",
     });
     expect(classifyAcpEvent(acp({ id: "a", sequence: 2, event_type: "permission/response" }))).toMatchObject({
       family: "permission",
+      role: "system",
+      status: "succeeded",
+      title: "Permission response",
+    });
+    expect(classifyAcpEvent(acp({ id: "a2", sequence: 3, event_type: "permission/response_request" }))).toMatchObject({
+      family: "permission",
+      role: "system",
       status: "succeeded",
       title: "Permission response",
     });

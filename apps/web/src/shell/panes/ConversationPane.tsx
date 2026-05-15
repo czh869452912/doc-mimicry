@@ -157,6 +157,13 @@ export function ConversationPane({
     [activeSession, refreshTimeline, refreshSessions],
   );
 
+  const attachContext = useCallback(
+    async (_attachments: MessageAttachment[]) => {
+      await refreshWorkspace();
+    },
+    [refreshWorkspace],
+  );
+
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);
 
@@ -187,6 +194,7 @@ export function ConversationPane({
           await refreshTimeline();
         }}
         onAnswerPermission={answerPermission}
+        onAttachContext={attachContext}
         onCancel={cancelActiveSession}
         onOpenPath={onOpenPath}
         onQueuedComposerDraftHandled={onQueuedComposerDraftHandled}
