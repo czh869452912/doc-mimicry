@@ -1,0 +1,91 @@
+diff --git a/src/App.vue b/src/App.vue
+index ab4678f..65e7b6d 100644
+--- a/src/App.vue
++++ b/src/App.vue
+@@ -100,4 +100,18 @@ const pendingPermission = computed(() => sessionStore.pendingPermission);
+-const pendingAuthMethods = computed(() => sessionStore.pendingAuthMethods);
+-const pendingAuthAgentName = computed(() => sessionStore.pendingAuthAgentName);
+-
+-onMounted(async () => {
++const pendingAuthMethods = computed(() => sessionStore.pendingAuthMethods);
++const pendingAuthAgentName = computed(() => sessionStore.pendingAuthAgentName);
++
++function getDocAgentBootstrapParams(): { agentName: string; cwd: string } | null {
++  if (typeof window === 'undefined') return null;
++  const params = new URL(window.location.href).searchParams;
++  const wsUrl = params.get('docagentAcpWsUrl')?.trim();
++  if (!wsUrl) return null;
++  const lower = wsUrl.toLowerCase();
++  if (!lower.startsWith('ws://') && !lower.startsWith('wss://')) return null;
++  const cwd = params.get('docagentWorkspaceRoot')?.trim() || '/workspace';
++  return {
++    agentName: 'DocAgent',
++    cwd: cwd.startsWith('/') || /^[A-Za-z]:[\\/]/.test(cwd) ? cwd : '/workspace',
++  };
++}
++
++onMounted(async () => {
+@@ -127,5 +141,13 @@ onMounted(async () => {
+-  if (savedCwd) {
+-    selectedCwd.value = savedCwd;
+-  }
+-
+-  // Hook foreground-reconnect listeners. `pageshow` fires both on initial
++  if (savedCwd) {
++    selectedCwd.value = savedCwd;
++  }
++
++  const docAgentBootstrap = getDocAgentBootstrapParams();
++  if (docAgentBootstrap && configStore.agentNames.includes(docAgentBootstrap.agentName)) {
++    selectedAgent.value = docAgentBootstrap.agentName;
++    selectedCwd.value = docAgentBootstrap.cwd;
++    await sessionStore.createSession(docAgentBootstrap.agentName, docAgentBootstrap.cwd);
++    showSidebar.value = false;
++  }
++
++  // Hook foreground-reconnect listeners. `pageshow` fires both on initial
+diff --git a/src/lib/host/index.ts b/src/lib/host/index.ts
+index 83335f5..0a4f4ae 100644
+--- a/src/lib/host/index.ts
++++ b/src/lib/host/index.ts
+@@ -41,5 +41,29 @@ export interface RemoteAgentOptions {
+-const WEB_CONFIG_KEY = 'acp-ui:agents';
+-const WEB_CONFIG_PATH_LABEL = '(browser local storage)';
+-
+-function loadWebConfig(): AgentsConfig {
+-  if (typeof localStorage === 'undefined') return { agents: {} };
++const WEB_CONFIG_KEY = 'acp-ui:agents';
++const WEB_CONFIG_PATH_LABEL = '(browser local storage)';
++const DOCAGENT_AGENT_NAME = 'DocAgent';
++
++function getDocAgentQueryWsUrl(): string | null {
++  if (typeof window === 'undefined') return null;
++  const wsUrl = new URL(window.location.href).searchParams.get('docagentAcpWsUrl')?.trim();
++  if (!wsUrl) return null;
++  const lower = wsUrl.toLowerCase();
++  return lower.startsWith('ws://') || lower.startsWith('wss://') ? wsUrl : null;
++}
++
++function withDocAgentQueryAgent(config: AgentsConfig): AgentsConfig {
++  const wsUrl = getDocAgentQueryWsUrl();
++  if (!wsUrl) return config;
++  return {
++    ...config,
++    agents: {
++      ...config.agents,
++      [DOCAGENT_AGENT_NAME]: {
++        transport: 'websocket',
++        url: wsUrl,
++      },
++    },
++  };
++}
++
++function loadWebConfig(): AgentsConfig {
++  if (typeof localStorage === 'undefined') return { agents: {} };
+@@ -114 +138 @@ export async function getConfig(): Promise<AgentsConfig> {
+-  return loadWebConfig();
++  return withDocAgentQueryAgent(loadWebConfig());
+@@ -122 +146 @@ export async function reloadConfig(): Promise<AgentsConfig> {
+-  return loadWebConfig();
++  return withDocAgentQueryAgent(loadWebConfig());

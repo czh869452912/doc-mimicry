@@ -5,6 +5,7 @@ interface AcpUiEmbedProps {
   apiBase: string;
   sessionId: string | null;
   taskId: string | null;
+  workspaceRoot?: string | null;
 }
 
 export function AcpUiEmbed({
@@ -12,8 +13,9 @@ export function AcpUiEmbed({
   apiBase,
   sessionId,
   taskId,
+  workspaceRoot,
 }: AcpUiEmbedProps) {
-  const src = buildAcpUiEmbedUrl({ acpUiUrl, apiBase, sessionId, taskId });
+  const src = buildAcpUiEmbedUrl({ acpUiUrl, apiBase, sessionId, taskId, workspaceRoot });
   if (!src) return null;
 
   return (

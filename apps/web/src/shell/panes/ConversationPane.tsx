@@ -189,6 +189,7 @@ export function ConversationPane({
           apiBase={API_BASE}
           sessionId={activeSession?.id ?? null}
           taskId={activeTask?.id ?? null}
+          workspaceRoot={activeTask?.workspace_root ?? null}
         />
       ) : (
         <AcpInteractionSurface

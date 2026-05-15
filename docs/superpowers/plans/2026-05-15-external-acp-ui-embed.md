@@ -44,11 +44,13 @@ The low-cost path is to treat `acp-ui` or a similar ACP client as a separately m
 - [x] Add focused OpenHands adapter tests proving housekeeping is skipped but message/file/error events remain.
 - [x] Update README with the external ACP UI toggle and the expected local acp-ui serving model.
 - [x] Add a minimal `/sessions/{session_id}/acp/ws` JSON-RPC gateway for `initialize`, `session/new`, `session/prompt`, `session/cancel`, and `session/update` notifications.
+- [x] Add a low-maintenance acp-ui prepare script and bootstrap patch so the iframe URL can auto-register DocAgent and open the session.
 
 ## Verification commands
 
 ```powershell
 python -m pytest agent/runtime-adapters/openhands/tests/test_openhands_adapter.py -q
+python -m pytest tests/test_acp_ui_bridge.py -q
 cd apps/web; npm run test:unit -- src/shell/acp/__tests__/AcpUiEmbed.test.tsx src/shell/acp/__tests__/AcpInteractionSurface.test.tsx src/shell/acp/__tests__/acpEvents.test.ts
 cd apps/web; npm run test
 Get-ChildItem -Recurse -File | Select-Object FullName

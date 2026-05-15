@@ -10,10 +10,11 @@ describe("AcpUiEmbed", () => {
       apiBase: "http://127.0.0.1:8000",
       sessionId: "session-1",
       taskId: "task-1",
+      workspaceRoot: "/workspace/state/workspaces/task-1",
     });
 
     expect(url).toBe(
-      "http://127.0.0.1:4173/acp-ui/?docagentSessionId=session-1&docagentTaskId=task-1&docagentApiBase=http%3A%2F%2F127.0.0.1%3A8000&docagentAcpWsUrl=ws%3A%2F%2F127.0.0.1%3A8000%2Fsessions%2Fsession-1%2Facp%2Fws",
+      "http://127.0.0.1:4173/acp-ui/?docagentSessionId=session-1&docagentTaskId=task-1&docagentApiBase=http%3A%2F%2F127.0.0.1%3A8000&docagentWorkspaceRoot=%2Fworkspace%2Fstate%2Fworkspaces%2Ftask-1&docagentAcpWsUrl=ws%3A%2F%2F127.0.0.1%3A8000%2Fsessions%2Fsession-1%2Facp%2Fws",
     );
   });
 
@@ -24,6 +25,7 @@ describe("AcpUiEmbed", () => {
         apiBase="http://127.0.0.1:8000"
         sessionId="session-1"
         taskId="task-1"
+        workspaceRoot="/workspace/state/workspaces/task-1"
       />,
     );
 
@@ -31,5 +33,6 @@ describe("AcpUiEmbed", () => {
     expect(frame).toBeTruthy();
     expect(frame.src).toContain("docagentSessionId=session-1");
     expect(frame.src).toContain("docagentAcpWsUrl=");
+    expect(frame.src).toContain("docagentWorkspaceRoot=");
   });
 });

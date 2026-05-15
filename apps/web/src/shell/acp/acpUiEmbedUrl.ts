@@ -3,6 +3,7 @@ export interface AcpUiEmbedContext {
   apiBase?: string | null;
   sessionId: string | null;
   taskId: string | null;
+  workspaceRoot?: string | null;
 }
 
 export function configuredAcpUiUrl(): string | null {
@@ -15,6 +16,7 @@ export function buildAcpUiEmbedUrl({
   apiBase,
   sessionId,
   taskId,
+  workspaceRoot,
 }: AcpUiEmbedContext): string | null {
   const base = acpUiUrl?.trim();
   if (!base) return null;
@@ -22,6 +24,7 @@ export function buildAcpUiEmbedUrl({
   if (sessionId) url.searchParams.set("docagentSessionId", sessionId);
   if (taskId) url.searchParams.set("docagentTaskId", taskId);
   if (apiBase) url.searchParams.set("docagentApiBase", apiBase);
+  if (workspaceRoot) url.searchParams.set("docagentWorkspaceRoot", workspaceRoot);
   if (sessionId && apiBase) {
     url.searchParams.set("docagentAcpWsUrl", acpWsUrl(apiBase, sessionId));
   }

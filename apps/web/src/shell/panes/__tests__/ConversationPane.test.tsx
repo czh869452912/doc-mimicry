@@ -94,6 +94,7 @@ describe("ConversationPane", () => {
     const frame = screen.getByTitle("ACP interaction client") as HTMLIFrameElement;
     expect(frame).toBeTruthy();
     expect(frame.src).toContain("docagentSessionId=session-1");
+    expect(frame.src).toContain("docagentWorkspaceRoot=workspace%2Ftask-1");
     expect(container.querySelector(".acp-thread")).toBeFalsy();
     vi.unstubAllEnvs();
   });
