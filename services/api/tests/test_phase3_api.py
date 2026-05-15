@@ -246,6 +246,27 @@ def test_background_runtime_failure_appends_error_kind_event(tmp_path: Path, mon
     assert error_events[0]["status"] == "failed"
 
 
+def test_background_runtime_failure_appends_acp_error_event(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(app_module, "create_runtime_adapter", lambda runtime_name=None: FailingStreamAdapter())
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="openhands"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    client.post(f"/sessions/{session['id']}/loop/start?background=true")
+
+    deadline = time.monotonic() + 5.0
+    acp_events = []
+    while time.monotonic() < deadline:
+        acp_events = client.get(f"/sessions/{session['id']}/events").json()
+        if any(event["event_type"] == "runtime/error" for event in acp_events):
+            break
+        time.sleep(0.05)
+
+    errors = [event for event in acp_events if event["event_type"] == "runtime/error"]
+    assert len(errors) == 1
+    assert "runtime unavailable" in errors[0]["payload"]["message"]
+
+
 def test_cancel_completed_session_returns_409(tmp_path: Path) -> None:
     state_root = tmp_path / "state"
     client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
@@ -518,6 +539,12 @@ def test_session_state_changes_emit_status_events(tmp_path: Path) -> None:
     assert [event["summary"] for event in status_events] == [
         "Session status changed to running_context",
         "Session status changed to await_outline_approval",
+    ]
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    acp_statuses = [event for event in acp_events if event["event_type"].startswith("session/")]
+    assert [event["event_type"] for event in acp_statuses] == [
+        "session/running_context",
+        "session/await_outline_approval",
     ]
 
 

@@ -68,23 +68,53 @@ class MockRuntimeAdapter:
             events=result.events,
             changed_paths=result.changed_paths,
             raw_events=result.raw_events,
-            acp_updates=[
-                AcpRuntimeUpdate(
-                    session_id=session_id,
-                    event_type="message_delta",
-                    payload={"role": "assistant", "content": prompt, "message_id": f"{session_id}-mock-message"},
-                ),
-                AcpRuntimeUpdate(
-                    session_id=session_id,
-                    event_type="message_completed",
-                    payload={"role": "assistant", "message_id": f"{session_id}-mock-message"},
-                ),
-            ],
+            acp_updates=self._acp_updates_for_events(session_id, prompt, result.events),
         )
 
     def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
         self._session(session_id)
         return []
+
+    def _acp_updates_for_events(
+        self,
+        session_id: str,
+        prompt: str,
+        events: list[SemanticTimelineEvent],
+    ) -> list[AcpRuntimeUpdate]:
+        updates = [
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="message_delta",
+                payload={"role": "assistant", "content": prompt, "message_id": f"{session_id}-mock-message"},
+            ),
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="message_completed",
+                payload={"role": "assistant", "message_id": f"{session_id}-mock-message"},
+            ),
+        ]
+        for event in events:
+            updates.append(
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type=_acp_event_type_for_semantic(event),
+                    payload={
+                        "id": event.id,
+                        "summary": event.summary,
+                        "paths": event.paths,
+                        "status": event.status.value,
+                    },
+                    projection={
+                        "timeline_id": event.id,
+                        "timeline_kind": event.kind.value,
+                        "actor": event.actor.value,
+                        "summary": event.summary,
+                        "paths": event.paths,
+                        "status": event.status.value,
+                    },
+                )
+            )
+        return updates
 
     def _run_prompt_action(
         self,
@@ -411,6 +441,27 @@ def _read_markdown_inputs(workspace_root: Path) -> str:
 
 def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:
     return [path for event in events for path in event.paths]
+
+
+def _acp_event_type_for_semantic(event: SemanticTimelineEvent) -> str:
+    if event.kind is SemanticEventKind.APPROVAL_REQUESTED:
+        return "permission/request"
+    if event.kind in {
+        SemanticEventKind.UPDATE_DRAFT,
+        SemanticEventKind.PROPOSE_OUTLINE,
+        SemanticEventKind.GENERATE_OUTLINE,
+        SemanticEventKind.RUN_CHECKLIST,
+        SemanticEventKind.EXPORT_MARKDOWN,
+        SemanticEventKind.EXPORT_DOCX,
+        SemanticEventKind.EXPORT_PDF,
+        SemanticEventKind.CREATE_CHECKPOINT,
+    }:
+        return "file/write"
+    if event.paths:
+        return "tool/result"
+    if event.actor is TimelineActor.SYSTEM:
+        return "session/status"
+    return "tool/result"
 
 
 def _event(

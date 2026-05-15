@@ -19,7 +19,7 @@ The startup script must:
 - start the FastAPI service;
 - start the Celery worker;
 - start the Vite web app;
-- start the OpenHands Agent Server as a Compose service when `-Runtime openhands` is selected;
+- start the OpenHands Agent Server as a Compose service when `-Runtime openhands-acp` is selected;
 - keep API state and local runtime artifacts under Docker volumes or `.local/`;
 - write startup logs under `.local/dev`;
 - build the API and web Docker images when needed;
@@ -43,8 +43,8 @@ real agent runtime.
 
 Runtime-specific environment is supplied by `docker-compose.override.yml` and
 the startup script. The override passes `DOCAGENT_RUNTIME`, `LLM_API_KEY`,
-`LLM_MODEL`, `LLM_BASE_URL`, and a container-safe `OPENHANDS_BASE_URL` to both
-the API and worker. In OpenHands mode, the default container URL is
+`LLM_MODEL`, `LLM_BASE_URL`, and container-safe `DOCAGENT_ACP_RUNTIME_URL` to
+both the API and worker. In OpenHands ACP mode, the default container URL is
 `http://openhands:8001`, which points at the Compose `openhands` service. That
 service mounts the same `/workspace` volume as the API and worker, so runtime
 file operations see the same task workspace.
@@ -53,23 +53,25 @@ The script reads `.env` first and `.env.local` second. Existing shell variables
 win over both files, and `.env.local` only fills values that were not already
 set by the shell or `.env`.
 
-Use `OPENHANDS_BASE_URL=http://127.0.0.1:8001` for host-side smoke tests. Use
-`OPENHANDS_CONTAINER_BASE_URL=http://openhands:8001` for Compose services. When
-`DOCAGENT_RUNTIME=mock`, the startup script clears the container OpenHands URL
-so mock runs do not carry a misleading runtime endpoint.
+Use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001` for host-side smoke tests.
+Use `DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001` for Compose
+services. When `DOCAGENT_RUNTIME=mock-acp`, the startup script clears host and
+container ACP runtime URLs from the process environment before invoking Compose.
+`OPENHANDS_BASE_URL` remains a temporary compatibility fallback for the current
+OpenHands SDK client only.
 
 ## Manual Fallback
 
 To start with the OpenHands adapter selected:
 
 ```powershell
-.\start-dev.cmd -Runtime openhands
+.\start-dev.cmd -Runtime openhands-acp
 ```
 
-The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional
-OpenHands URLs from the shell, `.env`, or `.env.local`. If
-`OPENHANDS_BASE_URL` is omitted, the Compose OpenHands service is still exposed
-on `http://127.0.0.1:8001` for host checks.
+The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional ACP
+runtime URLs from the shell, `.env`, or `.env.local`. If
+`DOCAGENT_ACP_RUNTIME_URL` is omitted, the Compose OpenHands service is still
+exposed on `http://127.0.0.1:8001` for host checks.
 
 If the startup script fails, run the services separately:
 
@@ -87,15 +89,15 @@ After changing compose, Dockerfiles, nginx proxying, or runtime environment
 plumbing, run the mock compose smoke:
 
 ```powershell
-python tools/runtime/compose_smoke.py --runtime mock
+python tools/runtime/compose_smoke.py --runtime mock-acp
 ```
 
 The OpenHands smoke is opt-in because it needs a reachable Agent Server and LLM
 credentials:
 
 ```powershell
-$env:DOCAGENT_RUNTIME = "openhands"
-$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_RUNTIME = "openhands-acp"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 python tools/runtime/openhands_smoke.py
 ```

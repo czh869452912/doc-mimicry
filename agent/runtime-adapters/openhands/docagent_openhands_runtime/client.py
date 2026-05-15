@@ -25,16 +25,23 @@ class OpenHandsClient(Protocol):
 
 class OpenHandsAgentServerClient:
     def __init__(self, base_url: str | None = None, timeout_seconds: int = 900) -> None:
-        self.base_url = base_url or os.environ.get("OPENHANDS_BASE_URL")
+        self.base_url = (
+            base_url
+            or os.environ.get("DOCAGENT_ACP_RUNTIME_URL")
+            or os.environ.get("OPENHANDS_BASE_URL")
+        )
         self.timeout_seconds = timeout_seconds
         self._conversations: dict[str, Any] = {}
 
     def create_session(self, prompt_bundle: PromptBundle) -> str:
         if not self.base_url:
-            raise RuntimeError("OPENHANDS_BASE_URL is required when using DOCAGENT_RUNTIME=openhands.")
+            raise RuntimeError(
+                "DOCAGENT_ACP_RUNTIME_URL is required when using DOCAGENT_RUNTIME=openhands-acp. "
+                "OPENHANDS_BASE_URL remains a temporary compatibility fallback."
+            )
         api_key = os.environ.get("LLM_API_KEY")
         if not api_key:
-            raise RuntimeError("LLM_API_KEY is required when using DOCAGENT_RUNTIME=openhands.")
+            raise RuntimeError("LLM_API_KEY is required when using DOCAGENT_RUNTIME=openhands-acp.")
 
         try:
             from openhands.sdk import LLM, Conversation, Workspace

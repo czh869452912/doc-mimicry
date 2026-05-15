@@ -34,10 +34,10 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "endlocal & exit /b %exitCode%" in start_cmd
     assert "requirements-openhands.txt" not in dev_script
     assert "DOCAGENT_RUNTIME" in dev_script
-    assert "OPENHANDS_BASE_URL" in dev_script
+    assert "DOCAGENT_ACP_RUNTIME_URL" in dev_script
     assert 'Import-LocalEnv (Join-Path $repoRoot ".env")' in dev_script
     assert 'Import-LocalEnv (Join-Path $repoRoot ".env.local")' in dev_script
-    assert "OpenHandsContainerBaseUrl" in dev_script
+    assert "AcpContainerRuntimeUrl" in dev_script
     assert "docker compose --profile openhands up -d --build postgres redis openhands api worker web" in dev_script
     assert "http://openhands:$OpenHandsPort" in dev_script
     assert "openhands.agent_server" in compose
@@ -53,7 +53,7 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "--reload" not in dev_script
 
     assert compose_override.count("DOCAGENT_RUNTIME") >= 2
-    assert compose_override.count("OPENHANDS_BASE_URL") >= 2
+    assert compose_override.count("DOCAGENT_ACP_RUNTIME_URL") >= 2
     assert compose_override.count("LLM_API_KEY") >= 2
     assert compose_override.count("LLM_MODEL") >= 2
     assert compose_override.count("LLM_BASE_URL") >= 2
@@ -84,7 +84,7 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     assert "entrypoint: []" in compose
     assert "python -m openhands.agent_server --host 0.0.0.0 --port 8001" in compose
     assert "target: /workspace" in compose
-    assert "OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}" in override
+    assert "DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}" in override
 
 
 def test_runtime_services_share_single_api_image_build() -> None:
@@ -110,17 +110,28 @@ def test_local_development_documents_runtime_env_contract() -> None:
     assert ".env" in dev_docs
     assert ".env.local" in dev_docs
     assert "http://openhands:8001" in dev_docs
-    assert "OPENHANDS_CONTAINER_BASE_URL" in dev_docs
-    assert "OPENHANDS_CONTAINER_BASE_URL" in env_example
+    assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL" in dev_docs
+    assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL" in env_example
     assert "DOCAGENT_RUNTIME" in env_example
+
+
+def test_runtime_env_contract_uses_acp_runtime_names() -> None:
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
+
+    assert "DOCAGENT_RUNTIME=mock-acp" in env_example
+    assert "DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001" in env_example
+    assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001" in env_example
+    assert "OPENHANDS_CONTAINER_BASE_URL" not in env_example
+    assert "DOCAGENT_ACP_RUNTIME_URL" in override
 
 
 def test_dev_script_reloads_runtime_from_env_files_after_import() -> None:
     dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
 
     assert '$Runtime = $env:DOCAGENT_RUNTIME' in dev_script
-    assert '$OpenHandsBaseUrl = $env:OPENHANDS_BASE_URL' in dev_script
-    assert '$OpenHandsContainerBaseUrl = $env:OPENHANDS_CONTAINER_BASE_URL' in dev_script
+    assert '$AcpRuntimeUrl = $env:DOCAGENT_ACP_RUNTIME_URL' in dev_script
+    assert '$AcpContainerRuntimeUrl = $env:DOCAGENT_ACP_CONTAINER_RUNTIME_URL' in dev_script
     assert dev_script.index('Import-LocalEnv (Join-Path $repoRoot ".env.local")') < dev_script.index(
         '$Runtime = $env:DOCAGENT_RUNTIME'
     )
@@ -130,7 +141,8 @@ def test_compose_merged_config_passes_runtime_env_to_api_and_worker() -> None:
     env = os.environ.copy()
     env.update(
         {
-            "DOCAGENT_RUNTIME": "openhands",
+            "DOCAGENT_RUNTIME": "openhands-acp",
+            "DOCAGENT_ACP_CONTAINER_RUNTIME_URL": "http://openhands:8001",
             "LLM_API_KEY": "dummy-key",
             "LLM_MODEL": "dummy-model",
             "LLM_BASE_URL": "http://llm.example",
@@ -150,8 +162,8 @@ def test_compose_merged_config_passes_runtime_env_to_api_and_worker() -> None:
     for service in ("api:", "worker:"):
         assert service in config
     assert "openhands:" in config
-    assert config.count("DOCAGENT_RUNTIME: openhands") >= 2
-    assert config.count("OPENHANDS_BASE_URL: http://openhands:8001") >= 2
+    assert config.count("DOCAGENT_RUNTIME: openhands-acp") >= 2
+    assert config.count("DOCAGENT_ACP_RUNTIME_URL: http://openhands:8001") >= 2
     assert config.count("LLM_API_KEY: dummy-key") >= 2
     assert config.count("LLM_MODEL: dummy-model") >= 2
     assert config.count("LLM_BASE_URL: http://llm.example") >= 2
@@ -162,8 +174,8 @@ def test_compose_smoke_uses_openhands_profile_for_openhands_runtime() -> None:
     smoke = (ROOT / "tools" / "runtime" / "compose_smoke.py").read_text(encoding="utf-8")
 
     assert '"--profile", "openhands"' in smoke
-    assert '"openhands"' in smoke
-    assert "OPENHANDS_CONTAINER_BASE_URL" in smoke
+    assert '"openhands-acp"' in smoke
+    assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL" in smoke
 
 
 def test_compose_smoke_checks_acp_events_not_legacy_timeline() -> None:

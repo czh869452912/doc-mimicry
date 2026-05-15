@@ -60,21 +60,22 @@ def test_later_message_checkpoint_event_uses_actual_version_path(tmp_path: Path)
     assert checkpoint_events[0].paths == ["versions/v002.md"]
 
 
-def test_mock_runtime_send_prompt_returns_acp_updates(tmp_path: Path) -> None:
+def test_mock_runtime_send_prompt_emits_required_acp_event_families(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "brief.md").write_text("Create a pricing PRD\n", encoding="utf-8")
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.send_prompt("session-001", "Draft the intro", {"action": "send_message"})
+    result = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
+    event_types = [update.event_type for update in result.acp_updates]
 
-    assert result.next_state is RuntimeSessionState.DRAFT_READY
-    assert [update.event_type for update in result.acp_updates] == [
-        "message_delta",
-        "message_completed",
-    ]
-    assert result.acp_updates[0].payload["content"] == "Draft the intro"
+    assert result.next_state is RuntimeSessionState.AWAIT_OUTLINE_APPROVAL
+    assert any("message" in event_type for event_type in event_types)
+    assert any("tool" in event_type for event_type in event_types)
+    assert any("file" in event_type for event_type in event_types)
+    assert any("permission" in event_type or "approval" in event_type for event_type in event_types)
+    assert all(update.payload for update in result.acp_updates)
 
 
 def _prompt_bundle(workspace: Path) -> PromptBundle:

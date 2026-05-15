@@ -26,6 +26,16 @@ class FakeOpenHandsClient:
         return [{"kind": "cancelled"}]
 
 
+class MixedPayloadOpenHandsClient(FakeOpenHandsClient):
+    def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
+        self.messages.append(message)
+        return [
+            {"kind": "agent_message", "id": "m1", "content": "Hello"},
+            {"kind": "file_written", "path": "draft/draft.md", "content": "Draft"},
+            {"kind": "strange_event", "value": 42},
+        ]
+
+
 def test_openhands_adapter_creates_session_and_maps_raw_events(tmp_path: Path) -> None:
     client = FakeOpenHandsClient()
     adapter = OpenHandsRuntimeAdapter(client)
@@ -110,6 +120,22 @@ def test_openhands_adapter_send_prompt_emits_acp_updates(tmp_path: Path) -> None
         "file/write",
     ]
     assert result.acp_updates[1].projection["timeline_kind"] == "update_draft"
+
+
+def test_send_prompt_returns_acp_updates_and_preserves_raw_payload(tmp_path: Path) -> None:
+    client = MixedPayloadOpenHandsClient()
+    adapter = OpenHandsRuntimeAdapter(client)
+    adapter.create_session("session-001", _prompt_bundle(tmp_path))
+
+    result = adapter.send_prompt("session-001", "Write", {"action": "send_message"})
+
+    assert [update.event_type for update in result.acp_updates] == [
+        "openhands/session_created",
+        "message_delta",
+        "file/write",
+        "openhands/strange_event",
+    ]
+    assert result.acp_updates[-1].payload["value"] == 42
 
 
 def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:

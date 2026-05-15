@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test the Docker Compose API/web stack.")
-    parser.add_argument("--runtime", default="mock", choices=["mock", "openhands"])
+    parser.add_argument("--runtime", default="mock-acp", choices=["mock", "mock-acp", "openhands", "openhands-acp"])
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
     parser.add_argument("--web-url", default="http://127.0.0.1:5173")
     parser.add_argument("--timeout", type=int, default=120)
@@ -19,12 +19,14 @@ def main() -> int:
     args = parser.parse_args()
 
     env = os.environ.copy()
-    env["DOCAGENT_RUNTIME"] = args.runtime
-    if args.runtime == "mock":
+    runtime = {"mock": "mock-acp", "openhands": "openhands-acp"}.get(args.runtime, args.runtime)
+    env["DOCAGENT_RUNTIME"] = runtime
+    if runtime == "mock-acp":
+        env.pop("DOCAGENT_ACP_RUNTIME_URL", None)
+        env.pop("DOCAGENT_ACP_CONTAINER_RUNTIME_URL", None)
         env.pop("OPENHANDS_BASE_URL", None)
-        env.pop("OPENHANDS_CONTAINER_BASE_URL", None)
     else:
-        env.setdefault("OPENHANDS_CONTAINER_BASE_URL", "http://openhands:8001")
+        env.setdefault("DOCAGENT_ACP_CONTAINER_RUNTIME_URL", "http://openhands:8001")
         env.setdefault("LLM_API_KEY", "sk-docagent-local")
         env.setdefault("LLM_MODEL", "docagent/default")
         env.setdefault("LLM_BASE_URL", "http://litellm:4000")
@@ -36,10 +38,10 @@ def main() -> int:
             env=env,
         )
         up_command = ["docker", "compose"]
-        if args.runtime == "openhands":
+        if runtime == "openhands-acp":
             up_command.extend(["--profile", "openhands"])
         up_command.extend(["up", "-d", "--build", "postgres", "redis"])
-        if args.runtime == "openhands":
+        if runtime == "openhands-acp":
             up_command.extend(["litellm", "openhands"])
         up_command.extend(["api", "worker", "web"])
         subprocess.run(up_command, check=True, env=env)

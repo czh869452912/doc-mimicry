@@ -553,6 +553,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     def get_timeline(session_id: str) -> list[dict[str, Any]]:
         if state.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Session not found")
+        # Compatibility/read-model endpoint only. Authoring UI reads ACP events.
         return state.list_timeline_events(session_id)
 
     @router.get("/sessions/{session_id}/events", response_model=list[AcpEventResponse])
@@ -598,6 +599,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         if state.get_session(session_id) is None:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        # Compatibility/read-model stream only. Authoring UI uses /events/stream.
         # Bounded polling cycles so that connections don't live forever; clients
         # using EventSource will auto-reconnect. In tests, set
         # DOCAGENT_SSE_MAX_POLLS to a small value for fast termination.

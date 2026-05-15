@@ -34,7 +34,7 @@ The script uses Docker Compose to start Postgres, Redis, FastAPI, the Celery wor
 To start the same stack with the OpenHands runtime adapter selected:
 
 ```powershell
-.\start-dev.cmd -Runtime openhands
+.\start-dev.cmd -Runtime openhands-acp
 ```
 
 The script starts the OpenHands Agent Server as a Docker Compose service,
@@ -48,14 +48,14 @@ runtime runs; mock runtime development does not need them.
 Smoke-test the mock Docker Compose stack with:
 
 ```powershell
-python tools/runtime/compose_smoke.py --runtime mock
+python tools/runtime/compose_smoke.py --runtime mock-acp
 ```
 
 The OpenHands end-to-end smoke is opt-in and requires a reachable Agent Server plus LLM credentials:
 
 ```powershell
-$env:DOCAGENT_RUNTIME = "openhands"
-$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_RUNTIME = "openhands-acp"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 python tools/runtime/openhands_smoke.py
 ```
@@ -71,7 +71,7 @@ Phase 0 validates the document-version Claude Code loop:
 5. Propose an outline and wait for user confirmation.
 6. Draft, checkpoint, revise locally, and update context files.
 7. Run a checklist and export DOCX.
-8. Stream ACP events in the center timeline and derive semantic DocAgent cards from projections.
+8. Stream ACP events in the center timeline, with DocAgent-specific cards isolated behind ACP render slots.
 
 Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or a workflow designer.
 

@@ -8,6 +8,7 @@ from typing import Any
 from docagent_api.celery_app import celery_app
 from docagent_api.prompts import build_prompt_bundle
 from docagent_api.routes._shared import (
+    append_acp_error_event,
     append_acp_projection_event,
     append_runtime_result,
     runtime_event_sink,
@@ -116,6 +117,7 @@ def run_session(
         from uuid import uuid4
 
         task_id = session["task_id"]
+        append_acp_error_event(state, session_id, f"Runtime operation failed: {exc}")
         failure = manual_event(
             task_id, session_id, f"runtime-failed-{uuid4().hex[:8]}",
             TimelineActor.SYSTEM, SemanticEventKind.ERROR,

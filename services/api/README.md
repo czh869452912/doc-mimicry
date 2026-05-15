@@ -47,22 +47,25 @@ or commands with product metadata, not as product-facing runtime methods.
 Default:
 
 ```powershell
-$env:DOCAGENT_RUNTIME = "mock"
+$env:DOCAGENT_RUNTIME = "mock-acp"
 ```
 
 OpenHands opt-in:
 
 ```powershell
-.\start-dev.cmd -Runtime openhands
+.\start-dev.cmd -Runtime openhands-acp
 ```
 
-When running API or worker directly on the host, use `OPENHANDS_BASE_URL=http://127.0.0.1:8001`.
-When running through Docker Compose, `start-dev.cmd -Runtime openhands` starts the `openhands`
+Canonical runtime names are `mock-acp` and `openhands-acp`; `mock` and
+`openhands` remain temporary aliases during migration.
+
+When running API or worker directly on the host, use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001`.
+When running through Docker Compose, `start-dev.cmd -Runtime openhands-acp` starts the `openhands`
 service with the shared workspace volume and sets container traffic to
-`OPENHANDS_CONTAINER_BASE_URL=http://openhands:8001`. The API and worker image uses Python 3.12
+`DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001`. The API and worker image uses Python 3.12
 because the OpenHands SDK packages require Python 3.12 or newer.
 
-Normal CI and local development should keep `mock` unless OpenHands Agent Server is configured and running.
+Normal CI and local development should keep `mock-acp` unless OpenHands Agent Server is configured and running.
 
 OpenHands runs through LiteLLM Proxy by default in Docker Compose:
 
@@ -80,11 +83,11 @@ the supported product contract.
 ## Smoke Tests
 
 The OpenHands smoke script is an adapter/full-chain smoke, not a unit test. It
-uses `DOCAGENT_RUNTIME=openhands`, `OPENHANDS_BASE_URL`, and live LLM settings:
+uses `DOCAGENT_RUNTIME=openhands-acp`, `DOCAGENT_ACP_RUNTIME_URL`, and live LLM settings:
 
 ```powershell
-$env:DOCAGENT_RUNTIME = "openhands"
-$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_RUNTIME = "openhands-acp"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 python tools/runtime/openhands_smoke.py
 ```
@@ -92,7 +95,7 @@ python tools/runtime/openhands_smoke.py
 For Docker Compose routing and container health without a real runtime, use:
 
 ```powershell
-python tools/runtime/compose_smoke.py --runtime mock
+python tools/runtime/compose_smoke.py --runtime mock-acp
 ```
 
 The compose smoke checks the ACP event endpoint, which is the supported

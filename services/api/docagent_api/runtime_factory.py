@@ -9,15 +9,20 @@ class RuntimeConfigurationError(ValueError):
     pass
 
 
+MOCK_RUNTIME_NAMES = {RuntimeKind.MOCK.value, "mock-acp"}
+OPENHANDS_RUNTIME_NAMES = {RuntimeKind.OPENHANDS.value, "openhands-acp"}
+
+
 def create_runtime_adapter(runtime_name: str | None = None) -> RuntimeAdapter:
-    runtime = runtime_name or os.environ.get("DOCAGENT_RUNTIME", RuntimeKind.MOCK.value)
-    if runtime == RuntimeKind.MOCK.value:
+    runtime = runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock-acp")
+    if runtime in MOCK_RUNTIME_NAMES:
         from docagent_mock_runtime.adapter import MockRuntimeAdapter
 
         return MockRuntimeAdapter()
-    if runtime == RuntimeKind.OPENHANDS.value:
+    if runtime in OPENHANDS_RUNTIME_NAMES:
         from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter
         from docagent_openhands_runtime.client import OpenHandsAgentServerClient
 
-        return OpenHandsRuntimeAdapter(OpenHandsAgentServerClient(base_url=os.environ.get("OPENHANDS_BASE_URL")))
+        base_url = os.environ.get("DOCAGENT_ACP_RUNTIME_URL") or os.environ.get("OPENHANDS_BASE_URL")
+        return OpenHandsRuntimeAdapter(OpenHandsAgentServerClient(base_url=base_url))
     raise RuntimeConfigurationError(f"Unsupported DOCAGENT_RUNTIME: {runtime}")

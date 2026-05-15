@@ -57,7 +57,7 @@ def create_app(
 
     @app.get("/health", response_model=HealthResponse)
     def health() -> dict[str, str]:
-        return {"status": "ok", "runtime": runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock")}
+        return {"status": "ok", "runtime": runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock-acp")}
 
     app.include_router(create_doctypes_router(root))
     app.include_router(create_tasks_router(state, adapter, root))

@@ -60,6 +60,7 @@ def set_session_state(
     session["updated_at"] = utc_now()
     state.save_session(session)
     if task_id is not None:
+        append_acp_status_event(state, session["id"], next_state)
         event = manual_event(
             task_id,
             session["id"],
@@ -136,6 +137,7 @@ def run_runtime_operation(
     except HTTPException:
         raise
     except Exception as exc:
+        append_acp_error_event(state, session["id"], f"Runtime operation failed: {exc}")
         set_session_state(state, session, previous_state, task_id=task_id)
         raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
 
@@ -198,6 +200,7 @@ def start_background_runtime_operation(
             try:
                 result = operation()
             except Exception as exc:
+                append_acp_error_event(state, session["id"], f"Runtime operation failed: {exc}")
                 failure = manual_event(
                     task_id,
                     session["id"],
@@ -287,5 +290,35 @@ def append_acp_projection_event(
             "summary": event.summary,
             "paths": event.paths,
             "status": event.status.value,
+        },
+    )
+
+
+def append_acp_status_event(
+    state: DocAgentState,
+    session_id: str,
+    status: RuntimeSessionState,
+    summary: str | None = None,
+) -> None:
+    state.append_acp_event(
+        session_id,
+        {
+            "method": f"session/{status.value}",
+            "status": status.value,
+            "message": summary or f"Session status changed to {status.value}",
+        },
+    )
+
+
+def append_acp_error_event(
+    state: DocAgentState,
+    session_id: str,
+    message: str,
+) -> None:
+    state.append_acp_event(
+        session_id,
+        {
+            "method": "runtime/error",
+            "message": message,
         },
     )

@@ -101,3 +101,35 @@ def test_stream_acp_events_sends_sse_ids_and_honors_last_event_id(tmp_path: Path
 
     assert resumed_id_lines == [f"id: {second['sequence']}"]
     assert [json.loads(line)["id"] for line in resumed_data_lines] == [second["id"]]
+
+
+def test_prompt_records_user_prompt_without_requiring_timeline_projection(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Use ACP"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/messages", json={"message": "Hello"}, params={"background": False})
+
+    assert response.status_code == 200
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/prompt"
+        and event["payload"]["prompt"] == "Hello"
+        for event in acp_events
+    )
+
+
+def test_acp_events_are_session_scoped(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task_one = client.post("/tasks", json={"doc_type_id": "prd", "brief": "One"}).json()
+    task_two = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Two"}).json()
+    session_one = client.post(f"/tasks/{task_one['id']}/sessions").json()
+    session_two = client.post(f"/tasks/{task_two['id']}/sessions").json()
+
+    client.post(f"/sessions/{session_one['id']}/messages", json={"message": "Only one"})
+
+    events_one = client.get(f"/sessions/{session_one['id']}/events").json()
+    events_two = client.get(f"/sessions/{session_two['id']}/events").json()
+
+    assert any(event["payload"].get("prompt") == "Only one" for event in events_one)
+    assert all(event["payload"].get("prompt") != "Only one" for event in events_two)

@@ -7,19 +7,30 @@ from docagent_openhands_runtime.client import OpenHandsAgentServerClient, _event
 
 
 def test_openhands_client_requires_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DOCAGENT_ACP_RUNTIME_URL", raising=False)
     monkeypatch.delenv("OPENHANDS_BASE_URL", raising=False)
     monkeypatch.setenv("LLM_API_KEY", "test-key")
 
-    with pytest.raises(RuntimeError, match="OPENHANDS_BASE_URL"):
+    with pytest.raises(RuntimeError, match="DOCAGENT_ACP_RUNTIME_URL"):
         OpenHandsAgentServerClient().create_session(None)  # type: ignore[arg-type]
 
 
 def test_openhands_client_requires_llm_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENHANDS_BASE_URL", "http://127.0.0.1:8001")
+    monkeypatch.setenv("DOCAGENT_ACP_RUNTIME_URL", "http://127.0.0.1:8001")
+    monkeypatch.delenv("OPENHANDS_BASE_URL", raising=False)
     monkeypatch.delenv("LLM_API_KEY", raising=False)
 
     with pytest.raises(RuntimeError, match="LLM_API_KEY"):
         OpenHandsAgentServerClient().create_session(None)  # type: ignore[arg-type]
+
+
+def test_openhands_client_accepts_legacy_base_url_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DOCAGENT_ACP_RUNTIME_URL", raising=False)
+    monkeypatch.setenv("OPENHANDS_BASE_URL", "http://legacy.example")
+
+    client = OpenHandsAgentServerClient()
+
+    assert client.base_url == "http://legacy.example"
 
 
 def test_event_to_payload_extracts_nested_path() -> None:

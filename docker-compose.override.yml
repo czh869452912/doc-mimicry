@@ -4,8 +4,9 @@ services:
     command: uvicorn --factory docagent_api.app:create_app --host 0.0.0.0 --port 8000 --reload
     environment:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
-      DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
-      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
+      DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock-acp}
+      DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}
+      OPENHANDS_BASE_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}
       LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
       LLM_MODEL: ${LLM_MODEL:-docagent/default}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
@@ -21,8 +22,9 @@ services:
     command: celery -A docagent_api.celery_app worker --loglevel=info
     environment:
       DOCAGENT_REPO_ROOT: ${DOCAGENT_REPO_ROOT:-/app}
-      DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock}
-      OPENHANDS_BASE_URL: ${OPENHANDS_CONTAINER_BASE_URL:-http://openhands:8001}
+      DOCAGENT_RUNTIME: ${DOCAGENT_RUNTIME:-mock-acp}
+      DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}
+      OPENHANDS_BASE_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-http://openhands:8001}
       LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
       LLM_MODEL: ${LLM_MODEL:-docagent/default}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}

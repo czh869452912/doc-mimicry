@@ -91,8 +91,8 @@ Run runtime adapter tests:
 OpenHands smoke is opt-in:
 
 ```powershell
-$env:DOCAGENT_RUNTIME = "openhands"
-$env:OPENHANDS_BASE_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_RUNTIME = "openhands-acp"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 & 'C:\Users\fai_l\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' tools/runtime/openhands_smoke.py
 ```
@@ -100,5 +100,5 @@ $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/doca
 Docker Compose smoke is mock-safe:
 
 ```powershell
-python tools/runtime/compose_smoke.py --runtime mock
+python tools/runtime/compose_smoke.py --runtime mock-acp
 ```

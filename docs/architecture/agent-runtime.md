@@ -33,6 +33,11 @@ OpenHands Agent Server / SDK is the first runtime candidate because it already
 exposes many coding-agent primitives. It is connected through the ACP adapter
 boundary, not as a UI-facing protocol.
 
+Runtime selection uses `DOCAGENT_RUNTIME=mock-acp` for local/CI mock behavior
+and `DOCAGENT_RUNTIME=openhands-acp` for OpenHands. The OpenHands adapter reads
+`DOCAGENT_ACP_RUNTIME_URL`; `OPENHANDS_BASE_URL` is only a temporary
+compatibility fallback for the current SDK client.
+
 ## Adapter Boundary
 
 The backend calls a runtime adapter, not the runtime directly. Supported
