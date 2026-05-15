@@ -13,6 +13,9 @@ class OpenHandsClient(Protocol):
     def create_session(self, prompt_bundle: PromptBundle) -> str:
         ...
 
+    def has_conversation(self, runtime_session_id: str) -> bool:
+        ...
+
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
         ...
 
@@ -67,6 +70,9 @@ class OpenHandsAgentServerClient:
         runtime_session_id = str(getattr(conversation.state, "id", None) or uuid4().hex)
         self._conversations[runtime_session_id] = conversation
         return runtime_session_id
+
+    def has_conversation(self, runtime_session_id: str) -> bool:
+        return runtime_session_id in self._conversations
 
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
         conversation = self._conversation(runtime_session_id)

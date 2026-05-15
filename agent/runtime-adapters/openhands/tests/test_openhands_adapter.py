@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from docagent_contracts import PromptBundle, RuntimeSessionState
 from docagent_openhands_runtime.adapter import OpenHandsRuntimeAdapter, map_openhands_payload_to_acp_update
 
@@ -113,6 +115,23 @@ def test_openhands_adapter_uses_persisted_runtime_session_id() -> None:
     assert result.next_state == RuntimeSessionState.DRAFT_READY
     assert result.raw_events[0].runtime_session_id == "openhands-session-001"
     assert client.messages == ["Revise"]
+
+
+def test_openhands_adapter_refuses_to_bind_missing_in_process_conversation() -> None:
+    class NonResumableClient(FakeOpenHandsClient):
+        def has_conversation(self, runtime_session_id: str) -> bool:
+            return False
+
+    adapter = OpenHandsRuntimeAdapter(NonResumableClient())
+
+    assert adapter.bind_runtime_session(
+        "session-001",
+        "openhands-session-001",
+        RuntimeSessionState.DRAFT_READY,
+    ) is False
+
+    with pytest.raises(RuntimeError, match="not bound"):
+        adapter.send_message("session-001", "Revise")
 
 
 def test_openhands_adapter_send_prompt_emits_acp_updates(tmp_path: Path) -> None:

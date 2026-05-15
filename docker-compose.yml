@@ -83,7 +83,7 @@ services:
 
   worker:
     image: docagent-api
-    command: celery -A docagent_api.celery_app worker --loglevel=info
+    command: celery -A docagent_api.celery_app worker --loglevel=info --pool=solo --concurrency=1
     environment:
       DATABASE_URL: postgresql+psycopg2://docagent:docagent@postgres:5432/docagent
       REDIS_URL: redis://redis:6379/0

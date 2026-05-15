@@ -18,6 +18,9 @@ from docagent_api.session_state import RUNNING_STATES
 from docagent_contracts import RuntimeSessionState
 
 
+_ADAPTER: Any | None = None
+
+
 def _runtime_state_or_default(value: str | None, default: RuntimeSessionState) -> RuntimeSessionState:
     try:
         return RuntimeSessionState(value)
@@ -32,19 +35,27 @@ def _get_state():
 
 
 def _get_adapter():
+    global _ADAPTER
     from docagent_api.runtime_factory import create_runtime_adapter
-    return create_runtime_adapter()
+
+    if _ADAPTER is None:
+        _ADAPTER = create_runtime_adapter()
+    return _ADAPTER
 
 
 def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
     runtime_session_id = session.get("runtime_session_id")
     bind_runtime_session = getattr(adapter, "bind_runtime_session", None)
     if runtime_session_id and callable(bind_runtime_session):
-        bind_runtime_session(
+        bind_result = bind_runtime_session(
             session["id"],
             runtime_session_id,
             _runtime_state_or_default(session.get("status"), RuntimeSessionState.IDLE),
         )
+        if bind_result is not False:
+            return
+        session.pop("runtime_session_id", None)
+        _create_runtime_session(state, adapter, session)
         return
 
     try:
@@ -53,6 +64,10 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
     except Exception:
         pass
 
+    _create_runtime_session(state, adapter, session)
+
+
+def _create_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
     repo_root = Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
     task = state.get_task(session["task_id"])
     if task is None:

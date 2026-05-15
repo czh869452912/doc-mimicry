@@ -110,6 +110,16 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     assert "DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-}" in override
 
 
+def test_compose_worker_uses_single_process_for_nonresumable_openhands_client() -> None:
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
+
+    assert "--pool=solo" in compose
+    assert "--concurrency=1" in compose
+    assert "--pool=solo" in override
+    assert "--concurrency=1" in override
+
+
 def test_runtime_services_share_single_api_image_build() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 

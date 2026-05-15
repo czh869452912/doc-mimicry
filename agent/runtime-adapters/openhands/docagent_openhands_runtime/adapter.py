@@ -200,9 +200,15 @@ class OpenHandsRuntimeAdapter:
         session_id: str,
         runtime_session_id: str,
         state: RuntimeSessionState = RuntimeSessionState.IDLE,
-    ) -> None:
+    ) -> bool:
+        has_conversation = getattr(self.client, "has_conversation", None)
+        if callable(has_conversation) and not has_conversation(runtime_session_id):
+            self._runtime_session_ids.pop(session_id, None)
+            self._states.pop(session_id, None)
+            return False
         self._runtime_session_ids[session_id] = runtime_session_id
         self._states[session_id] = state
+        return True
 
     def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
         runtime_session_id, creation_event = self._ensure_runtime_session(session_id)

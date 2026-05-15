@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import docagent_api.worker_tasks as worker_tasks
 from docagent_api.worker_tasks import run_session
 from docagent_api.celery_app import celery_app
 from docagent_contracts import RawRuntimeEvent, RuntimeKind, RuntimeOperationResult, RuntimeSessionState
@@ -87,6 +88,73 @@ def test_run_session_creates_openhands_runtime_session_in_worker_when_unbound(tm
     mock_adapter.create_session.assert_called_once()
     mock_state.bind_runtime_session.assert_called_once_with("s1", "openhands", "oh-001")
     mock_adapter.start_loop.assert_called_once_with("s1")
+
+
+def test_worker_reuses_runtime_adapter_within_process(monkeypatch):
+    created = []
+
+    def create_adapter():
+        adapter = MagicMock()
+        created.append(adapter)
+        return adapter
+
+    monkeypatch.setattr(worker_tasks, "_ADAPTER", None)
+    monkeypatch.setattr("docagent_api.runtime_factory.create_runtime_adapter", create_adapter)
+
+    first = worker_tasks._get_adapter()
+    second = worker_tasks._get_adapter()
+
+    assert first is second
+    assert created == [first]
+
+
+def test_run_session_recreates_runtime_when_persisted_openhands_session_cannot_rebind(tmp_path):
+    mock_state = MagicMock()
+    mock_state.get_session.return_value = {
+        "id": "s1",
+        "task_id": "t1",
+        "status": "running_chat",
+        "runtime": "openhands",
+        "runtime_session_id": "old-oh-001",
+    }
+    mock_state.get_task.return_value = {
+        "id": "t1",
+        "doc_type_id": "prd",
+        "brief": "b",
+        "workspace_root": str(tmp_path),
+    }
+    mock_adapter = MagicMock()
+    mock_adapter.bind_runtime_session.return_value = False
+    mock_adapter.create_session.return_value = RuntimeOperationResult(
+        session_id="s1",
+        next_state=RuntimeSessionState.IDLE,
+        raw_events=[
+            RawRuntimeEvent(
+                id="raw-create",
+                session_id="s1",
+                runtime=RuntimeKind.OPENHANDS,
+                runtime_session_id="new-oh-001",
+                kind="session_created",
+                payload={"workspace_root": str(tmp_path)},
+                created_at="2026-05-12T00:00:00Z",
+            )
+        ],
+    )
+    mock_adapter.send_message.return_value = RuntimeOperationResult(
+        session_id="s1",
+        next_state=RuntimeSessionState.DRAFT_READY,
+    )
+
+    with patch("docagent_api.worker_tasks._get_state", return_value=mock_state), \
+         patch("docagent_api.worker_tasks._get_adapter", return_value=mock_adapter), \
+         patch("docagent_api.worker_tasks.build_prompt_bundle") as build_prompt_bundle:
+        build_prompt_bundle.return_value = MagicMock()
+        run_session("s1", "send_message", {"message": "Hello"})
+
+    mock_adapter.bind_runtime_session.assert_called_once_with("s1", "old-oh-001", RuntimeSessionState.RUNNING_CHAT)
+    mock_adapter.create_session.assert_called_once()
+    mock_state.bind_runtime_session.assert_called_once_with("s1", "openhands", "new-oh-001")
+    mock_adapter.send_message.assert_called_once_with("s1", message="Hello")
 
 
 def test_run_session_rolls_back_to_previous_state_on_failure(tmp_path):
