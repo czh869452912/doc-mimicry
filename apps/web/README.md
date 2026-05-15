@@ -47,6 +47,12 @@ $env:VITE_ACP_UI_URL = "http://127.0.0.1:4173/"
 npm run dev
 ```
 
+For the Docker Compose startup path, use:
+
+```powershell
+.\start-dev.cmd -Runtime openhands-acp -ExternalAcpUi
+```
+
 Serve the ACP UI locally or from the same deployment origin when possible. The
 embed passes `docagentSessionId`, `docagentTaskId`, `docagentWorkspaceRoot`,
 `docagentApiBase`, and the `docagentAcpWsUrl` query parameter for

@@ -46,6 +46,16 @@ with model aliases such as `docagent/default`, `docagent/fast`, and
 provider-specific `DOCAGENT_LITELLM_REASONING_API_KEY` only for live runtime
 runs; mock runtime development does not need them.
 
+To use the embedded upstream ACP client instead of DocAgent's local fallback
+agent pane, add `-ExternalAcpUi`:
+
+```powershell
+.\start-dev.cmd -Runtime openhands-acp -ExternalAcpUi
+```
+
+The script prepares the ignored `.local/reference/acp-ui` checkout, starts it
+on `http://127.0.0.1:4173`, and builds the web app with that iframe URL.
+
 Smoke-test the mock Docker Compose stack with:
 
 ```powershell

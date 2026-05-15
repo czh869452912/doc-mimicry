@@ -3,7 +3,10 @@ param(
     [string]$Runtime,
     [string]$AcpRuntimeUrl,
     [string]$AcpContainerRuntimeUrl,
+    [string]$AcpUiUrl,
     [int]$OpenHandsPort = 8001,
+    [int]$AcpUiPort = 4173,
+    [switch]$ExternalAcpUi,
     [switch]$NoBrowser
 )
 
@@ -70,6 +73,53 @@ function Start-OpenHandsIfNeeded {
     return $null
 }
 
+function Start-ExternalAcpUiIfNeeded {
+    $effectiveAcpUiUrl = $AcpUiUrl
+    if ([string]::IsNullOrWhiteSpace($effectiveAcpUiUrl)) {
+        $effectiveAcpUiUrl = $env:VITE_ACP_UI_URL
+    }
+    if ($ExternalAcpUi -and [string]::IsNullOrWhiteSpace($effectiveAcpUiUrl)) {
+        $effectiveAcpUiUrl = "http://127.0.0.1:$AcpUiPort/"
+    }
+    if ([string]::IsNullOrWhiteSpace($effectiveAcpUiUrl)) {
+        $script:AcpUiUrl = ""
+        [Environment]::SetEnvironmentVariable("VITE_ACP_UI_URL", $null, "Process")
+        return
+    }
+
+    if (-not $effectiveAcpUiUrl.EndsWith("/")) {
+        $effectiveAcpUiUrl = "$effectiveAcpUiUrl/"
+    }
+    $script:AcpUiUrl = $effectiveAcpUiUrl
+    $env:VITE_ACP_UI_URL = $effectiveAcpUiUrl
+
+    if (-not $ExternalAcpUi) {
+        return
+    }
+
+    $acpUiDir = Join-Path $repoRoot ".local\reference\acp-ui"
+    $prepareScript = Join-Path $repoRoot "tools\acp_ui\prepare_acp_ui.ps1"
+    $prepareArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $prepareScript)
+    if (-not (Test-Path (Join-Path $acpUiDir "node_modules"))) {
+        $prepareArgs += "-Install"
+    }
+    & powershell.exe @prepareArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to prepare acp-ui. Check tools\acp_ui\prepare_acp_ui.ps1."
+    }
+
+    if (Test-HttpReady $effectiveAcpUiUrl 2) {
+        return
+    }
+
+    $acpUiLog = Join-Path $logRoot "acp-ui.log"
+    $cmdArgs = "/c npm run dev:web -- --host 127.0.0.1 --port $AcpUiPort > `"$acpUiLog`" 2>&1"
+    Start-Process -FilePath "cmd.exe" -ArgumentList $cmdArgs -WorkingDirectory $acpUiDir -WindowStyle Hidden | Out-Null
+    if (-not (Test-HttpReady $effectiveAcpUiUrl 45)) {
+        throw "ACP UI did not become ready at $effectiveAcpUiUrl. Check $acpUiLog."
+    }
+}
+
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 Import-LocalEnv (Join-Path $repoRoot ".env")
 Import-LocalEnv (Join-Path $repoRoot ".env.local")
@@ -109,6 +159,7 @@ if (-not (Test-Command "docker")) {
 Push-Location $repoRoot
 try {
     Start-OpenHandsIfNeeded | Out-Null
+    Start-ExternalAcpUiIfNeeded
 
     $env:DOCAGENT_RUNTIME = $Runtime
     $env:DOCAGENT_QUEUE = "celery"
@@ -163,6 +214,9 @@ try {
     Write-Host "Runtime: $Runtime"
     if ($Runtime -eq "openhands-acp") {
         Write-Host "ACP runtime: $AcpRuntimeUrl"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($AcpUiUrl)) {
+        Write-Host "External ACP UI: $AcpUiUrl"
     }
     Write-Host "API: http://127.0.0.1:8000"
     Write-Host "Web: http://127.0.0.1:5173"

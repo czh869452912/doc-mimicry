@@ -105,6 +105,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_API_BASE: /api
+        VITE_ACP_UI_URL: ${VITE_ACP_UI_URL:-}
     ports:
       - "5173:80"
     depends_on:

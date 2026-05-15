@@ -35,12 +35,14 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "requirements-openhands.txt" not in dev_script
     assert "DOCAGENT_RUNTIME" in dev_script
     assert "DOCAGENT_ACP_RUNTIME_URL" in dev_script
+    assert "VITE_ACP_UI_URL" in dev_script
     assert 'Import-LocalEnv (Join-Path $repoRoot ".env")' in dev_script
     assert 'Import-LocalEnv (Join-Path $repoRoot ".env.local")' in dev_script
     assert "AcpContainerRuntimeUrl" in dev_script
     assert "docker compose --profile openhands up -d --build postgres redis openhands api worker web" in dev_script
     assert "http://openhands:$OpenHandsPort" in dev_script
     assert "openhands.agent_server" in compose
+    assert "VITE_ACP_UI_URL: ${VITE_ACP_UI_URL:-}" in compose
     assert 'DOCAGENT_RUN_MIGRATIONS: "1"' in compose
     assert 'DOCAGENT_RUN_MIGRATIONS: "0"' in compose
     assert "Ensure-OpenHandsVenv" not in dev_script
@@ -74,6 +76,27 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "location ~ ^/api/(.+)$" in nginx_conf
     assert "rewrite ^/api/(.+)$ /$1 break" in nginx_conf
     assert "proxy_pass http://$api_upstream" in nginx_conf
+
+
+def test_dev_entrypoint_can_prepare_external_acp_ui_for_compose_web() -> None:
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    dockerfile = (ROOT / "apps" / "web" / "Dockerfile").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    dev_docs = (ROOT / "docs" / "quality" / "local-development.md").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "[switch]$ExternalAcpUi" in dev_script
+    assert "[int]$AcpUiPort = 4173" in dev_script
+    assert "Start-ExternalAcpUiIfNeeded" in dev_script
+    assert "tools\\acp_ui\\prepare_acp_ui.ps1" in dev_script
+    assert "npm run dev:web -- --host 127.0.0.1 --port $AcpUiPort" in dev_script
+    assert "VITE_ACP_UI_URL: ${VITE_ACP_UI_URL:-}" in compose
+    assert "ARG VITE_ACP_UI_URL=" in dockerfile
+    assert "ENV VITE_ACP_UI_URL=$VITE_ACP_UI_URL" in dockerfile
+    assert "VITE_ACP_UI_URL=" in env_example
+    assert "-ExternalAcpUi" in readme
+    assert "-ExternalAcpUi" in dev_docs
 
 
 def test_compose_defines_openhands_service_with_shared_workspace() -> None:

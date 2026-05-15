@@ -20,6 +20,7 @@ The startup script must:
 - start the Celery worker;
 - start the Vite web app;
 - start the OpenHands Agent Server as a Compose service when `-Runtime openhands-acp` is selected;
+- optionally prepare and start the external `acp-ui` client when `-ExternalAcpUi` is selected;
 - keep API state and local runtime artifacts under Docker volumes or `.local/`;
 - write startup logs under `.local/dev`;
 - build the API and web Docker images when needed;
@@ -53,6 +54,11 @@ the same task workspace.
 The script reads `.env` first and `.env.local` second. Existing shell variables
 win over both files, and `.env.local` only fills values that were not already
 set by the shell or `.env`.
+
+The web Docker image receives `VITE_API_BASE` and optional `VITE_ACP_UI_URL` as
+build args. `-ExternalAcpUi` sets `VITE_ACP_UI_URL=http://127.0.0.1:4173/`,
+prepares `.local/reference/acp-ui`, and starts the upstream ACP client before
+building the web service.
 
 Use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001` for host-side smoke tests.
 Use `DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001` for Compose
