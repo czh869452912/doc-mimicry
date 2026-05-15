@@ -3,7 +3,7 @@ import { render, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api";
-import type { TimelineEvent } from "../../types";
+import type { AcpEvent } from "../../types";
 import { useTimeline } from "../state/useTimeline";
 
 function createTestQueryClient() {
@@ -27,16 +27,14 @@ vi.mock("../../api", () => ({
   streamTimelineUrl: (sessionId: string) => `/sessions/${sessionId}/timeline/stream`,
 }));
 
-const eventOne: TimelineEvent = {
+const eventOne: AcpEvent = {
   id: "event-1",
-  actor: "agent",
-  kind: "generate_outline",
-  paths: [],
-  raw_event_id: null,
   session_id: "session-1",
-  status: "succeeded",
-  summary: "Outlined",
-  task_id: "task-1",
+  sequence: 1,
+  event_type: "message_delta",
+  payload: { role: "assistant", content: "Outlined" },
+  projection: {},
+  created_at: "2026-05-15T00:00:00Z",
 };
 
 function Harness({
@@ -71,42 +69,34 @@ describe("useTimeline", () => {
         id: "acp-1",
         session_id: "session-1",
         sequence: 1,
-        event_type: "docagent/projection",
-        payload: {},
-        projection: {
-          timeline_id: "event-1",
-          actor: "agent",
-          timeline_kind: "generate_outline",
-          summary: "Outlined",
-          status: "succeeded",
-        },
-        created_at: "2026-05-14T00:00:00Z",
+        event_type: "message_delta",
+        payload: { role: "assistant", content: "Outlined" },
+        projection: {},
+        created_at: "2026-05-15T00:00:00Z",
       },
     ]);
-    vi.mocked(api.getTimeline).mockResolvedValueOnce([eventOne]);
 
     let latest!: ReturnType<typeof useTimeline>;
     renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
-    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-1"]));
+    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["acp-1"]));
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
     expect(api.getTimeline).not.toHaveBeenCalled();
   });
 
-  it("falls back to semantic timeline when ACP has no events yet", async () => {
+  it("returns ACP events directly and does not fetch semantic timeline fallback", async () => {
     vi.mocked(api.getAcpEvents).mockResolvedValueOnce([]);
-    vi.mocked(api.getTimeline).mockResolvedValueOnce([eventOne]);
 
     let latest!: ReturnType<typeof useTimeline>;
     renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
 
-    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-1"]));
+    await waitFor(() => expect(latest.events).toEqual([]));
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
-    expect(api.getTimeline).toHaveBeenCalledWith("session-1");
+    expect(api.getTimeline).not.toHaveBeenCalled();
   });
 
   it("clears events when there is no session", async () => {
-    vi.mocked(api.getTimeline).mockResolvedValueOnce([eventOne]);
+    vi.mocked(api.getAcpEvents).mockResolvedValueOnce([eventOne]);
 
     let latest!: ReturnType<typeof useTimeline>;
     const { rerender } = renderWithQuery(<Harness sessionId="session-1" onState={(state) => (latest = state)} />);
@@ -119,9 +109,8 @@ describe("useTimeline", () => {
   });
 
   it("keeps previous session events visible while the next session loads", async () => {
-    let resolveSessionTwo!: (events: TimelineEvent[]) => void;
-    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline)
+    let resolveSessionTwo!: (events: AcpEvent[]) => void;
+    vi.mocked(api.getAcpEvents)
       .mockResolvedValueOnce([eventOne])
       .mockImplementationOnce(
         () =>
@@ -142,20 +131,19 @@ describe("useTimeline", () => {
     await waitFor(() => expect(resolveSessionTwo).toBeTypeOf("function"));
 
     resolveSessionTwo([
-      { ...eventOne, id: "event-2", summary: "Session two event" },
+      { ...eventOne, id: "event-2", sequence: 2, payload: { role: "assistant", content: "Session two event" } },
     ]);
     await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["event-2"]));
   });
 
-  it("polls the active session timeline and merges new events", async () => {
+  it("polls the active session ACP events and replaces state with the latest event log", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("EventSource", undefined);
-    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline)
+    vi.mocked(api.getAcpEvents)
       .mockResolvedValueOnce([eventOne])
       .mockResolvedValueOnce([
         eventOne,
-        { ...eventOne, id: "event-2", summary: "Draft updated" },
+        { ...eventOne, id: "event-2", sequence: 2, payload: { role: "assistant", content: "Draft updated" } },
       ]);
 
     let latest!: ReturnType<typeof useTimeline>;
@@ -207,7 +195,7 @@ describe("useTimeline", () => {
     vi.unstubAllGlobals();
   });
 
-  it("delivers ACP SSE events into the timeline state via projection", async () => {
+  it("appends ACP SSE events without projecting them", async () => {
     let capturedOnMessage: ((ev: MessageEvent) => void) | null = null;
     const mockClose = vi.fn();
 
@@ -233,17 +221,10 @@ describe("useTimeline", () => {
       id: "acp-sse-1",
       session_id: "session-1",
       sequence: 1,
-      event_type: "docagent/projection",
-      payload: {},
-      projection: {
-        timeline_id: "sse-event-1",
-        actor: "agent",
-        timeline_kind: "update_draft",
-        paths: ["draft/draft.md"],
-        status: "succeeded",
-        summary: "SSE delivered",
-      },
-      created_at: "2026-05-14T00:00:00Z",
+      event_type: "file/write",
+      payload: { path: "draft/draft.md" },
+      projection: {},
+      created_at: "2026-05-15T00:00:00Z",
     };
 
     let latest!: ReturnType<typeof useTimeline>;
@@ -253,21 +234,20 @@ describe("useTimeline", () => {
       capturedOnMessage?.({ data: JSON.stringify(sseEvent) } as MessageEvent);
     });
 
-    await waitFor(() => expect(latest.events.some((e) => e.id === "sse-event-1")).toBe(true));
+    await waitFor(() => expect(latest.events.map((event) => event.id)).toEqual(["acp-sse-1"]));
 
     vi.unstubAllGlobals();
   });
 
   it("invalidates session queries only once for an already observed status event", async () => {
-    const statusEvent: TimelineEvent = {
+    const statusEvent: AcpEvent = {
       ...eventOne,
-      actor: "system",
       id: "status-event-1",
-      kind: "session_status",
-      status: "succeeded",
-      summary: "Session status changed to idle",
+      sequence: 2,
+      event_type: "session/completed",
+      payload: { status: "succeeded", message: "Session status changed to idle" },
     };
-    vi.mocked(api.getTimeline).mockResolvedValue([statusEvent]);
+    vi.mocked(api.getAcpEvents).mockResolvedValue([statusEvent]);
 
     const queryClient = createTestQueryClient();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");

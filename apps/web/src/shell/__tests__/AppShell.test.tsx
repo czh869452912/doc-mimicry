@@ -561,16 +561,12 @@ describe("AppShell", () => {
           id: "acp-status-idle",
           session_id: "session-1",
           sequence: 1,
-          event_type: "docagent/projection",
-          payload: {},
-          projection: {
-            timeline_id: "task-1-status-idle",
-            actor: "system",
-            timeline_kind: "session_status",
-            paths: [],
+          event_type: "session/completed",
+          payload: {
             status: "succeeded",
-            summary: "Session status changed to idle",
+            message: "Session status changed to idle",
           },
+          projection: {},
           created_at: "2026-05-14T00:00:00Z",
         }),
       } as MessageEvent);
@@ -663,29 +659,24 @@ describe("AppShell", () => {
   });
 
   it("reloads an assistant message by resending the nearest previous user message", async () => {
-    vi.mocked(api.getAcpEvents).mockResolvedValue([]);
-    vi.mocked(api.getTimeline).mockResolvedValue([
+    vi.mocked(api.getAcpEvents).mockResolvedValue([
       {
         id: "user-1",
-        actor: "user",
-        kind: "user_message",
-        raw_event_id: null,
         session_id: "session-1",
-        summary: "Revise the launch scope",
-        paths: [],
-        status: "succeeded",
-        task_id: "task-1",
+        sequence: 1,
+        event_type: "docagent/prompt",
+        payload: { prompt: "Revise the launch scope" },
+        projection: {},
+        created_at: "2026-05-15T00:00:00Z",
       },
       {
         id: "agent-1",
-        actor: "agent",
-        kind: "agent_message",
-        raw_event_id: null,
         session_id: "session-1",
-        summary: "I updated the launch scope.",
-        paths: [],
-        status: "succeeded",
-        task_id: "task-1",
+        sequence: 2,
+        event_type: "message_delta",
+        payload: { role: "assistant", content: "I updated the launch scope." },
+        projection: {},
+        created_at: "2026-05-15T00:00:00Z",
       },
     ]);
 

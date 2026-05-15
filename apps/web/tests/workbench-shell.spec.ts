@@ -4,8 +4,8 @@ test("workbench shell mounts core surfaces", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("DocAgent")).toBeVisible();
   await expect(page.getByText("Workspaces", { exact: true })).toBeVisible();
-  await expect(page.locator(".aui-thread")).toBeVisible();
-  await expect(page.locator(".aui-composer")).toBeVisible();
+  await expect(page.locator(".acp-thread")).toBeVisible();
+  await expect(page.locator(".acp-composer")).toBeVisible();
   await expect(page.locator(".conversation-stream")).toHaveCount(0);
   await expect(page.getByLabel("Message")).toBeVisible();
   await expect(page.getByRole("tab", { name: /draft/i })).toBeVisible();
@@ -34,36 +34,36 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
   await expect(page.getByText("Workspace files")).toBeVisible();
 });
 
-test("assistant-ui center pane sends messages and renders timeline updates", async ({ page }) => {
+test("ACP center pane sends messages and renders timeline updates", async ({ page }) => {
   await page.goto("/");
   await createDraftReadyWorkspace(page, `Assistant UI PRD ${Date.now()}`);
 
-  await expect(page.locator(".aui-composer")).toBeVisible();
+  await expect(page.locator(".acp-composer")).toBeVisible();
   await page.getByLabel("Message").fill("Revise the launch scope");
   await page.getByLabel("Message").press("Enter");
 
-  await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
+  await expect(page.locator(".acp-thread")).toContainText("Revise the launch scope");
   await expect(page.getByRole("button", { name: /copy text/i }).first()).toBeVisible();
-  await expect(page.locator(".aui-thread")).toContainText(/agent|processed|message|draft|context/i, { timeout: 10_000 });
+  await expect(page.locator(".acp-thread")).toContainText(/agent|processed|message|draft|context/i, { timeout: 10_000 });
 });
 
-test("assistant-ui reload action resends the previous user message", async ({ page }) => {
+test("ACP reload action resends the previous user message", async ({ page }) => {
   await page.goto("/");
   await createDraftReadyWorkspace(page, `Reload PRD ${Date.now()}`);
 
   await page.getByLabel("Message").fill("Revise the launch scope");
   await page.getByLabel("Message").press("Enter");
-  await expect(page.locator(".aui-thread")).toContainText("Revise the launch scope");
+  await expect(page.locator(".acp-thread")).toContainText("Revise the launch scope");
 
-  const initialCount = await page.locator(".aui-message--user").filter({ hasText: "Revise the launch scope" }).count();
+  const initialCount = await page.locator(".acp-event--user").filter({ hasText: "Revise the launch scope" }).count();
   await page.getByRole("button", { name: /reload response/i }).last().click();
 
   await expect
-    .poll(() => page.locator(".aui-message--user").filter({ hasText: "Revise the launch scope" }).count())
+    .poll(() => page.locator(".acp-event--user").filter({ hasText: "Revise the launch scope" }).count())
     .toBeGreaterThan(initialCount);
 });
 
-test("assistant-ui composer imports text attachments before sending", async ({ page }) => {
+test("ACP composer imports text attachments before sending", async ({ page }) => {
   await page.goto("/");
   await createWorkspace(page, `Attachment PRD ${Date.now()}`);
 
@@ -80,14 +80,14 @@ test("assistant-ui composer imports text attachments before sending", async ({ p
   await page.getByLabel("Message").fill("Use the attached notes");
   await page.getByLabel("Message").press("Enter");
 
-  await expect(page.locator(".aui-thread")).toContainText(
+  await expect(page.locator(".acp-thread")).toContainText(
     "Imported attachment scope-notes.md as inputs/markdown/scope-notes.md.",
     { timeout: 8_000 },
   );
   await expect(page.getByText("scope-notes.md").first()).toBeVisible();
 });
 
-test("assistant-ui composer exposes slash command suggestions", async ({ page }) => {
+test("ACP composer exposes slash command suggestions", async ({ page }) => {
   await page.goto("/");
 
   await page.getByLabel("Message").fill("/");
@@ -138,7 +138,7 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
   await page.getByLabel("Message").press("Enter");
   await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
   const approveButton = page
-    .locator(".aui-timeline-part--card")
+    .locator(".acp-event--card")
     .filter({ hasText: "Outline · waiting for review" })
     .getByRole("button", { name: /approve/i });
   await expect(approveButton).toBeVisible({ timeout: 8_000 });
@@ -153,7 +153,7 @@ async function createWorkspace(page: import("@playwright/test").Page, title: str
     .getByRole("button", { name: /create workspace/i })
     .click();
   await page.getByLabel(/title/i).fill(title);
-  await page.getByLabel(/description/i).fill("Exercise the assistant-ui center pane.");
+  await page.getByLabel(/description/i).fill("Exercise the ACP center pane.");
   await page
     .locator("form")
     .filter({ has: page.getByLabel(/description/i) })

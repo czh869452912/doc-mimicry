@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, streamAcpEventsUrl } from "../../api";
-import type { AcpEvent, TimelineEvent } from "../../types";
-import { mergeProjectedAcpEvent, projectAcpEventsToTimelineEvents } from "../conversation/acpTimeline";
-import { mergeTimelineEvents, replaceWithIdDedup } from "../conversation/docagentRuntime";
+import type { AcpEvent } from "../../types";
+import { deriveAcpInvalidationHints, mergeAcpEvents } from "../acp/acpEvents";
 
 const TIMELINE_POLL_INTERVAL_MS = 3000;
 const SSE_BACKOFF_BASE_MS = 1000;
@@ -14,7 +13,7 @@ export function useTimeline(
   taskId: string | null | undefined,
 ) {
   const queryClient = useQueryClient();
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [events, setEvents] = useState<AcpEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const invalidatedEventIdsRef = useRef<Set<string>>(new Set());
@@ -24,37 +23,21 @@ export function useTimeline(
   }, [sessionId, taskId]);
 
   const invalidateRelatedQueries = useCallback(
-    (eventsToInspect: TimelineEvent[]) => {
-      let shouldInvalidateWorkspace = false;
-      let shouldInvalidateDraft = false;
-      let shouldInvalidateSessions = false;
-
-      for (const event of eventsToInspect) {
-        if (invalidatedEventIdsRef.current.has(event.id)) continue;
+    (eventsToInspect: AcpEvent[]) => {
+      const freshEvents = eventsToInspect.filter((event) => {
+        if (invalidatedEventIdsRef.current.has(event.id)) return false;
         invalidatedEventIdsRef.current.add(event.id);
+        return true;
+      });
+      const hints = deriveAcpInvalidationHints(freshEvents);
 
-        if (event.paths.length > 0) {
-          shouldInvalidateWorkspace = true;
-          if (event.paths.some((p) => p.startsWith("draft/"))) {
-            shouldInvalidateDraft = true;
-          }
-        }
-        if (
-          event.kind === "session_status" ||
-          event.kind === "error" ||
-          event.actor === "system"
-        ) {
-          shouldInvalidateSessions = true;
-        }
-      }
-
-      if (shouldInvalidateWorkspace) {
+      if (hints.workspace) {
         void queryClient.invalidateQueries({ queryKey: ["workspace", taskId] });
       }
-      if (shouldInvalidateDraft) {
+      if (hints.draft) {
         void queryClient.invalidateQueries({ queryKey: ["draft", taskId] });
       }
-      if (shouldInvalidateSessions) {
+      if (hints.sessions) {
         void queryClient.invalidateQueries({ queryKey: ["sessions", taskId] });
       }
     },
@@ -73,12 +56,9 @@ export function useTimeline(
       }
       setLoading(true);
       setError(null);
-      // No setEvents([]) here — leave previous events visible during fetch
+      // No setEvents([]) here: keep previous ACP events visible during fetch.
       try {
-        const acpEvents = await api.getAcpEvents(sid);
-        const nextEvents = acpEvents.length > 0
-          ? replaceWithIdDedup(projectAcpEventsToTimelineEvents(acpEvents, taskId))
-          : replaceWithIdDedup(await api.getTimeline(sid));
+        const nextEvents = mergeAcpEvents(await api.getAcpEvents(sid));
         if (shouldApply()) {
           setEvents(nextEvents);
           invalidateRelatedQueries(nextEvents);
@@ -86,7 +66,7 @@ export function useTimeline(
         return nextEvents;
       } catch (caught) {
         if (shouldApply())
-          setError(caught instanceof Error ? caught.message : "Could not refresh timeline");
+          setError(caught instanceof Error ? caught.message : "Could not refresh ACP events");
         return [];
       } finally {
         if (shouldApply()) setLoading(false);
@@ -145,10 +125,9 @@ export function useTimeline(
         backoffMs = SSE_BACKOFF_BASE_MS; // reset on successful message
         try {
           const acpEvent = JSON.parse(ev.data as string) as AcpEvent;
-          const projectedEvent = projectAcpEventsToTimelineEvents([acpEvent], taskId)[0];
-          setEvents((prev) => mergeProjectedAcpEvent(prev, acpEvent, taskId));
-          invalidateRelatedQueries([projectedEvent]);
-          if (projectedEvent.kind === "session_status" || projectedEvent.kind === "error") {
+          setEvents((prev) => mergeAcpEvents([...prev, acpEvent]));
+          invalidateRelatedQueries([acpEvent]);
+          if (deriveAcpInvalidationHints([acpEvent]).sessions) {
             void loadTimeline(currentSessionId, () => !cancelled);
           }
         } catch {

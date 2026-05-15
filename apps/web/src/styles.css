@@ -2,7 +2,7 @@
 @import "./shell/theme/tokens.css";
 @import "./shell/theme/reset.css";
 @import "./shell/theme/typography.css";
-@import "./shell/theme/assistant-ui.css";
+@import "./shell/theme/acp.css";
 @import "./shell/theme/shell.css";
 
 @theme inline {

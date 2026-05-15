@@ -1,24 +1,20 @@
-.aui-root,
-.aui-thread,
-.aui-composer {
-  --aui-font-family: var(--font-body);
-  --aui-color-background: var(--color-surface);
-  --aui-color-foreground: var(--color-ink);
-  --aui-color-muted: var(--color-muted);
-  --aui-color-border: var(--color-border);
-  --aui-color-primary: var(--color-accent);
+.acp-surface,
+.acp-thread,
+.acp-composer {
   font-family: var(--font-body);
 }
 
-.aui-root {
-  display: contents;
-}
-
-.aui-thread {
+.acp-surface {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   min-height: 0;
 }
 
-.aui-thread-viewport {
+.acp-thread {
+  min-height: 0;
+}
+
+.acp-thread-viewport {
   display: flex;
   min-height: 0;
   height: 100%;
@@ -28,22 +24,29 @@
   padding: 12px;
 }
 
-.aui-message {
+.acp-event {
+  display: grid;
+  gap: 3px;
   max-width: 78%;
   color: var(--color-body);
 }
 
-.aui-message--user {
+.acp-event--user {
   align-self: flex-end;
   color: var(--color-ink);
 }
 
-.aui-message--assistant {
+.acp-event--assistant,
+.acp-event--card {
   align-self: flex-start;
 }
 
-.aui-message-text {
-  margin: 0;
+.acp-event--card {
+  width: min(100%, 560px);
+  max-width: 100%;
+}
+
+.acp-event__body {
   padding: 8px 10px;
   white-space: pre-wrap;
   background: var(--color-surface-card);
@@ -51,22 +54,96 @@
   border-radius: var(--radius-lg);
 }
 
-.aui-message-actions {
+.acp-event[data-family="tool"] .acp-event__body,
+.acp-event[data-family="file"] .acp-event__body,
+.acp-event[data-family="permission"] .acp-event__body,
+.acp-event[data-family="status"] .acp-event__body,
+.acp-event[data-family="unknown"] .acp-event__body {
+  display: grid;
+  gap: 4px;
+  max-width: 560px;
+  color: var(--color-body);
+  background: var(--color-canvas-soft);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+}
+
+.acp-event__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.acp-event__header strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acp-event__header span {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.acp-event__text {
+  margin: 0;
+}
+
+.acp-event__path {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  color: var(--color-muted);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.acp-event__payload {
+  max-width: 100%;
+  margin: 0;
+  overflow: auto;
+  color: var(--color-muted);
+  font-family: var(--font-code);
+  font-size: 11px;
+  white-space: pre-wrap;
+}
+
+.acp-event[data-status="failed"] .acp-event__body {
+  border-color: rgb(176 57 57 / 36%);
+}
+
+.acp-event[data-status="running"] .acp-event__header span {
+  color: var(--color-accent);
+}
+
+.acp-event__actions {
   display: flex;
   justify-content: flex-end;
   min-height: 22px;
-  margin-top: 3px;
   opacity: 0;
   transition: opacity 120ms ease;
 }
 
-.aui-message:hover .aui-message-actions,
-.aui-message:focus-within .aui-message-actions {
+.acp-event:hover .acp-event__actions,
+.acp-event:focus-within .acp-event__actions {
   opacity: 1;
 }
 
-.aui-message-action {
+.acp-icon-button {
+  display: inline-flex;
   min-height: 22px;
+  align-items: center;
+  justify-content: center;
   padding: 0 6px;
   color: var(--color-muted);
   cursor: pointer;
@@ -76,14 +153,14 @@
   font-size: 11px;
 }
 
-.aui-message-action:hover,
-.aui-message-action:focus-visible {
+.acp-icon-button:hover,
+.acp-icon-button:focus-visible {
   color: var(--color-ink);
   background: var(--color-surface-card);
   border-color: var(--color-hairline);
 }
 
-.aui-thread-status {
+.acp-thread-status {
   width: fit-content;
   max-width: 78%;
   padding: 6px 9px;
@@ -94,72 +171,7 @@
   font-size: 12px;
 }
 
-.aui-timeline-part {
-  width: min(100%, 560px);
-}
-
-.aui-timeline-part--card,
-.aui-timeline-part--tool {
-  display: grid;
-}
-
-.aui-tool-call {
-  display: grid;
-  gap: 4px;
-  max-width: 560px;
-  padding: 7px 9px;
-  color: var(--color-body);
-  background: var(--color-canvas-soft);
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-md);
-  font-size: 12px;
-}
-
-.aui-tool-call__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.aui-tool-call__name {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-ink);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aui-tool-call__status {
-  flex: 0 0 auto;
-  color: var(--color-muted);
-  font-size: 11px;
-}
-
-.aui-tool-call__summary {
-  margin: 0;
-  color: var(--color-body);
-}
-
-.aui-tool-call__paths {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--color-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aui-tool-call[data-status="failed"] {
-  border-color: rgb(176 57 57 / 36%);
-}
-
-.aui-tool-call[data-status="running"] .aui-tool-call__status {
-  color: var(--color-accent);
-}
-
-.aui-composer {
+.acp-composer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 34px 34px;
   gap: 8px;
@@ -167,16 +179,17 @@
   border-top: 1px solid var(--color-hairline);
 }
 
-.aui-composer__dropzone {
-  min-width: 0;
-}
-
-.aui-composer__input-wrap {
+.acp-composer__input-wrap {
   position: relative;
   min-width: 0;
 }
 
-.aui-attachment-chip {
+.acp-composer__attachments {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.acp-attachment-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -191,14 +204,14 @@
   font-size: 12px;
 }
 
-.aui-attachment-chip span {
+.acp-attachment-chip span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.aui-attachment-chip button {
+.acp-attachment-chip button {
   display: inline-flex;
   width: 18px;
   height: 18px;
@@ -212,13 +225,13 @@
   border-radius: var(--radius-sm);
 }
 
-.aui-attachment-chip button:hover,
-.aui-attachment-chip button:focus-visible {
+.acp-attachment-chip button:hover,
+.acp-attachment-chip button:focus-visible {
   color: var(--color-ink);
   background: var(--color-surface-card);
 }
 
-.aui-composer textarea {
+.acp-composer textarea {
   width: 100%;
   min-height: 48px;
   max-height: 132px;
@@ -229,7 +242,7 @@
   border-radius: var(--radius-md);
 }
 
-.aui-slash-menu {
+.acp-slash-menu {
   position: absolute;
   right: 0;
   bottom: calc(100% + 6px);
@@ -245,7 +258,7 @@
   box-shadow: 0 14px 40px rgb(38 37 30 / 14%);
 }
 
-.aui-slash-menu__item {
+.acp-slash-menu__item {
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
   gap: 8px;
@@ -260,19 +273,19 @@
   border-radius: var(--radius-md);
 }
 
-.aui-slash-menu__item:hover,
-.aui-slash-menu__item:focus-visible {
+.acp-slash-menu__item:hover,
+.acp-slash-menu__item:focus-visible {
   color: var(--color-ink);
   background: var(--color-canvas-soft);
 }
 
-.aui-slash-menu__item code {
+.acp-slash-menu__item code {
   color: var(--color-ink);
   font-family: var(--font-code);
   font-size: 12px;
 }
 
-.aui-slash-menu__item span {
+.acp-slash-menu__item span {
   min-width: 0;
   overflow: hidden;
   color: var(--color-muted);
@@ -280,7 +293,7 @@
   white-space: nowrap;
 }
 
-.aui-send-button {
+.acp-send-button {
   display: inline-flex;
   height: 34px;
   align-items: center;
@@ -296,17 +309,17 @@
   border-radius: var(--radius-md);
 }
 
-.aui-send-button--stop {
+.acp-send-button--stop {
   color: var(--color-surface-card);
   background: var(--color-error, #dc2626);
   border-color: var(--color-error, #dc2626);
 }
 
-.aui-send-button--stop:hover {
+.acp-send-button--stop:hover {
   filter: brightness(0.92);
 }
 
-.aui-attach-button {
+.acp-attach-button {
   display: inline-flex;
   height: 34px;
   align-items: center;
@@ -321,15 +334,15 @@
   border-radius: var(--radius-md);
 }
 
-.aui-attach-button:hover,
-.aui-attach-button:focus-visible {
+.acp-attach-button:hover,
+.acp-attach-button:focus-visible {
   color: var(--color-ink);
   background: var(--color-canvas-soft);
 }
 
-.aui-send-button:disabled,
-.aui-attach-button:disabled,
-.aui-composer textarea:disabled {
+.acp-send-button:disabled,
+.acp-attach-button:disabled,
+.acp-composer textarea:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

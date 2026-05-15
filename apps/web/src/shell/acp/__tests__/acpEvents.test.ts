@@ -69,6 +69,19 @@ describe("ACP event helpers", () => {
     });
   });
 
+  it("recognizes interim projection status metadata for session invalidation", () => {
+    const hints = deriveAcpInvalidationHints([
+      acp({
+        id: "projection-status",
+        sequence: 1,
+        event_type: "docagent/projection",
+        projection: { timeline_kind: "session_status" },
+      }),
+    ]);
+
+    expect(hints.sessions).toBe(true);
+  });
+
   it("finds reload input from previous user prompt events", () => {
     const events = [
       acp({ id: "u1", sequence: 1, event_type: "docagent/prompt", payload: { prompt: "First" } }),

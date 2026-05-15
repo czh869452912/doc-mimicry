@@ -1,11 +1,8 @@
-import type { StartRunConfig } from "@assistant-ui/core";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
-import type { MessageAttachment, SessionRecord, TaskRecord, TimelineEvent } from "../../types";
-import { DocAgentComposer } from "../assistant/DocAgentComposer";
-import { DocAgentThread } from "../assistant/DocAgentThread";
-import { useDocAgentAssistantRuntime } from "../assistant/useDocAgentAssistantRuntime";
+import type { AcpEvent, MessageAttachment, SessionRecord, TaskRecord } from "../../types";
+import { AcpInteractionSurface } from "../acp/AcpInteractionSurface";
+import { findReloadInput } from "../acp/acpEvents";
 import { SLASH_COMMANDS, executeSlashCommand } from "../conversation/slashCommands";
 
 interface ConversationPaneProps {
@@ -13,7 +10,7 @@ interface ConversationPaneProps {
   activeTask: TaskRecord | null;
   createSession: () => Promise<SessionRecord | null>;
   ensureSession: () => Promise<SessionRecord | null>;
-  events: TimelineEvent[];
+  events: AcpEvent[];
   error: string | null;
   loading: boolean;
   onOpenPath: (path: string) => Promise<void>;
@@ -131,8 +128,8 @@ export function ConversationPane({
   );
 
   const reloadInput = useCallback(
-    async (parentMessageId: string | null, _config?: StartRunConfig) => {
-      const input = inputForReload(eventsRef.current, parentMessageId);
+    async (parentEventId: string | null) => {
+      const input = findReloadInput(eventsRef.current, parentEventId);
       if (!input) {
         setStatus("No previous user message to reload.");
         return;
@@ -144,15 +141,6 @@ export function ConversationPane({
 
   const composerDisabled = !activeTask;
   const composerHint = composerHintFor(activeSession);
-  const runtime = useDocAgentAssistantRuntime({
-    activeTaskId: activeTask?.id ?? null,
-    events,
-    isDisabled: composerDisabled,
-    isRunning,
-    onCancel: cancelActiveSession,
-    onReloadInput: reloadInput,
-    onSubmitInput: submitOrCancel,
-  });
 
   const queuedCommandHandlingRef = useRef(false);
   useEffect(() => {
@@ -166,47 +154,44 @@ export function ConversationPane({
   }, [queuedCommand, onQueuedCommandHandled]);
 
   return (
-    <section className="conversation-pane aui-root">
-      <AssistantRuntimeProvider runtime={runtime}>
-        <DocAgentThread
-          activeSessionId={activeSession?.id ?? null}
-          emptyMessage={emptyMessage(activeTask, activeSession)}
-          isLoading={loading}
-          isRunning={isRunning}
-          taskId={activeTask?.id ?? null}
-          onApproved={async () => {
-            await refreshWorkspace();
-            await refreshTimeline();
-          }}
-          onOpenPath={onOpenPath}
-        />
-        {showHelp && (
-          <article className="inline-card">
-            <header>
-              <strong>Slash commands</strong>
-              <button type="button" onClick={() => setShowHelp(false)}>
-                Close
-              </button>
-            </header>
-            <ul>
-              {SLASH_COMMANDS.map((command) => (
-                <li key={command.command}>
-                  <code>{command.command}</code> {command.description}
-                </li>
-              ))}
-            </ul>
-          </article>
-        )}
-        <DocAgentComposer
-          disabled={composerDisabled}
-          draftText={queuedComposerDraft}
-          isRunning={isRunning}
-          onCancel={cancelActiveSession}
-          onDraftTextApplied={onQueuedComposerDraftHandled}
-        />
-      </AssistantRuntimeProvider>
+    <section className="conversation-pane">
+      <AcpInteractionSurface
+        sessionId={activeSession?.id ?? null}
+        taskId={activeTask?.id ?? null}
+        events={events}
+        emptyMessage={emptyMessage(activeTask, activeSession)}
+        loading={loading}
+        running={isRunning}
+        error={error}
+        queuedComposerDraft={queuedComposerDraft}
+        onApproved={async () => {
+          await refreshWorkspace();
+          await refreshTimeline();
+        }}
+        onCancel={cancelActiveSession}
+        onOpenPath={onOpenPath}
+        onQueuedComposerDraftHandled={onQueuedComposerDraftHandled}
+        onReloadInput={reloadInput}
+        onSendMessage={submitOrCancel}
+      />
+      {showHelp && (
+        <article className="inline-card">
+          <header>
+            <strong>Slash commands</strong>
+            <button type="button" onClick={() => setShowHelp(false)}>
+              Close
+            </button>
+          </header>
+          <ul>
+            {SLASH_COMMANDS.map((command) => (
+              <li key={command.command}>
+                <code>{command.command}</code> {command.description}
+              </li>
+            ))}
+          </ul>
+        </article>
+      )}
       {composerHint && <p className="pane-note pane-note--hint">{composerHint}</p>}
-      {error && <p className="pane-note pane-note--error">{error}</p>}
       <p className="status-line">{status}</p>
     </section>
   );
@@ -238,20 +223,3 @@ function idleSubmitHint(status: string): string {
   return `Cannot send chat while session is ${status}. Try a slash command.`;
 }
 
-export function inputForReload(events: TimelineEvent[], parentMessageId: string | null) {
-  const parentIndex = parentMessageId
-    ? events.findIndex((event) => event.id === parentMessageId)
-    : events.length;
-  // When parentMessageId is null, parentIndex === events.length (intentionally out of bounds)
-  // When parentMessageId refers to a message not found, parentIndex === -1
-  if (parentIndex >= 0 && parentIndex < events.length) {
-    const parentEvent = events[parentIndex];
-    if (parentEvent.kind === "user_message" && parentEvent.summary.trim()) return parentEvent.summary;
-  }
-  const endIndex = parentIndex >= 0 ? parentIndex : events.length;
-  for (let index = endIndex - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event.kind === "user_message" && event.summary.trim()) return event.summary;
-  }
-  return null;
-}

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api";
-import type { TimelineEvent } from "../../../types";
+import type { AcpEvent } from "../../../types";
 import { ConversationPane } from "../ConversationPane";
 
 vi.mock("../../../api", () => ({
@@ -31,17 +31,15 @@ const session = {
   updated_at: "2026-05-06T08:00:00Z",
 };
 
-const events: TimelineEvent[] = [
+const events: AcpEvent[] = [
   {
     id: "evt-user",
-    actor: "user",
-    kind: "user_message",
-    raw_event_id: null,
     session_id: "session-1",
-    summary: "Write a launch PRD",
-    paths: [],
-    status: "succeeded",
-    task_id: "task-1",
+    sequence: 1,
+    event_type: "docagent/prompt",
+    payload: { prompt: "Write a launch PRD" },
+    projection: {},
+    created_at: "2026-05-15T00:00:00Z",
   },
 ];
 
@@ -75,17 +73,17 @@ describe("ConversationPane", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the center pane through assistant-ui thread and composer primitives", () => {
+  it("renders the center pane through the ACP interaction surface", () => {
     const { container } = renderPane();
 
-    expect(container.querySelector(".aui-thread")).toBeTruthy();
-    expect(container.querySelector(".aui-composer")).toBeTruthy();
+    expect(container.querySelector(".acp-thread")).toBeTruthy();
+    expect(container.querySelector(".acp-composer")).toBeTruthy();
     expect(screen.getByRole("button", { name: /copy text/i })).toBeTruthy();
     expect(container.querySelector(".conversation-stream")).toBeFalsy();
     expect(screen.getByText("Write a launch PRD")).toBeTruthy();
   });
 
-  it("renders running status inside the assistant-ui thread", () => {
+  it("renders running status inside the ACP thread", () => {
     render(
       <ConversationPane
         activeSession={{ ...session, status: "running_chat" }}

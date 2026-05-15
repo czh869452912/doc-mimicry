@@ -43,9 +43,9 @@ test("start loop produces outline card", async ({ page }) => {
   // Mock adapter is synchronous; events arrive within 1.5s poll interval
   await expect(page.getByText("Outline · waiting for review")).toBeVisible({ timeout: 8_000 });
   await expect(page.getByRole("button", { name: /approve/i })).toBeVisible();
-  await expect(page.locator(".aui-tool-call").filter({ hasText: "Read document skill" })).toBeVisible();
-  await expect(page.locator(".aui-tool-call").filter({ hasText: "Analyze examples" })).toBeVisible();
-  await expect(page.locator(".aui-tool-call").filter({ hasText: "Build context" })).toBeVisible();
+  await expect(page.locator(".acp-event").filter({ hasText: "Read document skill" })).toBeVisible();
+  await expect(page.locator(".acp-event").filter({ hasText: "Analyze examples" })).toBeVisible();
+  await expect(page.locator(".acp-event").filter({ hasText: "Build context" })).toBeVisible();
 });
 
 test("approve outline makes draft content visible", async ({ page }) => {
@@ -108,5 +108,5 @@ test("selected source text can trigger revise selection", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Revise selection" })).toBeVisible({ timeout: 5_000 });
   await page.getByRole("button", { name: "Revise selection" }).click();
 
-  await expect(page.locator(".aui-tool-call").filter({ hasText: "Revise selection" })).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator(".acp-event").filter({ hasText: "Revise selection" })).toBeVisible({ timeout: 8_000 });
 });

@@ -69,13 +69,19 @@ export function pathsFromAcpEvent(event: AcpEvent): string[] {
 
 export function deriveAcpInvalidationHints(events: AcpEvent[]): AcpInvalidationHints {
   const paths = uniqueStrings(events.flatMap(pathsFromAcpEvent));
-  const hasStatus = events.some((event) => classifyAcpEvent(event).family === "status");
+  const hasStatus = events.some((event) => isSessionStatusEvent(event));
   return {
     workspace: paths.length > 0,
     draft: paths.some((path) => path.startsWith("draft/")),
     sessions: hasStatus || events.some((event) => event.event_type.toLowerCase().includes("error")),
     paths,
   };
+}
+
+function isSessionStatusEvent(event: AcpEvent): boolean {
+  if (classifyAcpEvent(event).family === "status") return true;
+  return stringValue(event.projection.timeline_kind) === "session_status"
+    || stringValue(event.projection.actor) === "system";
 }
 
 export function findReloadInput(events: AcpEvent[], parentEventId: string | null): string | null {
