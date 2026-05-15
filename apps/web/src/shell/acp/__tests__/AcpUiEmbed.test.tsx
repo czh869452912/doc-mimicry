@@ -18,6 +18,20 @@ describe("AcpUiEmbed", () => {
     );
   });
 
+  it("preserves a relative API proxy prefix in the embedded ACP WebSocket URL", () => {
+    const url = buildAcpUiEmbedUrl({
+      acpUiUrl: "http://127.0.0.1:4173/",
+      apiBase: "/api",
+      sessionId: "session-1",
+      taskId: "task-1",
+      workspaceRoot: "/workspace/state/workspaces/task-1",
+    });
+
+    expect(url).toContain(
+      "%2Fapi%2Fsessions%2Fsession-1%2Facp%2Fws",
+    );
+  });
+
   it("renders the external ACP client iframe without requiring local timeline events", () => {
     render(
       <AcpUiEmbed

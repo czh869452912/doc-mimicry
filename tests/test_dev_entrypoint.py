@@ -76,6 +76,8 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert "location ~ ^/api/(.+)$" in nginx_conf
     assert "rewrite ^/api/(.+)$ /$1 break" in nginx_conf
     assert "proxy_pass http://$api_upstream" in nginx_conf
+    assert "proxy_set_header Upgrade $http_upgrade" in nginx_conf
+    assert 'proxy_set_header Connection "upgrade"' in nginx_conf
 
 
 def test_dev_entrypoint_can_prepare_external_acp_ui_for_compose_web() -> None:

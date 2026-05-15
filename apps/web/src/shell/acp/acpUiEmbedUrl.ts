@@ -34,7 +34,8 @@ export function buildAcpUiEmbedUrl({
 function acpWsUrl(apiBase: string, sessionId: string): string {
   const url = new URL(apiBase, window.location.origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = `/sessions/${encodeURIComponent(sessionId)}/acp/ws`;
+  const apiPath = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+  url.pathname = `${apiPath}/sessions/${encodeURIComponent(sessionId)}/acp/ws`;
   url.search = "";
   url.hash = "";
   return url.toString();
