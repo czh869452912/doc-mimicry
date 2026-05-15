@@ -51,7 +51,16 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 if ($Install) {
-    Invoke-CheckedNative npm install --prefix $AcpUiDir
+    Push-Location $AcpUiDir
+    try {
+        npm install
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm install failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Pop-Location
+    }
 }
 
 Write-Host ""

@@ -18,6 +18,8 @@ def test_prepare_script_clones_upstream_and_applies_docagent_patch() -> None:
     assert "docagent-query-bootstrap.patch" in script
     assert "Invoke-CheckedNative" in script
     assert "git -C $AcpUiDir apply --check --unidiff-zero $patchPath" in script
+    assert "Push-Location $AcpUiDir" in script
+    assert "npm install" in script
     assert "npm run dev:web -- --host 127.0.0.1 --port 4173" in script
 
 
