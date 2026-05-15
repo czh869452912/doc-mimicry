@@ -81,4 +81,44 @@ describe("AcpComposer", () => {
       },
     ]);
   });
+
+  it("notifies the ACP surface attachment port after importing context files", async () => {
+    const user = userEvent.setup();
+    const onAttachContext = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.importTextInput).mockResolvedValue({
+      id: "input-1",
+      status: "converted",
+      source_path: "inputs/original/context.txt",
+      markdown_path: "inputs/markdown/context.md",
+      conversion_report_path: "inputs/reports/context.json",
+      original_filename: "context.txt",
+      created_at: "2026-05-15T00:00:00Z",
+    });
+    render(
+      <AcpComposer
+        disabled={false}
+        isRunning={false}
+        taskId="task-1"
+        onAttachContext={onAttachContext}
+        onCancel={vi.fn()}
+        onSend={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["Attachment context"], "context.txt", { type: "text/plain" }),
+    );
+    await user.type(screen.getByLabelText("Message"), "Use context");
+    await user.click(screen.getByRole("button", { name: /send message/i }));
+
+    await waitFor(() => expect(onAttachContext).toHaveBeenCalledWith([
+      {
+        name: "context.txt",
+        markdown_path: "inputs/markdown/context.md",
+        source_path: "inputs/original/context.txt",
+        conversion_report_path: "inputs/reports/context.json",
+      },
+    ]));
+  });
 });

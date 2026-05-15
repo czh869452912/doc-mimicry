@@ -45,6 +45,7 @@ export function AcpInteractionSurface({
   loading,
   onApproved,
   onAnswerPermission,
+  onAttachContext,
   onCancel,
   onCopyContent,
   onOpenPath,
@@ -106,6 +107,7 @@ export function AcpInteractionSurface({
         disabled={!taskId}
         draftText={queuedComposerDraft}
         isRunning={running}
+        onAttachContext={onAttachContext}
         onCancel={onCancel}
         onDraftTextApplied={onQueuedComposerDraftHandled}
         onSend={onSendMessage}

@@ -122,6 +122,8 @@ class OpenHandsAgentServerClient:
 
     def answer_permission(self, runtime_session_id: str, request_id: str, decision: str) -> list[dict[str, Any]]:
         conversation = self._conversation(runtime_session_id)
+        # Temporary OpenHands ACP shim: the permission API is probed at call time
+        # while SDK method names settle across OpenHands releases.
         answer = getattr(conversation, "answer_permission", None)
         if callable(answer):
             result = answer(request_id, decision)

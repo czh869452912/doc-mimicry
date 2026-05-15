@@ -15,6 +15,7 @@ interface AcpComposerProps {
   disabled: boolean;
   draftText?: string | null;
   isRunning?: boolean;
+  onAttachContext?: (attachments: MessageAttachment[]) => Promise<void>;
   onCancel?: () => void | Promise<void>;
   onDraftTextApplied?: () => void;
   onSend: (input: string, attachments?: MessageAttachment[]) => Promise<void>;
@@ -25,6 +26,7 @@ export function AcpComposer({
   disabled,
   draftText,
   isRunning = false,
+  onAttachContext,
   onCancel,
   onDraftTextApplied,
   onSend,
@@ -52,6 +54,9 @@ export function AcpComposer({
     const input = text.trimEnd();
     if (!input || disabled || isRunning) return;
     const nextAttachments = await importAttachments();
+    if (nextAttachments.length > 0) {
+      await onAttachContext?.(nextAttachments);
+    }
     setText("");
     setAttachments([]);
     setAttachmentError(null);

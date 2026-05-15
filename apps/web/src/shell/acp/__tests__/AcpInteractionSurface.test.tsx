@@ -1,8 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../../api";
 import type { AcpEvent } from "../../../types";
 import { AcpInteractionSurface } from "../AcpInteractionSurface";
+
+vi.mock("../../../api", () => ({
+  api: {
+    importTextInput: vi.fn(),
+  },
+}));
 
 function acp(overrides: Partial<AcpEvent> & Pick<AcpEvent, "id" | "sequence" | "event_type">): AcpEvent {
   return {
@@ -176,5 +183,69 @@ describe("AcpInteractionSurface", () => {
 
     expect(onAnswerPermission).toHaveBeenNthCalledWith(1, "permission-1", "allow");
     expect(onAnswerPermission).toHaveBeenNthCalledWith(2, "permission-1", "deny");
+  });
+
+  it("does not render decision actions for completed permission events", () => {
+    const onAnswerPermission = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        onAnswerPermission={onAnswerPermission}
+        events={[
+          acp({
+            id: "resolved",
+            sequence: 1,
+            event_type: "permission/resolved",
+            payload: { request_id: "permission-1", decision: "allow" },
+          }),
+          acp({
+            id: "response",
+            sequence: 2,
+            event_type: "permission/response",
+            payload: { request_id: "permission-1", decision: "allow" },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /allow permission request/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /deny permission request/i })).toBeNull();
+  });
+
+  it("forwards imported attachments through the stable surface callback", async () => {
+    const user = userEvent.setup();
+    const onAttachContext = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.importTextInput).mockResolvedValue({
+      id: "input-1",
+      status: "converted",
+      source_path: "inputs/original/context.txt",
+      markdown_path: "inputs/markdown/context.md",
+      conversion_report_path: "inputs/reports/context.json",
+      original_filename: "context.txt",
+      created_at: "2026-05-15T00:00:00Z",
+    });
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[]}
+        onAttachContext={onAttachContext}
+      />,
+    );
+
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["Attachment context"], "context.txt", { type: "text/plain" }),
+    );
+    await user.type(screen.getByLabelText("Message"), "Use context");
+    await user.click(screen.getByRole("button", { name: /send message/i }));
+
+    await waitFor(() => expect(onAttachContext).toHaveBeenCalledWith([
+      {
+        name: "context.txt",
+        markdown_path: "inputs/markdown/context.md",
+        source_path: "inputs/original/context.txt",
+        conversion_report_path: "inputs/reports/context.json",
+      },
+    ]));
   });
 });

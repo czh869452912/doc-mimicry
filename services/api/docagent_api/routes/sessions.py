@@ -567,6 +567,8 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             raise
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Runtime permission response failed: {exc}") from exc
+        # Store the UI decision and runtime confirmation as separate ACP rows; if
+        # confirmation persistence fails later, this response row remains as audit.
         state.append_acp_event(
             session_id,
             {

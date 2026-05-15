@@ -31,7 +31,8 @@ export function AcpEventRenderer({
   const classified = classifyAcpEvent(event);
   const text = textFromAcpEvent(event);
   const isAssistantMessage = classified.family === "message" && classified.role === "assistant";
-  const permissionRequestId = classified.family === "permission" ? requestIdFromPermissionEvent(event) : null;
+  const permissionRequestId =
+    classified.family === "permission" && isPermissionRequestEvent(event) ? requestIdFromPermissionEvent(event) : null;
   const alignment = classified.role === "user" ? "user" : "assistant";
 
   if (hasAcpRenderSlot(event)) {
@@ -113,6 +114,10 @@ function requestIdFromPermissionEvent(event: AcpEvent): string | null {
     ?? stringValue(event.payload.id)
     ?? stringValue(event.projection.request_id)
     ?? event.id;
+}
+
+function isPermissionRequestEvent(event: AcpEvent): boolean {
+  return event.event_type.toLowerCase().includes("/request");
 }
 
 function stringValue(value: unknown): string | null {

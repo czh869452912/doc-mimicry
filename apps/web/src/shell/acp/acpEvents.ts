@@ -128,7 +128,7 @@ function titleForEvent(event: AcpEvent, family: AcpEventFamily): string {
   if (family === "message") return roleForEvent(event, family) === "user" ? "You" : "Agent";
   if (family === "tool") return stringValue(event.payload.name) ?? stringValue(event.payload.tool_name) ?? "Tool";
   if (family === "file") return stringValue(event.payload.path) ?? "File activity";
-  if (family === "permission") return "Permission requested";
+  if (family === "permission") return permissionTitle(event);
   if (family === "status") return "Session status";
   return event.event_type;
 }
@@ -139,8 +139,16 @@ function statusForEventType(eventType: string, payloadStatus: unknown): AcpDispl
   if (eventType.includes("fail") || eventType.includes("error")) return "failed";
   if (eventType.includes("cancel")) return "cancelled";
   if (eventType.includes("request")) return "pending";
+  if (eventType.includes("permission/resolved") || eventType.includes("permission/response")) return "succeeded";
   if (eventType.includes("complete") || eventType.includes("result") || eventType.includes("done")) return "succeeded";
   return "running";
+}
+
+function permissionTitle(event: AcpEvent): string {
+  const eventType = event.event_type.toLowerCase();
+  if (eventType.includes("resolved")) return "Permission resolved";
+  if (eventType.includes("response")) return "Permission response";
+  return "Permission requested";
 }
 
 function mergeIdForEvent(event: AcpEvent): string {

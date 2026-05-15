@@ -28,6 +28,19 @@ describe("ACP event helpers", () => {
     expect(classifyAcpEvent(acp({ id: "u", sequence: 6, event_type: "vendor/custom" })).family).toBe("unknown");
   });
 
+  it("classifies completed permission events without request-state labels", () => {
+    expect(classifyAcpEvent(acp({ id: "r", sequence: 1, event_type: "permission/resolved" }))).toMatchObject({
+      family: "permission",
+      status: "succeeded",
+      title: "Permission resolved",
+    });
+    expect(classifyAcpEvent(acp({ id: "a", sequence: 2, event_type: "permission/response" }))).toMatchObject({
+      family: "permission",
+      status: "succeeded",
+      title: "Permission response",
+    });
+  });
+
   it("extracts user and assistant text from ACP payloads without projection", () => {
     expect(textFromAcpEvent(acp({
       id: "u",
