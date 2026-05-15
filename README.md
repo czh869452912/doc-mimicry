@@ -46,6 +46,16 @@ with model aliases such as `docagent/default`, `docagent/fast`, and
 provider-specific `DOCAGENT_LITELLM_REASONING_API_KEY` only for live runtime
 runs; mock runtime development does not need them.
 
+To point OpenHands directly at an OpenAI-compatible provider instead of the
+local LiteLLM gateway, include the LiteLLM provider prefix in `LLM_MODEL`:
+
+```powershell
+$env:LLM_API_KEY = "..."
+$env:LLM_MODEL = "openai/kimi-k2-0905-preview"
+$env:LLM_BASE_URL = "https://api.moonshot.cn/v1"
+.\start-dev.cmd -Runtime openhands
+```
+
 To use the embedded upstream ACP client instead of DocAgent's local fallback
 agent pane, add `-ExternalAcpUi`:
 

@@ -57,6 +57,23 @@ function Test-HttpReady {
     return $false
 }
 
+function Assert-OpenHandsLlmModel {
+    $model = [Environment]::GetEnvironmentVariable("LLM_MODEL", "Process")
+    $baseUrl = [Environment]::GetEnvironmentVariable("LLM_BASE_URL", "Process")
+    if (
+        -not [string]::IsNullOrWhiteSpace($model) -and
+        -not [string]::IsNullOrWhiteSpace($baseUrl) -and
+        $baseUrl -notmatch "litellm:4000|127\.0\.0\.1:4000|localhost:4000" -and
+        -not $model.Contains("/")
+    ) {
+        Write-Error (
+            "OpenAI-compatible LLM_BASE_URL values require an LLM_MODEL with a LiteLLM provider prefix. " +
+            "For example, use openai/kimi-k2-0905-preview instead of kimi-k2-0905-preview."
+        )
+        exit 1
+    }
+}
+
 function Start-OpenHandsIfNeeded {
     if ($Runtime -ne "openhands-acp") {
         return $null
@@ -70,6 +87,7 @@ function Start-OpenHandsIfNeeded {
             exit 1
         }
     }
+    Assert-OpenHandsLlmModel
     return $null
 }
 

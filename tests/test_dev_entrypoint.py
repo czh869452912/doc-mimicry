@@ -120,6 +120,20 @@ def test_compose_worker_uses_single_process_for_nonresumable_openhands_client() 
     assert "--concurrency=1" in override
 
 
+def test_openhands_direct_openai_compatible_model_requires_provider_prefix() -> None:
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    dev_docs = (ROOT / "docs" / "quality" / "local-development.md").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "Assert-OpenHandsLlmModel" in dev_script
+    assert "OpenAI-compatible LLM_BASE_URL values require an LLM_MODEL with a LiteLLM provider prefix" in dev_script
+    assert "openai/kimi-k2-0905-preview" in readme
+    assert "openai/kimi-k2-0905-preview" in dev_docs
+    assert "openai/kimi-k2-0905-preview" in env_example
+    assert "Provider NOT provided" in dev_docs
+
+
 def test_runtime_services_share_single_api_image_build() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 

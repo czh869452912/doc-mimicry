@@ -80,6 +80,20 @@ runtime URLs from the shell, `.env`, or `.env.local`. If
 `DOCAGENT_ACP_RUNTIME_URL` is omitted, the Compose OpenHands service is still
 exposed on `http://127.0.0.1:8001` for host checks.
 
+When `LLM_BASE_URL` points directly at an OpenAI-compatible provider rather
+than the local LiteLLM gateway, `LLM_MODEL` must include a LiteLLM provider
+prefix. For Moonshot/Kimi, use:
+
+```powershell
+$env:LLM_API_KEY = "..."
+$env:LLM_MODEL = "openai/kimi-k2-0905-preview"
+$env:LLM_BASE_URL = "https://api.moonshot.cn/v1"
+.\start-dev.cmd -Runtime openhands
+```
+
+Using the bare model name `kimi-k2-0905-preview` reaches service startup, but
+the first OpenHands run fails with LiteLLM's `Provider NOT provided` error.
+
 If the startup script fails, run the services separately:
 
 ```powershell
