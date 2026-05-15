@@ -44,6 +44,11 @@ and `/sessions/{session_id}/events/stream`. Runtime adapters accept prompts plus
 metadata and return ACP updates. Document actions are represented as ACP prompts
 or commands with product metadata, not as product-facing runtime methods.
 
+For external ACP clients, the API also exposes a thin JSON-RPC WebSocket gateway
+at `/sessions/{session_id}/acp/ws`. It supports the minimal client loop:
+`initialize`, `session/new`, `session/prompt`, and `session/cancel`, and streams
+persisted DocAgent ACP events back as `session/update` notifications.
+
 Default:
 
 ```powershell
@@ -107,4 +112,10 @@ Check Docker Compose wiring, including LiteLLM, with:
 ```powershell
 docker compose config
 python -m pytest tests/test_litellm_compose.py -q
+```
+
+Check Alembic migration drift recovery with:
+
+```powershell
+python -m pytest services/api/tests/test_acp_events_migration.py -q
 ```
