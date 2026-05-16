@@ -2,6 +2,9 @@
 
 Date: 2026-05-16
 
+Status: Completed and archived on 2026-05-17 after the ACP-native plan
+reconciliation and legacy runtime compatibility cleanup were merged to `main`.
+
 Scope: repository organization, current architecture docs, active plans/reviews,
 and top-level implementation signals. This is a current-truth audit, not a
 historical review of old assistant-ui or JSON-state phases.
@@ -36,14 +39,15 @@ on old facts before finding the live product boundary.
   `packages/workspace/` are not accidentally hidden from git.
 - Removed local ignored `__pycache__` directories that polluted file discovery.
 
-## Current Active Work Signals
+## Work Signals At Audit Completion
 
 - `docs/superpowers/completed/2026-05-15-acp-native-thin-client.md` is the
   reconciled and verified ACP-native thin client record.
 - `docs/superpowers/completed/2026-05-16-legacy-runtime-compatibility-cleanup.md`
   is the ACP follow-up record for removing the legacy runtime document-action
   fallback.
-- `docs/reviews/active/` now contains only this current audit.
+- `docs/reviews/active/` contains no current unresolved audit file after this
+  audit was archived.
 - `docs/exec-plans/active/` contains no active durable execution plan.
 
 ## ACP-Native Plan Reconciliation

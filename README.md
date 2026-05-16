@@ -121,5 +121,6 @@ implementation gaps:
 - `docs/product/phase-2-authoring-loop.md`: next version scope for the PRD authoring loop.
 - `docs/architecture/workspace-contract.md`: workspace contract every agent task must follow.
 - `docs/architecture/markdown-pipeline.md`: Markdown-only import/internal/export strategy.
-- `docs/reviews/active/`: current unresolved audit findings.
-- `docs/superpowers/plans/`: active task-sized implementation plans; reconcile status notes before executing.
+- `docs/reviews/active/`: unresolved audit findings only.
+- `docs/reviews/completed/`: archived review records and historical audit records.
+- `docs/superpowers/completed/`: archived task-sized implementation plans and completion records.
