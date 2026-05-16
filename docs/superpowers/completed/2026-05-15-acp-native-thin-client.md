@@ -1,5 +1,18 @@
 # ACP-Native Thin Client Implementation Plan
 
+> **Completion note (2026-05-16):** This plan has been reconciled against live
+> code and moved to `docs/superpowers/completed/`. The ACP-native center-pane
+> implementation, runtime naming, backend ACP event source, and authoring UI
+> guard tests are present. The remaining legacy runtime compatibility cleanup
+> has been split into `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
+>
+> Verification run before archival:
+> - `npm run test:unit -- --run` in `apps/web`: 25 test files and 117 tests passed.
+> - `npm run build` in `apps/web`: build passed; Vite reported only the existing large-chunk warning.
+> - `python -m pytest packages/contracts/tests packages/timeline/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests/test_litellm_compose.py tests/test_dev_entrypoint.py -q --basetemp=.local/pytest-tmp-acp-thin-final`: 208 tests passed.
+> - `docker compose config`: exited 0 and rendered `DOCAGENT_RUNTIME: mock-acp`, `DOCAGENT_ACP_RUNTIME_URL`, LiteLLM, and compatibility `OPENHANDS_BASE_URL` entries.
+> - `rg -n "OPENHANDS_CONTAINER_BASE_URL|DOCAGENT_RUNTIME=mock$|DOCAGENT_RUNTIME=openhands$" .env.example docker-compose.override.yml scripts/dev.ps1 README.md services/api/README.md docs/architecture docs/product docs/quality`: no matches.
+
 > **Status note (2026-05-16):** This plan partially reflects work that has
 > already landed in the repository. The center pane now has an ACP-native
 > surface, assistant-ui is no longer a package dependency, runtime names are

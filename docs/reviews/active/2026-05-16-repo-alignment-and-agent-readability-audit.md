@@ -38,11 +38,11 @@ on old facts before finding the live product boundary.
 
 ## Current Active Work Signals
 
-- `docs/superpowers/plans/2026-05-15-acp-native-thin-client.md` remains active,
-  and now includes a 2026-05-16 reconciliation table. The live code already
-  includes ACP helpers, an ACP interaction surface, external ACP UI embed
-  support, canonical ACP runtime names, and guard tests around the authoring
-  event source.
+- `docs/superpowers/completed/2026-05-15-acp-native-thin-client.md` is the
+  reconciled and verified ACP-native thin client record.
+- `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`
+  is now the active ACP follow-up. It tracks whether to remove or keep the
+  temporary legacy runtime document-action fallback.
 - `docs/reviews/active/` now contains only this current audit.
 - `docs/exec-plans/active/` contains no active durable execution plan.
 
@@ -50,27 +50,35 @@ on old facts before finding the live product boundary.
 
 The first reconciliation pass found Tasks 1-6 and 8-11 implemented, Task 7
 mostly implemented with `/timeline` retained as compatibility/read-model
-output, and Task 12 still open because the full verification bundle has not
-been rerun in this pass.
+output, and Task 12 open until verification was rerun.
+
+Task 12 verification was then run on 2026-05-16:
+
+- `npm run test:unit -- --run` in `apps/web`: 25 test files and 117 tests passed.
+- `npm run build` in `apps/web`: build passed with only the existing Vite large-chunk warning.
+- `python -m pytest packages/contracts/tests packages/timeline/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests/test_litellm_compose.py tests/test_dev_entrypoint.py -q --basetemp=.local/pytest-tmp-acp-thin-final`: 208 tests passed.
+- `docker compose config`: exited 0 and rendered the expected ACP runtime and LiteLLM configuration.
+- Runtime-name guard search for `OPENHANDS_CONTAINER_BASE_URL`, `DOCAGENT_RUNTIME=mock`, and `DOCAGENT_RUNTIME=openhands` in current-truth docs/config returned no matches.
 
 The remaining product/architecture decision is whether to remove the legacy
 runtime compatibility layer now or split it into a follow-up plan. The backend
 still keeps `LegacyRuntimeAdapter` compatibility plus `_adapter_prompt_operation`
 fallback dispatch across legacy document action routes, even though ACP
-prompt/events are now the primary authoring path.
+prompt/events are now the primary authoring path. That decision now lives in
+`docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
 
 ## Findings
 
-### Medium: ACP-native plan still needs completion disposition
+### Medium: Legacy runtime compatibility cleanup remains unresolved
 
-The active ACP-native thin client plan now has a live-code reconciliation table,
-but it remains in `docs/superpowers/plans/` until full verification is rerun and
-the legacy compatibility decision is made. This is safer than leaving stale
-unchecked tasks unqualified, but it is not yet a completed-plan state.
+The ACP-native thin client plan is now verified and archived, but the backend
+still supports legacy runtime document-action fallback dispatch. This is a
+deliberate compatibility residue, not part of the authoring UI source of truth.
 
-Suggested action: run the full verification bundle listed in Task 12, then move
-the plan to `docs/superpowers/completed/` or replace it with a small legacy
-compatibility cleanup plan.
+Suggested action: execute
+`docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md` and
+decide whether to remove the fallback now or keep it for a documented
+compatibility window.
 
 ### Medium: Skill-pack management remains under-specified relative to product intent
 
@@ -121,5 +129,5 @@ with:
 Get-ChildItem -Recurse -File | Select-Object FullName
 ```
 
-For the remaining ACP-native plan reconciliation, use its own focused frontend,
-backend, and compose verification commands after each concrete code task.
+For the legacy runtime compatibility cleanup follow-up, use the verification
+commands in `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
