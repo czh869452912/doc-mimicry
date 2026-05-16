@@ -23,7 +23,7 @@ Does not own:
 - Management: document type resources, converted Markdown, `SKILL.md`, checklists, publish/version.
 - Authoring: three-column document type/project/session workspace, timeline, Markdown preview/editor, export.
 
-## Phase 1 Local Run
+## Local Run
 
 ```powershell
 npm install

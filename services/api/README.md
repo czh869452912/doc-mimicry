@@ -22,7 +22,7 @@ Does not own:
 
 The API should expose converted Markdown resources to the agent runtime. Original binary files are retained for audit and re-conversion, but should not be the normal agent input.
 
-## Phase 1 Local Run
+## Local Run
 
 ```powershell
 .\start-dev.cmd

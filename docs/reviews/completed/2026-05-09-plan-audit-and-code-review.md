@@ -1,5 +1,9 @@
 # Plan Audit & Code Review — 2026-05-09
 
+> Archived on 2026-05-16 during the repo alignment pass. Treat this as
+> historical review context; use `docs/reviews/active/` for current unresolved
+> audit findings.
+
 > **Purpose:** Audit all currently active plan / pending execution documents against the live code, and surface implementation issues found in the process.
 > **Scope:** All files under `docs/superpowers/plans/` and `docs/reviews/active/` as of `af98c29`.
 > **Reviewer:** Claude (Opus 4.7, 1M context).

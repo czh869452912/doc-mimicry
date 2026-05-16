@@ -21,8 +21,10 @@ Expected contracts:
 - Conversion report.
 - Markdown asset.
 
-## Phase 0 Python Models
+## Python Models
 
 The first executable contract models live in `docagent_contracts/models.py`.
 
-These models intentionally use the Python standard library so Phase 0 can start without dependency decisions. If generated TypeScript or Pydantic models are added later, keep field names aligned with `schemas.md`.
+These models intentionally use the Python standard library for low-friction
+sharing across packages. If generated TypeScript or Pydantic models are added
+later, keep field names aligned with `schemas.md`.

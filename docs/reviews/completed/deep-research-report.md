@@ -1,5 +1,9 @@
 # doc-mimicry 实现分析、改进方案与整体规划评估
 
+> Archived on 2026-05-16 during the repo alignment pass. This is historical
+> strategic context and may mention implementation facts that have since changed
+> such as assistant-ui or earlier state storage details.
+
 ## 结论判断
 
 从仓库现状看，这个项目的**产品方向判断是对的**：它已经明确把目标定义为“文档版 Claude Code / Codex 式工作台”，强调可审计的 workspace、可复用的 doc type skill pack、渐进式披露的 agent 过程，以及 Markdown-only 的内部文档边界；同时明确拒绝把产品做成固定工作流编排器、模板生成器或 RAG 优先的写作器。这与您这次给出的目标——“文档仿写平台”“通过 skill 和 workspace 让智能体模仿优秀案例、规范与检查单”“GUI 驱动的 vibe 文档撰写”——在战略上是高度一致的。fileciteturn12file0L1-L1 fileciteturn16file0L1-L1 fileciteturn17file0L1-L1 fileciteturn21file0L1-L1 fileciteturn22file0L1-L1

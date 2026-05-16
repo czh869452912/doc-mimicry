@@ -1,5 +1,9 @@
 # Assistant UI To Runtime Docker Chain Review
 
+> Archived on 2026-05-16 during the repo alignment pass. This report contains
+> its own final resolution table; use `docs/reviews/active/` for current
+> unresolved audit findings.
+
 Date: 2026-05-12
 
 Scope: assistant-ui frontend integration, frontend/backend interaction, agent runtime adapter handoff, Docker packaging, Docker runtime networking, and full run path.

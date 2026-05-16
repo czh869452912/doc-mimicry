@@ -1,5 +1,8 @@
 # External ACP UI Embed Plan
 
+> Completed and archived on 2026-05-16 during the repo alignment pass. The
+> checklist was already fully checked before archival.
+
 ## Goal
 
 Use an existing ACP client UI for the center agent interaction surface wherever possible, while keeping DocAgent's document workspace, Markdown preview/editor, and product-specific panels in the existing React workbench.

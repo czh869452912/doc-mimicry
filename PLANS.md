@@ -6,6 +6,7 @@ There are two plan tracks in this repository:
 
 - `docs/exec-plans/`: durable phase, architecture, and milestone plans.
 - `docs/superpowers/`: task-sized agent execution plans and their completed records.
+- `docs/superpowers/specs/`: design references that may seed plans, but are not executable checklists by themselves.
 
 Durable execution plans live in:
 
@@ -59,3 +60,4 @@ Each plan should include:
 - Move completed superpowers task plans to `docs/superpowers/completed/`.
 - If implementation discovers a better architecture, update the plan before continuing.
 - Do not use plans as vague wishlists. They should be executable by a fresh agent.
+- If a plan is partially executed outside its checklist, add a status note before any new agent continues it.

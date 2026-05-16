@@ -1,5 +1,12 @@
 # ACP-Native Thin Client Implementation Plan
 
+> **Status note (2026-05-16):** This plan partially reflects work that has
+> already landed in the repository. The center pane now has an ACP-native
+> surface, assistant-ui is no longer a package dependency, runtime names are
+> `mock-acp` / `openhands-acp`, and `/events` is the authoring event source.
+> Before executing unchecked steps, reconcile the checklist against live code
+> and update this plan instead of replaying tasks blindly.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace DocAgent's center-pane assistant-ui/timeline-projection chain with an ACP-native thin interaction surface, then tighten backend/runtime/deployment boundaries around the ACP event log.

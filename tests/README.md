@@ -1,12 +1,15 @@
 # Tests
 
-Cross-cutting tests will live here once implementation begins.
+Cross-cutting tests live here when they exercise more than one package or
+service boundary.
 
-Phase 0 should prioritize tests for:
+Current priorities:
 
-- workspace validation
-- checkpoint behavior
-- timeline mapping
-- API contracts
-- export script failure modes
+- local dev entrypoint and Docker Compose wiring
+- ACP UI bridge behavior
+- LiteLLM compose configuration
+- workspace validation and checkpoint behavior
+- timeline and ACP event contracts
+- API/runtime integration contracts
+- import/export failure modes
 

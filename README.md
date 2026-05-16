@@ -81,9 +81,9 @@ $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/doca
 python tools/runtime/openhands_smoke.py
 ```
 
-## Phase 0 Focus
+## Current Implementation Focus
 
-Phase 0 validates the document-version Claude Code loop:
+The original Phase 0 loop validated the document-version Claude Code shape:
 
 1. Create a task workspace.
 2. Read a user brief and optional uploaded materials.
@@ -94,7 +94,20 @@ Phase 0 validates the document-version Claude Code loop:
 7. Run a checklist and export DOCX.
 8. Stream ACP events in the center timeline, with DocAgent-specific cards isolated behind ACP render slots.
 
-Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or a workflow designer.
+The current implementation has moved beyond the first skeleton. Product-facing
+agent interaction is ACP-first: the backend owns the ACP event log, the center
+authoring surface reads `/sessions/{session_id}/events`, runtime selection uses
+`mock-acp` or `openhands-acp`, and OpenHands model traffic is routed through
+LiteLLM aliases when the real runtime is selected.
+
+Current active work should preserve the original product boundary while closing
+implementation gaps:
+
+- keep management and authoring as separate product surfaces;
+- keep Markdown as the only internal document format;
+- keep document type packs as skill guidance, not workflows or templates;
+- make import, conversion reports, export, and skill-pack versioning durable;
+- keep active plans and reviews synchronized with live code.
 
 ## Current Design Sources
 
@@ -108,3 +121,5 @@ Phase 0 intentionally does not build RAG, complex RBAC, high-fidelity export, or
 - `docs/product/phase-2-authoring-loop.md`: next version scope for the PRD authoring loop.
 - `docs/architecture/workspace-contract.md`: workspace contract every agent task must follow.
 - `docs/architecture/markdown-pipeline.md`: Markdown-only import/internal/export strategy.
+- `docs/reviews/active/`: current unresolved audit findings.
+- `docs/superpowers/plans/`: active task-sized implementation plans; reconcile status notes before executing.

@@ -26,6 +26,9 @@ This directory is the current project truth. The `reference/` directory contains
 
 - `exec-plans/active/`: current execution plans.
 - `exec-plans/completed/`: archived completed plans.
+- `superpowers/plans/`: active task-sized implementation plans.
+- `superpowers/completed/`: archived task-sized implementation plans.
+- `superpowers/specs/`: design references that inform plans but are not active checklists.
 
 ## Quality
 
@@ -35,5 +38,5 @@ This directory is the current project truth. The `reference/` directory contains
 
 ## Reviews
 
-- `reviews/active/`: code reviews in progress or awaiting action.
+- `reviews/active/`: current unresolved reviews and audit registers.
 - `reviews/completed/`: archived reviews where all issues are resolved.
