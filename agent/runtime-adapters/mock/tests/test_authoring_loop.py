@@ -14,7 +14,7 @@ def test_build_context_and_propose_outline(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.start_loop("session-001")
+    result = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
 
     assert (workspace / "context" / "user_intent.md").exists()
     assert (workspace / "context" / "doc_map.md").exists()
@@ -37,8 +37,8 @@ def test_repeated_outline_builds_emit_unique_event_ids(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    first_events = adapter.start_loop("session-001").events
-    second_events = adapter.start_loop("session-001").events
+    first_events = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"}).events
+    second_events = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"}).events
 
     event_ids = [event.id for event in first_events + second_events]
     assert len(event_ids) == len(set(event_ids))
@@ -52,7 +52,7 @@ def test_approve_outline_generates_draft(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.approve_outline("session-001")
+    result = adapter.send_prompt("session-001", "Approve outline", {"action": "approve_outline"})
 
     assert "# PRD Draft" in (workspace / "draft" / "draft.md").read_text(encoding="utf-8")
     assert [event.kind.value for event in result.events] == ["approve_outline", "update_draft"]
@@ -65,7 +65,11 @@ def test_revise_selection_checkpoints_and_replaces_text(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.revise_selection("session-001", selection="Old passage", instruction="Make it sharper")
+    result = adapter.send_prompt(
+        "session-001",
+        "Make it sharper",
+        {"action": "revise_selection", "selection": "Old passage"},
+    )
 
     draft = (workspace / "draft" / "draft.md").read_text(encoding="utf-8")
     assert "Old passage" not in draft
@@ -83,10 +87,10 @@ def test_revise_selection_raises_when_selected_text_is_missing(tmp_path: Path) -
     adapter.create_session("session-001", _prompt_bundle(workspace))
 
     with pytest.raises(ValueError, match="Selected text not found in draft"):
-        adapter.revise_selection(
+        adapter.send_prompt(
             "session-001",
-            selection="Missing passage",
-            instruction="Make it sharper",
+            "Make it sharper",
+            {"action": "revise_selection", "selection": "Missing passage"},
         )
 
     assert not (workspace / "versions").exists() or not any((workspace / "versions").iterdir())
@@ -99,8 +103,8 @@ def test_run_checklist_and_export_markdown(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    checklist_events = adapter.run_checklist("session-001").events
-    export_events = adapter.export_markdown("session-001").events
+    checklist_events = adapter.send_prompt("session-001", "Run checklist", {"action": "run_checklist"}).events
+    export_events = adapter.send_prompt("session-001", "Export Markdown", {"action": "export_markdown"}).events
 
     assert (workspace / "reviews" / "checklist_result.md").exists()
     assert (workspace / "artifacts" / "prd-draft.md").exists()

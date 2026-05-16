@@ -32,11 +32,9 @@ from docagent_api.routes._shared import (
     require_session,
     require_task,
     run_runtime_operation,
-    runtime_event_sink,
     runtime_result_response,
     set_session_state,
     start_background_runtime_operation,
-    stream_or_sync,
 )
 from docagent_api.routes.acp_ws import handle_acp_websocket
 from docagent_api.state import DocAgentState
@@ -53,16 +51,15 @@ EXPORT_MARKDOWN_PROMPT = "Export the current draft to artifacts/prd-draft.md."
 def create_sessions_router(state: DocAgentState, adapter: Any, runner: BackgroundRuntimeRunner) -> APIRouter:
     router = APIRouter()
 
-    def _adapter_prompt_operation(
+    def _send_prompt_operation(
         session_id: str,
         prompt: str,
         metadata: dict[str, object],
-        legacy_operation: Any,
     ) -> Any:
         send_prompt_method = getattr(adapter, "send_prompt", None)
-        if callable(send_prompt_method):
-            return lambda: send_prompt_method(session_id, prompt, metadata)
-        return legacy_operation
+        if not callable(send_prompt_method):
+            raise RuntimeError("Runtime adapter must implement send_prompt")
+        return lambda: send_prompt_method(session_id, prompt, metadata)
 
     @router.get("/sessions/{session_id}", response_model=SessionResponse)
     def get_session(session_id: str) -> dict[str, Any]:
@@ -83,19 +80,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             {"action": "start_loop"},
         )
         if background:
-            legacy_operation = stream_or_sync(
-                adapter,
-                "start_loop_stream",
-                lambda: adapter.start_loop(session_id),
-                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
-            )
-            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
-            operation = _adapter_prompt_operation(
-                session_id,
-                START_LOOP_PROMPT,
-                {"action": "start_loop"},
-                legacy_operation,
-            )
+            try:
+                operation = _send_prompt_operation(
+                    session_id,
+                    START_LOOP_PROMPT,
+                    {"action": "start_loop"},
+                )
+            except RuntimeError as exc:
+                raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
             response.status_code = 202
             return start_background_runtime_operation(
                 state,
@@ -104,20 +96,20 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CONTEXT,
                 operation,
                 runner,
-                operation_name="send_prompt" if use_acp_prompt else (
-                    "start_loop_stream" if callable(getattr(adapter, "start_loop_stream", None)) else "start_loop"
-                ),
+                operation_name="send_prompt",
                 operation_kwargs={
                     "prompt": START_LOOP_PROMPT,
                     "metadata": {"action": "start_loop"},
-                } if use_acp_prompt else None,
+                },
             )
-        operation = _adapter_prompt_operation(
-            session_id,
-            START_LOOP_PROMPT,
-            {"action": "start_loop"},
-            lambda: adapter.start_loop(session_id),
-        )
+        try:
+            operation = _send_prompt_operation(
+                session_id,
+                START_LOOP_PROMPT,
+                {"action": "start_loop"},
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CONTEXT, operation,
             task_id=task["id"],
@@ -152,50 +144,41 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         outline_path.parent.mkdir(parents=True, exist_ok=True)
         outline_path.write_text(outline_text, encoding="utf-8")
         if background:
-            legacy_operation = stream_or_sync(
-                adapter,
-                "approve_outline_stream",
-                lambda: adapter.approve_outline(session_id),
-                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
-            )
-            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
-            operation = _adapter_prompt_operation(
-                session_id,
-                APPROVE_OUTLINE_PROMPT,
-                {
-                    "action": "approve_outline",
-                    "outline_markdown": outline_text,
-                },
-                legacy_operation,
-            )
+            try:
+                operation = _send_prompt_operation(
+                    session_id,
+                    APPROVE_OUTLINE_PROMPT,
+                    {
+                        "action": "approve_outline",
+                        "outline_markdown": outline_text,
+                    },
+                )
+            except RuntimeError as exc:
+                set_session_state(state, session, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL, task_id=task["id"])
+                raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
             response.status_code = 202
             return start_background_runtime_operation(
                 state, task["id"], session, RuntimeSessionState.RUNNING_DRAFT, operation,
                 runner,
                 previous_state_on_failure=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
                 transition_prepared=True,
-                operation_name="send_prompt" if use_acp_prompt else (
-                    "approve_outline_stream"
-                    if callable(getattr(adapter, "approve_outline_stream", None))
-                    else "approve_outline"
-                ),
+                operation_name="send_prompt",
                 operation_kwargs={
                     "prompt": APPROVE_OUTLINE_PROMPT,
                     "metadata": {
                         "action": "approve_outline",
                         "outline_markdown": outline_text,
                     },
-                } if use_acp_prompt else None,
+                },
             )
         try:
-            operation = _adapter_prompt_operation(
+            operation = _send_prompt_operation(
                 session_id,
                 APPROVE_OUTLINE_PROMPT,
                 {
                     "action": "approve_outline",
                     "outline_markdown": outline_text,
                 },
-                lambda: adapter.approve_outline(session_id),
             )
             result = operation()
         except Exception as exc:
@@ -232,17 +215,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         try:
             prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
             if background:
-                legacy_operation = stream_or_sync(
-                    adapter,
-                    "revise_selection_stream",
-                    lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
-                    lambda m: lambda: m(
-                        session_id, request.selected_text, request.instruction,
-                        runtime_event_sink(state, task["id"], session_id),
-                    ),
-                )
-                use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
-                operation = _adapter_prompt_operation(
+                operation = _send_prompt_operation(
                     session_id,
                     revision_prompt,
                     {
@@ -250,18 +223,13 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                         "selection": request.selected_text,
                         "instruction": request.instruction,
                     },
-                    legacy_operation,
                 )
                 response.status_code = 202
                 return start_background_runtime_operation(
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
                     runner,
                     previous_state_on_failure=previous_state, transition_prepared=True,
-                    operation_name="send_prompt" if use_acp_prompt else (
-                        "revise_selection_stream"
-                        if callable(getattr(adapter, "revise_selection_stream", None))
-                        else "revise_selection"
-                    ),
+                    operation_name="send_prompt",
                     operation_kwargs={
                         "prompt": revision_prompt,
                         "metadata": {
@@ -269,12 +237,9 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                             "selection": request.selected_text,
                             "instruction": request.instruction,
                         },
-                    } if use_acp_prompt else {
-                        "selection": request.selected_text,
-                        "instruction": request.instruction,
                     },
                 )
-            operation = _adapter_prompt_operation(
+            operation = _send_prompt_operation(
                 session_id,
                 revision_prompt,
                 {
@@ -282,7 +247,6 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                     "selection": request.selected_text,
                     "instruction": request.instruction,
                 },
-                lambda: adapter.revise_selection(session_id, request.selected_text, request.instruction),
             )
             result = operation()
         except HTTPException:
@@ -315,19 +279,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             {"action": "run_checklist"},
         )
         if background:
-            legacy_operation = stream_or_sync(
-                adapter,
-                "run_checklist_stream",
-                lambda: adapter.run_checklist(session_id),
-                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
-            )
-            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
-            operation = _adapter_prompt_operation(
-                session_id,
-                RUN_CHECKLIST_PROMPT,
-                {"action": "run_checklist"},
-                legacy_operation,
-            )
+            try:
+                operation = _send_prompt_operation(
+                    session_id,
+                    RUN_CHECKLIST_PROMPT,
+                    {"action": "run_checklist"},
+                )
+            except RuntimeError as exc:
+                raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
             response.status_code = 202
             return start_background_runtime_operation(
                 state,
@@ -336,20 +295,20 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CHECKLIST,
                 operation,
                 runner,
-                operation_name="send_prompt" if use_acp_prompt else (
-                    "run_checklist_stream" if callable(getattr(adapter, "run_checklist_stream", None)) else "run_checklist"
-                ),
+                operation_name="send_prompt",
                 operation_kwargs={
                     "prompt": RUN_CHECKLIST_PROMPT,
                     "metadata": {"action": "run_checklist"},
-                } if use_acp_prompt else None,
+                },
             )
-        operation = _adapter_prompt_operation(
-            session_id,
-            RUN_CHECKLIST_PROMPT,
-            {"action": "run_checklist"},
-            lambda: adapter.run_checklist(session_id),
-        )
+        try:
+            operation = _send_prompt_operation(
+                session_id,
+                RUN_CHECKLIST_PROMPT,
+                {"action": "run_checklist"},
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHECKLIST, operation,
             task_id=task["id"],
@@ -373,19 +332,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             {"action": "export_markdown"},
         )
         if background:
-            legacy_operation = stream_or_sync(
-                adapter,
-                "export_markdown_stream",
-                lambda: adapter.export_markdown(session_id),
-                lambda m: lambda: m(session_id, runtime_event_sink(state, task["id"], session_id)),
-            )
-            use_acp_prompt = callable(getattr(adapter, "send_prompt", None))
-            operation = _adapter_prompt_operation(
-                session_id,
-                EXPORT_MARKDOWN_PROMPT,
-                {"action": "export_markdown"},
-                legacy_operation,
-            )
+            try:
+                operation = _send_prompt_operation(
+                    session_id,
+                    EXPORT_MARKDOWN_PROMPT,
+                    {"action": "export_markdown"},
+                )
+            except RuntimeError as exc:
+                raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
             response.status_code = 202
             return start_background_runtime_operation(
                 state,
@@ -394,22 +348,20 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_EXPORT,
                 operation,
                 runner,
-                operation_name="send_prompt" if use_acp_prompt else (
-                    "export_markdown_stream"
-                    if callable(getattr(adapter, "export_markdown_stream", None))
-                    else "export_markdown"
-                ),
+                operation_name="send_prompt",
                 operation_kwargs={
                     "prompt": EXPORT_MARKDOWN_PROMPT,
                     "metadata": {"action": "export_markdown"},
-                } if use_acp_prompt else None,
+                },
             )
-        operation = _adapter_prompt_operation(
-            session_id,
-            EXPORT_MARKDOWN_PROMPT,
-            {"action": "export_markdown"},
-            lambda: adapter.export_markdown(session_id),
-        )
+        try:
+            operation = _send_prompt_operation(
+                session_id,
+                EXPORT_MARKDOWN_PROMPT,
+                {"action": "export_markdown"},
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_EXPORT, operation,
             task_id=task["id"],
@@ -467,23 +419,19 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         }
         append_acp_prompt_event(state, session_id, runtime_message, prompt_metadata)
         if background:
+            send_prompt_method = getattr(adapter, "send_prompt", None)
+            if not callable(send_prompt_method):
+                raise HTTPException(
+                    status_code=502,
+                    detail="Runtime operation failed: Runtime adapter must implement send_prompt",
+                )
             user_event = manual_event(
                 task["id"], session_id, f"user-{uuid4().hex[:8]}",
                 TimelineActor.USER, SemanticEventKind.USER_MESSAGE, runtime_message, [],
             )
             state.append_timeline_event(session_id, asdict(user_event))
             append_acp_projection_event(state, session_id, user_event)
-            send_prompt_method = getattr(adapter, "send_prompt", None)
-            stream_method = getattr(adapter, "send_message_stream", None)
-            if callable(send_prompt_method):
-                operation = lambda: send_prompt_method(session_id, runtime_message, prompt_metadata)
-            elif callable(stream_method):
-                operation = lambda: stream_method(
-                    session_id, runtime_message,
-                    runtime_event_sink(state, task["id"], session_id),
-                )
-            else:
-                operation = lambda: adapter.send_message(session_id, runtime_message)
+            operation = lambda: send_prompt_method(session_id, runtime_message, prompt_metadata)
             response.status_code = 202
             return start_background_runtime_operation(
                 state,
@@ -492,24 +440,16 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 RuntimeSessionState.RUNNING_CHAT,
                 operation,
                 runner,
-                operation_name=(
-                    "send_prompt"
-                    if callable(send_prompt_method)
-                    else "send_message_stream"
-                    if callable(getattr(adapter, "send_message_stream", None))
-                    else "send_message"
-                ),
+                operation_name="send_prompt",
                 operation_kwargs={
                     "prompt": runtime_message,
                     "metadata": prompt_metadata,
-                } if callable(send_prompt_method) else {"message": runtime_message},
+                },
             )
-        operation = _adapter_prompt_operation(
-            session_id,
-            runtime_message,
-            prompt_metadata,
-            lambda: adapter.send_message(session_id, runtime_message),
-        )
+        try:
+            operation = _send_prompt_operation(session_id, runtime_message, prompt_metadata)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
         result = run_runtime_operation(
             state, session, RuntimeSessionState.RUNNING_CHAT,
             operation,

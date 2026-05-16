@@ -12,9 +12,6 @@ from docagent_api.request_models import PromptRequest
 from docagent_api.state import DocAgentState
 from docagent_contracts import (
     PromptBundle,
-    RawRuntimeEvent,
-    RuntimeEventSink,
-    RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
 )
@@ -28,53 +25,26 @@ class StreamingFakeAdapter:
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def send_message_stream(
+    def send_prompt(
         self,
         session_id: str,
-        message: str,
-        sink: RuntimeEventSink,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
     ) -> RuntimeOperationResult:
-        sink(_raw(session_id, "stream-1", {"kind": "file_written", "path": "draft/draft.md"}))
+        action = (metadata or {}).get("action")
+        if action == "start_loop":
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+        if action == "approve_outline":
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
         self.first_event_sent.set()
         assert self.finish.wait(timeout=2)
-        sink(_raw(session_id, "stream-2", {"kind": "file_written", "path": "draft/final.md"}))
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
-
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.COMPLETED)
 
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
 
     def get_state(self, session_id: str) -> RuntimeSessionState:
         return RuntimeSessionState.IDLE
-
-
-def _raw(session_id: str, raw_id: str, payload: dict[str, Any]) -> RawRuntimeEvent:
-    return RawRuntimeEvent(
-        id=raw_id,
-        session_id=session_id,
-        runtime=RuntimeKind.OPENHANDS,
-        runtime_session_id="runtime-001",
-        kind=str(payload.get("kind", "event")),
-        payload=payload,
-        created_at="2026-05-07T00:00:00Z",
-    )
 
 
 def test_health_endpoint(tmp_path: Path) -> None:
@@ -182,7 +152,7 @@ def test_background_message_streams_partial_timeline_before_completion(tmp_path:
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build billing controls"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
 
-    # Reach draft_ready before sending a message (send_message requires non-idle session)
+    # Reach draft_ready before sending a message (the ACP prompt action requires a draft)
     assert client.post(f"/sessions/{session['id']}/loop/start").status_code == 200
     assert client.post(
         f"/sessions/{session['id']}/outline/approve",
@@ -201,7 +171,6 @@ def test_background_message_streams_partial_timeline_before_completion(tmp_path:
     timeline = client.get(f"/sessions/{session['id']}/timeline").json()
     kinds = [event["kind"] for event in timeline]
     assert "user_message" in kinds
-    assert "update_draft" in kinds
     assert client.get(f"/sessions/{session['id']}").json()["status"] == "running_chat"
 
     adapter.finish.set()

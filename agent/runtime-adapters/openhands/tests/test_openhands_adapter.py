@@ -46,14 +46,14 @@ def test_openhands_adapter_creates_session_and_maps_raw_events(tmp_path: Path) -
     adapter = OpenHandsRuntimeAdapter(client)
 
     created = adapter.create_session("session-001", _prompt_bundle(tmp_path))
-    started = adapter.start_loop("session-001")
+    started = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
 
     assert created.next_state == RuntimeSessionState.IDLE
     assert created.raw_events == []
     assert client.create_calls == 1
     assert started.next_state == RuntimeSessionState.AWAIT_OUTLINE_APPROVAL
     assert started.raw_events[0].kind == "session_created"
-    assert started.raw_events[1].payload["path"] == "draft/outline.md"
+    assert started.acp_updates[0].payload["path"] == "draft/outline.md"
     assert started.changed_paths == ["draft/outline.md"]
 
 
@@ -67,7 +67,7 @@ def test_openhands_adapter_defers_runtime_session_until_first_operation(tmp_path
     assert result.raw_events == []
     assert client.create_calls == 0
 
-    adapter.start_loop("session-001")
+    adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
 
     assert client.create_calls == 1
 
@@ -85,7 +85,7 @@ def test_openhands_adapter_cancel_sets_cancelled(tmp_path: Path) -> None:
 def test_openhands_adapter_forwards_permission_answers(tmp_path: Path) -> None:
     adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
     adapter.create_session("session-001", _prompt_bundle(tmp_path))
-    adapter.start_loop("session-001")
+    adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
 
     result = adapter.answer_permission("session-001", "permission-1", "allow")
 
@@ -98,7 +98,7 @@ def test_openhands_adapter_reports_missing_runtime_session() -> None:
     adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
 
     try:
-        adapter.start_loop("session-001")
+        adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
     except RuntimeError as exc:
         assert str(exc) == "OpenHands runtime session is not bound for session-001. Create a new session."
     else:
@@ -110,10 +110,11 @@ def test_openhands_adapter_uses_persisted_runtime_session_id() -> None:
     adapter = OpenHandsRuntimeAdapter(client)
 
     adapter.bind_runtime_session("session-001", "openhands-session-001", RuntimeSessionState.DRAFT_READY)
-    result = adapter.send_message("session-001", "Revise")
+    result = adapter.send_prompt("session-001", "Revise", {"action": "send_message"})
 
     assert result.next_state == RuntimeSessionState.DRAFT_READY
-    assert result.raw_events[0].runtime_session_id == "openhands-session-001"
+    assert result.raw_events == []
+    assert result.acp_updates[0].payload["path"] == "draft/outline.md"
     assert client.messages == ["Revise"]
 
 
@@ -131,7 +132,7 @@ def test_openhands_adapter_refuses_to_bind_missing_in_process_conversation() -> 
     ) is False
 
     with pytest.raises(RuntimeError, match="not bound"):
-        adapter.send_message("session-001", "Revise")
+        adapter.send_prompt("session-001", "Revise", {"action": "send_message"})
 
 
 def test_openhands_adapter_send_prompt_emits_acp_updates(tmp_path: Path) -> None:
@@ -170,17 +171,16 @@ def test_send_prompt_returns_acp_updates_and_preserves_raw_payload(tmp_path: Pat
     assert result.acp_updates[-1].payload["value"] == 42
 
 
-def test_openhands_adapter_streams_raw_events_to_sink(tmp_path: Path) -> None:
+def test_openhands_adapter_preserves_payloads_in_acp_updates_from_prompt_result(tmp_path: Path) -> None:
     adapter = OpenHandsRuntimeAdapter(FakeOpenHandsClient())
     adapter.create_session("session-001", _prompt_bundle(tmp_path))
-    streamed = []
 
-    result = adapter.send_message_stream("session-001", "Revise", streamed.append)
+    result = adapter.send_prompt("session-001", "Revise", {"action": "send_message"})
 
     assert result.next_state == RuntimeSessionState.DRAFT_READY
-    assert result.raw_events == []
-    assert streamed[0].payload["path"] == "draft/streamed.md"
-    assert result.changed_paths == ["draft/streamed.md"]
+    assert result.raw_events[0].kind == "session_created"
+    assert result.acp_updates[0].payload["path"] == "draft/outline.md"
+    assert result.changed_paths == ["draft/outline.md"]
 
 
 def test_openhands_payload_maps_to_acp_update() -> None:

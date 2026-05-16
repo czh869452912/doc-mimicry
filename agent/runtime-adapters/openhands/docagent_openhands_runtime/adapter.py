@@ -7,7 +7,6 @@ from docagent_contracts import (
     AcpRuntimeUpdate,
     PromptBundle,
     RawRuntimeEvent,
-    RuntimeEventSink,
     RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
@@ -210,13 +209,6 @@ class OpenHandsRuntimeAdapter:
         self._states[session_id] = state
         return True
 
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(runtime_session_id, message)
-        next_state = RuntimeSessionState.DRAFT_READY
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
     def send_prompt(
         self,
         session_id: str,
@@ -247,127 +239,6 @@ class OpenHandsRuntimeAdapter:
             changed_paths=[str(payload["path"]) for payload in raw_payloads if "path" in payload],
             raw_events=[creation_event] if creation_event is not None else [],
             acp_updates=acp_updates,
-        )
-
-    def send_message_stream(
-        self,
-        session_id: str,
-        message: str,
-        sink: RuntimeEventSink,
-    ) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(runtime_session_id, message)
-        return self._stream_result(session_id, RuntimeSessionState.DRAFT_READY, raw_payloads, sink)
-
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(
-            runtime_session_id,
-            "Build context files and propose an outline. Stop when outline approval is required.",
-        )
-        next_state = RuntimeSessionState.AWAIT_OUTLINE_APPROVAL
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
-    def start_loop_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(
-            runtime_session_id,
-            "Build context files and propose an outline. Stop when outline approval is required.",
-        )
-        return self._stream_result(
-            session_id, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL, raw_payloads, sink,
-            creation_event=creation_event,
-        )
-
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(
-            runtime_session_id,
-            "The outline is approved. Generate the draft in Markdown.",
-        )
-        next_state = RuntimeSessionState.DRAFT_READY
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
-    def approve_outline_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(
-            runtime_session_id,
-            "The outline is approved. Generate the draft in Markdown.",
-        )
-        return self._stream_result(
-            session_id, RuntimeSessionState.DRAFT_READY, raw_payloads, sink,
-            creation_event=creation_event,
-        )
-
-    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(
-            runtime_session_id,
-            f"Revise this selected text according to the instruction.\n\nSelection:\n{selection}\n\nInstruction:\n{instruction}",
-        )
-        next_state = RuntimeSessionState.DRAFT_READY
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
-    def revise_selection_stream(
-        self,
-        session_id: str,
-        selection: str,
-        instruction: str,
-        sink: RuntimeEventSink,
-    ) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(
-            runtime_session_id,
-            f"Revise this selected text according to the instruction.\n\nSelection:\n{selection}\n\nInstruction:\n{instruction}",
-        )
-        return self._stream_result(
-            session_id, RuntimeSessionState.DRAFT_READY, raw_payloads, sink,
-            creation_event=creation_event,
-        )
-
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(
-            runtime_session_id,
-            "Run the document type checklist and write reviews/checklist_result.md.",
-        )
-        next_state = RuntimeSessionState.DRAFT_READY
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
-    def run_checklist_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(
-            runtime_session_id,
-            "Run the document type checklist and write reviews/checklist_result.md.",
-        )
-        return self._stream_result(
-            session_id, RuntimeSessionState.DRAFT_READY, raw_payloads, sink,
-            creation_event=creation_event,
-        )
-
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message(
-            runtime_session_id,
-            "Export the current draft to artifacts/prd-draft.md.",
-        )
-        next_state = RuntimeSessionState.COMPLETED
-        self._states[session_id] = next_state
-        return self._result(session_id, next_state, raw_payloads, creation_event=creation_event)
-
-    def export_markdown_stream(self, session_id: str, sink: RuntimeEventSink) -> RuntimeOperationResult:
-        runtime_session_id, creation_event = self._ensure_runtime_session(session_id)
-        raw_payloads = self.client.send_message_stream(
-            runtime_session_id,
-            "Export the current draft to artifacts/prd-draft.md.",
-        )
-        return self._stream_result(
-            session_id, RuntimeSessionState.COMPLETED, raw_payloads, sink,
-            creation_event=creation_event,
         )
 
     def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
@@ -421,35 +292,6 @@ class OpenHandsRuntimeAdapter:
             next_state=next_state,
             changed_paths=[str(event.payload["path"]) for event in raw_events if "path" in event.payload],
             raw_events=raw_events,
-        )
-
-    def _stream_result(
-        self,
-        session_id: str,
-        next_state: RuntimeSessionState,
-        raw_payloads: Any,
-        sink: RuntimeEventSink,
-        creation_event: RawRuntimeEvent | None = None,
-    ) -> RuntimeOperationResult:
-        runtime_session_id = self._runtime_session_id(session_id)
-        if creation_event is not None:
-            sink(creation_event)
-        changed_paths: list[str] = []
-        for payload in raw_payloads:
-            raw_event = self._raw_event(
-                session_id,
-                runtime_session_id,
-                payload.get("kind", payload.get("type", "event")),
-                payload,
-            )
-            if "path" in raw_event.payload:
-                changed_paths.append(str(raw_event.payload["path"]))
-            sink(raw_event)
-        self._states[session_id] = next_state
-        return RuntimeOperationResult(
-            session_id=session_id,
-            next_state=next_state,
-            changed_paths=changed_paths,
         )
 
     def _runtime_session_id(self, session_id: str) -> str:

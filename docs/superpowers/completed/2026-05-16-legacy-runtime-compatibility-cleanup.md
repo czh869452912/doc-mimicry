@@ -1,6 +1,6 @@
 # Legacy Runtime Compatibility Cleanup Plan
 
-**Status:** Active follow-up split from `docs/superpowers/completed/2026-05-15-acp-native-thin-client.md`.
+**Status:** Completed on 2026-05-16.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > superpowers:executing-plans to work this plan task-by-task. Steps use
@@ -9,10 +9,9 @@
 **Goal:** Decide and, if accepted, remove the legacy runtime document-action fallback path now that ACP prompt/events are the primary authoring contract.
 
 **Architecture:** Keep the public authoring path ACP-first by making `send_prompt`
-the preferred document-action operation. Treat old document-action methods as a
-temporary adapter compatibility concern, not as an authoring UI contract. Keep
-semantic timeline data as read-model output while this cleanup is scoped to
-runtime dispatch.
+the only document-action operation. Product actions are prompts plus metadata,
+not adapter methods. Keep semantic timeline data as read-model output while
+this cleanup is scoped to runtime dispatch.
 
 **Tech Stack:** Python 3.12, FastAPI, pytest, ACP runtime contracts, mock and OpenHands runtime adapters.
 
@@ -50,16 +49,17 @@ runtime dispatch.
 
 ## Current Code Facts
 
-- `packages/contracts/docagent_contracts/runtime.py` still defines `LegacyRuntimeAdapter`.
-- `RuntimeAdapter` is currently `AcpRuntimeAdapter | LegacyRuntimeAdapter`.
-- `services/api/docagent_api/routes/sessions.py` uses `_adapter_prompt_operation` to prefer `send_prompt` and fall back to legacy document action methods.
-- The route fallback spans `start_loop`, `approve_outline`, `revise_selection`, `run_checklist`, and `export_markdown`.
-- Mock and OpenHands adapters still carry legacy methods for compatibility.
+- `packages/contracts/docagent_contracts/runtime.py` exposes `RuntimeAdapter = AcpRuntimeAdapter`.
+- `LegacyRuntimeAdapter` and `RuntimeEventSink` are no longer public contract exports.
+- `services/api/docagent_api/routes/sessions.py` and `routes/acp_ws.py` require adapter `send_prompt` for authoring prompts.
+- Background worker dispatch rejects non-`send_prompt` operation names instead of running legacy adapter methods.
+- Mock and OpenHands adapters expose document actions through `send_prompt(session_id, prompt, metadata)`.
+- OpenHands SDK client `send_message` / `send_message_stream` remains a runtime-specific implementation boundary, not the DocAgent adapter contract.
 - ACP prompt/events remain the primary authoring path; `/timeline` remains compatibility/read-model output.
 
 ## Checklist
 
-- [ ] **Step 1: Confirm live legacy callers**
+- [x] **Step 1: Confirm live legacy callers**
 
 Run targeted searches:
 
@@ -67,16 +67,19 @@ Run targeted searches:
 rg -n "LegacyRuntimeAdapter|RuntimeAdapter =|_adapter_prompt_operation|start_loop\\(|approve_outline\\(|revise_selection\\(|run_checklist\\(|export_markdown\\(" packages services agent tests docs -S
 ```
 
-Classify each hit as contract, route fallback, adapter compatibility method, test, or historical documentation.
+Classification result: live route fallback and public adapter methods were
+removed; remaining `send_message` hits are OpenHands SDK client boundary code
+or historical docs.
 
-- [ ] **Step 2: Choose removal or compatibility window**
+- [x] **Step 2: Choose removal or compatibility window**
 
-Record the decision in this plan before editing code:
+Decision recorded on 2026-05-16: **Remove now.**
 
-- Remove now: delete the route fallback and require ACP `send_prompt` for document actions.
-- Compatibility window: keep fallback, but make docs/tests explicit that it is temporary and add a target removal condition.
+The ACP-native thin-client plan has been reconciled and verified, and both
+runtime adapters implement `send_prompt`. Remove route-level document-action
+fallback and require ACP `send_prompt` for authoring operations.
 
-- [ ] **Step 3: Update contracts and route dispatch**
+- [x] **Step 3: Update contracts and route dispatch**
 
 If removing now:
 
@@ -90,18 +93,24 @@ If keeping compatibility:
 - Rename or comment the fallback as temporary compatibility.
 - Add tests that make the compatibility behavior explicit and prevent it from becoming the preferred path.
 
-- [ ] **Step 4: Update runtime adapters and tests**
+- [x] **Step 4: Update runtime adapters and tests**
 
 - Remove legacy adapter methods only after route and contract tests no longer call them.
 - Keep ACP event family coverage for mock runtime.
 - Keep OpenHands raw payload preservation and housekeeping-event filtering.
 
-- [ ] **Step 5: Sync docs**
+- [x] **Step 5: Sync docs**
 
 - Update `docs/architecture/agent-runtime.md` and `services/api/README.md`.
 - Keep `/timeline` wording scoped to compatibility/read-model output.
 
 ## Verification Commands
+
+Last run on 2026-05-16:
+
+- `python -m pytest packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests -q --basetemp=.local/pytest-tmp-legacy-runtime-cleanup`: 173 passed.
+- `npm run test:unit -- --run src/shell/acp/__tests__/noTimelineAuthoringContract.test.ts src/shell/acp/__tests__/noAssistantUiImports.test.ts` in `apps/web`: 2 files / 2 tests passed.
+- `rg -n "projectAcpEventsToTimelineEvents|mergeProjectedAcpEvent|useDocAgentAssistantRuntime|AssistantRuntimeProvider|@assistant-ui" apps/web/src apps/web/package.json -S`: only guard-test references.
 
 ```powershell
 python -m pytest packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests -q --basetemp=.local/pytest-tmp-legacy-runtime-cleanup
@@ -118,11 +127,11 @@ rg -n "projectAcpEventsToTimelineEvents|mergeProjectedAcpEvent|useDocAgentAssist
 
 ## Rollback And Recovery
 
-- If a runtime adapter still needs legacy document actions, keep the fallback for one release and document the removal condition.
-- If removing legacy methods breaks worker/background operation tests, restore the compatibility method names only at the adapter boundary and keep route dispatch ACP-first.
+- If a runtime adapter still needs legacy document actions, reintroduce a private adapter helper behind `send_prompt`; do not restore route-level fallback.
+- If removing legacy methods breaks worker/background operation tests, restore compatibility only as private runtime implementation details and keep route dispatch ACP-first.
 - If `/timeline` removal pressure appears during this cleanup, split that into a separate plan.
 
-## Open Questions
+## Closed Questions
 
-- Should legacy methods be removed immediately, or kept until one release after OpenHands ACP runtime validation?
-- Should `RuntimeAdapter` remain a union for compatibility tests, or should compatibility be represented by a separate private protocol?
+- Legacy methods were removed immediately from the public DocAgent adapter contract.
+- `RuntimeAdapter` is now the ACP protocol, not a compatibility union.

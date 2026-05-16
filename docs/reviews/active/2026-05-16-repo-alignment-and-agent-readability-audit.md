@@ -40,9 +40,9 @@ on old facts before finding the live product boundary.
 
 - `docs/superpowers/completed/2026-05-15-acp-native-thin-client.md` is the
   reconciled and verified ACP-native thin client record.
-- `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`
-  is now the active ACP follow-up. It tracks whether to remove or keep the
-  temporary legacy runtime document-action fallback.
+- `docs/superpowers/completed/2026-05-16-legacy-runtime-compatibility-cleanup.md`
+  is the ACP follow-up record for removing the legacy runtime document-action
+  fallback.
 - `docs/reviews/active/` now contains only this current audit.
 - `docs/exec-plans/active/` contains no active durable execution plan.
 
@@ -60,25 +60,19 @@ Task 12 verification was then run on 2026-05-16:
 - `docker compose config`: exited 0 and rendered the expected ACP runtime and LiteLLM configuration.
 - Runtime-name guard search for `OPENHANDS_CONTAINER_BASE_URL`, `DOCAGENT_RUNTIME=mock`, and `DOCAGENT_RUNTIME=openhands` in current-truth docs/config returned no matches.
 
-The remaining product/architecture decision is whether to remove the legacy
-runtime compatibility layer now or split it into a follow-up plan. The backend
-still keeps `LegacyRuntimeAdapter` compatibility plus `_adapter_prompt_operation`
-fallback dispatch across legacy document action routes, even though ACP
-prompt/events are now the primary authoring path. That decision now lives in
-`docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
+The legacy runtime compatibility layer was then removed in the follow-up:
+`RuntimeAdapter` now aliases `AcpRuntimeAdapter`, authoring routes and the ACP
+WebSocket require `send_prompt`, and background worker dispatch rejects legacy
+operation names.
 
 ## Findings
 
-### Medium: Legacy runtime compatibility cleanup remains unresolved
+### Resolved: Legacy runtime compatibility cleanup
 
-The ACP-native thin client plan is now verified and archived, but the backend
-still supports legacy runtime document-action fallback dispatch. This is a
-deliberate compatibility residue, not part of the authoring UI source of truth.
-
-Suggested action: execute
-`docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md` and
-decide whether to remove the fallback now or keep it for a documented
-compatibility window.
+The ACP-native thin client plan is verified and archived, and the backend no
+longer supports route-level legacy document-action fallback dispatch. Product
+actions are `send_prompt` calls with metadata; `/timeline` remains a
+compatibility/read-model output.
 
 ### Medium: Skill-pack management remains under-specified relative to product intent
 
@@ -130,4 +124,4 @@ Get-ChildItem -Recurse -File | Select-Object FullName
 ```
 
 For the legacy runtime compatibility cleanup follow-up, use the verification
-commands in `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
+commands in `docs/superpowers/completed/2026-05-16-legacy-runtime-compatibility-cleanup.md`.

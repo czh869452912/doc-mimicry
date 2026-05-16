@@ -11,7 +11,7 @@ def test_first_message_creates_context_outline_draft_and_events(tmp_path: Path) 
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.send_message("session-001", "Start drafting")
+    result = adapter.send_prompt("session-001", "Start drafting", {"action": "send_message"})
 
     assert (workspace / "context" / "user_intent.md").exists()
     assert (workspace / "context" / "style_notes.md").exists()
@@ -35,7 +35,7 @@ def test_later_message_checkpoints_and_updates_draft(tmp_path: Path) -> None:
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    result = adapter.send_message("session-001", "Tighten the launch section")
+    result = adapter.send_prompt("session-001", "Tighten the launch section", {"action": "send_message"})
 
     assert (workspace / "versions" / "v001.md").exists()
     assert "Revision note" in (workspace / "draft" / "draft.md").read_text(encoding="utf-8")
@@ -53,8 +53,8 @@ def test_later_message_checkpoint_event_uses_actual_version_path(tmp_path: Path)
 
     adapter = MockRuntimeAdapter()
     adapter.create_session("session-001", _prompt_bundle(workspace))
-    adapter.send_message("session-001", "First revision")
-    result = adapter.send_message("session-001", "Second revision")
+    adapter.send_prompt("session-001", "First revision", {"action": "send_message"})
+    result = adapter.send_prompt("session-001", "Second revision", {"action": "send_message"})
 
     checkpoint_events = [event for event in result.events if event.kind.value == "create_checkpoint"]
     assert checkpoint_events[0].paths == ["versions/v002.md"]

@@ -100,11 +100,9 @@ async def _handle_prompt(
     append_acp_prompt_event(state, session_id, prompt, {"action": "send_message", "source": "acp_ws"})
 
     send_prompt_method = getattr(adapter, "send_prompt", None)
-    operation = (
-        (lambda: send_prompt_method(session_id, prompt, {"action": "send_message", "source": "acp_ws"}))
-        if callable(send_prompt_method)
-        else (lambda: adapter.send_message(session_id, prompt))
-    )
+    if not callable(send_prompt_method):
+        raise RuntimeError("Runtime adapter must implement send_prompt")
+    operation = lambda: send_prompt_method(session_id, prompt, {"action": "send_message", "source": "acp_ws"})
     result = run_runtime_operation(
         state,
         session,

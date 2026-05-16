@@ -16,8 +16,11 @@ Formal operations:
 
 `services/api` selects runtime adapters through `DOCAGENT_RUNTIME`.
 
-- `mock`: deterministic local and CI adapter.
-- `openhands`: OpenHands Agent Server / SDK adapter.
+- `mock-acp`: deterministic local and CI adapter.
+- `openhands-acp`: OpenHands Agent Server / SDK adapter.
+
+`mock` and `openhands` may be accepted as temporary runtime-name aliases by
+factory code, but docs, plans, and new automation should use the ACP names.
 
 Runtime-specific payloads must stay inside their adapter package or ACP shim.
 The product backend consumes ACP updates, optional projection metadata, raw audit

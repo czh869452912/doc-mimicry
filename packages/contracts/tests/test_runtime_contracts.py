@@ -3,10 +3,9 @@ from pathlib import Path
 from docagent_contracts import (
     AcpRuntimeAdapter,
     AcpRuntimeUpdate,
-    LegacyRuntimeAdapter,
     PromptBundle,
     RawRuntimeEvent,
-    RuntimeEventSink,
+    RuntimeAdapter,
     RuntimeKind,
     RuntimeOperationResult,
     RuntimeSessionState,
@@ -52,28 +51,6 @@ def test_raw_runtime_event_captures_runtime_identity() -> None:
     assert event.created_at.endswith("Z")
 
 
-def test_runtime_event_sink_receives_raw_event() -> None:
-    received: list[RawRuntimeEvent] = []
-
-    def sink(event: RawRuntimeEvent) -> None:
-        received.append(event)
-
-    event = RawRuntimeEvent(
-        id="raw-2",
-        session_id="session-1",
-        runtime=RuntimeKind.OPENHANDS,
-        runtime_session_id="openhands-1",
-        kind="message",
-        payload={"content": "hello"},
-        created_at=utc_now(),
-    )
-
-    typed_sink: RuntimeEventSink = sink
-    typed_sink(event)
-
-    assert received == [event]
-
-
 def test_running_chat_state_exists() -> None:
     from docagent_contracts import RuntimeSessionState
     assert RuntimeSessionState.RUNNING_CHAT.value == "running_chat"
@@ -101,5 +78,5 @@ def test_acp_runtime_adapter_protocol_includes_permission_response() -> None:
     assert "answer_permission" in AcpRuntimeAdapter.__dict__
 
 
-def test_legacy_runtime_adapter_protocol_is_importable_for_compatibility() -> None:
-    assert LegacyRuntimeAdapter is not None
+def test_runtime_adapter_contract_is_acp_only() -> None:
+    assert RuntimeAdapter is AcpRuntimeAdapter

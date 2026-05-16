@@ -4,7 +4,7 @@
 > code and moved to `docs/superpowers/completed/`. The ACP-native center-pane
 > implementation, runtime naming, backend ACP event source, and authoring UI
 > guard tests are present. The remaining legacy runtime compatibility cleanup
-> has been split into `docs/superpowers/plans/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
+> has been completed in `docs/superpowers/completed/2026-05-16-legacy-runtime-compatibility-cleanup.md`.
 >
 > Verification run before archival:
 > - `npm run test:unit -- --run` in `apps/web`: 25 test files and 117 tests passed.

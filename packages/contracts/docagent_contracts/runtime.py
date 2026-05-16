@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
 
 class RuntimeKind(str, Enum):
@@ -65,38 +65,6 @@ class RuntimeOperationResult:
     acp_updates: list[AcpRuntimeUpdate] = field(default_factory=list)
 
 
-RuntimeEventSink = Callable[[RawRuntimeEvent], None]
-
-
-class LegacyRuntimeAdapter(Protocol):
-    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
-        ...
-
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
-        ...
-
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
-        ...
-
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-        ...
-
-    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
-        ...
-
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
-        ...
-
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
-        ...
-
-    def cancel(self, session_id: str) -> RuntimeOperationResult:
-        ...
-
-    def get_state(self, session_id: str) -> RuntimeSessionState:
-        ...
-
-
 class AcpRuntimeAdapter(Protocol):
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         ...
@@ -124,4 +92,4 @@ class AcpRuntimeAdapter(Protocol):
         ...
 
 
-RuntimeAdapter = AcpRuntimeAdapter | LegacyRuntimeAdapter
+RuntimeAdapter = AcpRuntimeAdapter

@@ -105,24 +105,6 @@ def append_runtime_result(
                 append_acp_projection_event(state, session_id, semantic)
 
 
-def runtime_event_sink(state: DocAgentState, task_id: str, session_id: str) -> Any:
-    def sink(raw_event: Any) -> None:
-        state.append_raw_runtime_event(session_id, raw_event)
-        if raw_event.runtime is RuntimeKind.OPENHANDS:
-            semantic = map_openhands_raw_event(raw_event, task_id)
-            if semantic is not None:
-                state.append_timeline_event(session_id, asdict(semantic))
-                append_acp_projection_event(state, session_id, semantic)
-    return sink
-
-
-def stream_or_sync(adapter: Any, stream_name: str, sync_operation: Any, stream_operation: Any) -> Any:
-    stream_method = getattr(adapter, stream_name, None)
-    if callable(stream_method):
-        return stream_operation(stream_method)
-    return sync_operation
-
-
 def run_runtime_operation(
     state: DocAgentState,
     session: dict[str, Any],

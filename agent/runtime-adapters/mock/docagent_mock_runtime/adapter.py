@@ -33,28 +33,6 @@ class MockRuntimeAdapter:
         }
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
-    def send_message(
-        self,
-        session_id: str,
-        message: str,
-    ) -> RuntimeOperationResult:
-        session = self._session(session_id)
-        task_id = str(session["task_id"])
-        workspace_root = Path(session["workspace_root"])
-        if (workspace_root / "draft" / "draft.md").exists():
-            events = self._revise(task_id, session_id, workspace_root, message)
-            next_state = RuntimeSessionState.DRAFT_READY
-        else:
-            events = self._first_draft(task_id, session_id, workspace_root, message)
-            next_state = RuntimeSessionState.DRAFT_READY
-        self._set_state(session_id, next_state)
-        return RuntimeOperationResult(
-            session_id=session_id,
-            next_state=next_state,
-            events=events,
-            changed_paths=_event_paths(events),
-        )
-
     def send_prompt(
         self,
         session_id: str,
@@ -161,18 +139,40 @@ class MockRuntimeAdapter:
     ) -> RuntimeOperationResult:
         action = metadata.get("action")
         if action == "start_loop":
-            return self.start_loop(session_id)
+            return self._start_loop(session_id)
         if action == "approve_outline":
-            return self.approve_outline(session_id)
+            return self._approve_outline(session_id)
         if action == "revise_selection":
-            return self.revise_selection(session_id, str(metadata.get("selection", "")), prompt)
+            return self._revise_selection(session_id, str(metadata.get("selection", "")), prompt)
         if action == "run_checklist":
-            return self.run_checklist(session_id)
+            return self._run_checklist(session_id)
         if action == "export_markdown":
-            return self.export_markdown(session_id)
-        return self.send_message(session_id, prompt)
+            return self._export_markdown(session_id)
+        return self._send_message(session_id, prompt)
 
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+    def _send_message(
+        self,
+        session_id: str,
+        message: str,
+    ) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        task_id = str(session["task_id"])
+        workspace_root = Path(session["workspace_root"])
+        if (workspace_root / "draft" / "draft.md").exists():
+            events = self._revise(task_id, session_id, workspace_root, message)
+            next_state = RuntimeSessionState.DRAFT_READY
+        else:
+            events = self._first_draft(task_id, session_id, workspace_root, message)
+            next_state = RuntimeSessionState.DRAFT_READY
+        self._set_state(session_id, next_state)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=next_state,
+            events=events,
+            changed_paths=_event_paths(events),
+        )
+
+    def _start_loop(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)
         events = self._build_context_and_outline_events(
             str(session["task_id"]),
@@ -187,7 +187,7 @@ class MockRuntimeAdapter:
             changed_paths=_event_paths(events),
         )
 
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
+    def _approve_outline(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)
         workspace_root = Path(session["workspace_root"])
         outline_markdown = _read_text(workspace_root / "draft" / "outline.md")
@@ -205,7 +205,7 @@ class MockRuntimeAdapter:
             changed_paths=_event_paths(events),
         )
 
-    def revise_selection(
+    def _revise_selection(
         self,
         session_id: str,
         selection: str,
@@ -227,7 +227,7 @@ class MockRuntimeAdapter:
             changed_paths=_event_paths(events),
         )
 
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
+    def _run_checklist(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)
         events = self._run_checklist_events(
             str(session["task_id"]),
@@ -242,7 +242,7 @@ class MockRuntimeAdapter:
             changed_paths=_event_paths(events),
         )
 
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
+    def _export_markdown(self, session_id: str) -> RuntimeOperationResult:
         session = self._session(session_id)
         events = self._export_markdown_events(
             str(session["task_id"]),

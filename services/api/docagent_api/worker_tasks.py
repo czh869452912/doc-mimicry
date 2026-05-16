@@ -11,7 +11,6 @@ from docagent_api.routes._shared import (
     append_acp_error_event,
     append_acp_projection_event,
     append_runtime_result,
-    runtime_event_sink,
     set_session_state,
 )
 from docagent_api.session_state import RUNNING_STATES
@@ -112,11 +111,9 @@ def run_session(
     try:
         _ensure_runtime_session(state, adapter, session)
         task_id = session["task_id"]
-        method = getattr(adapter, operation_name)
-        if operation_name.endswith("_stream"):
-            result = method(session_id, **operation_kwargs, sink=runtime_event_sink(state, task_id, session_id))
-        else:
-            result = method(session_id, **operation_kwargs)
+        if operation_name != "send_prompt":
+            raise RuntimeError("Background runtime operations must use send_prompt")
+        result = adapter.send_prompt(session_id, **operation_kwargs)
         if _is_cancelled(state, session_id):
             state.release_operation_lease(session_id)
             return

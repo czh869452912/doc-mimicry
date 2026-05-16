@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 import docagent_api.app as app_module
@@ -57,23 +58,20 @@ class FailingSendAdapter:
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
+        action = (metadata or {}).get("action")
+        if action == "start_loop":
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
+        if action == "approve_outline":
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
+        if action == "run_checklist":
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
         raise RuntimeError("runtime session is not available")
-
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
-
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.DRAFT_READY)
-
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
-        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.COMPLETED)
 
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
@@ -83,7 +81,12 @@ class FailingSendAdapter:
 
 
 class AcpUpdateAdapter(FailingSendAdapter):
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
         return RuntimeOperationResult(
             session_id=session_id,
             next_state=RuntimeSessionState.DRAFT_READY,
@@ -98,7 +101,12 @@ class AcpUpdateAdapter(FailingSendAdapter):
 
 
 class ConflictingEventTypeAdapter(FailingSendAdapter):
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
         return RuntimeOperationResult(
             session_id=session_id,
             next_state=RuntimeSessionState.DRAFT_READY,
@@ -158,29 +166,18 @@ class PromptOnlyAdapter:
         }.get(action, RuntimeSessionState.DRAFT_READY)
         return RuntimeOperationResult(session_id=session_id, next_state=next_state)
 
-    def start_loop(self, session_id: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy start_loop should not be used by ACP-capable adapters")
-
-    def send_message(self, session_id: str, message: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy send_message should not be used by ACP-capable adapters")
-
-    def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy approve_outline should not be used by ACP-capable adapters")
-
-    def revise_selection(self, session_id: str, selection: str, instruction: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy revise_selection should not be used by ACP-capable adapters")
-
-    def run_checklist(self, session_id: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy run_checklist should not be used by ACP-capable adapters")
-
-    def export_markdown(self, session_id: str) -> RuntimeOperationResult:
-        raise AssertionError("legacy export_markdown should not be used by ACP-capable adapters")
-
     def cancel(self, session_id: str) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
 
     def get_state(self, session_id: str) -> RuntimeSessionState:
         return RuntimeSessionState.IDLE
+
+
+class LegacyOnlyDocumentActionAdapter(FailingSendAdapter):
+    send_prompt = None
+
+    def start_loop(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
 
 
 class FailingCreateAdapter(FailingSendAdapter):
@@ -252,7 +249,12 @@ class FailingStreamAdapter:
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
-    def start_loop_stream(self, session_id: str, sink: Any) -> None:
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, object] | None = None,
+    ) -> RuntimeOperationResult:
         raise RuntimeError("runtime unavailable")
 
     def cancel(self, session_id: str) -> RuntimeOperationResult:
@@ -427,6 +429,81 @@ def test_product_action_endpoint_prefers_acp_prompt_runtime_method(tmp_path: Pat
             {"action": "start_loop"},
         )
     ]
+
+
+def test_product_action_endpoint_rejects_adapter_without_acp_prompt_method(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=LegacyOnlyDocumentActionAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/loop/start")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Runtime operation failed: Runtime adapter must implement send_prompt"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "idle"
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "json_body", "expected_state"),
+    [
+        ("/messages?background=true", {"message": "hello"}, "draft_ready"),
+        ("/outline/approve?background=true", {"outline_markdown": "# Outline\n"}, "await_outline_approval"),
+        (
+            "/revision/selection?background=true",
+            {"selected_text": "Define the desired product outcome.", "instruction": "Make it sharper"},
+            "draft_ready",
+        ),
+        ("/checklist/run?background=true", None, "draft_ready"),
+        ("/artifacts/export-markdown?background=true", None, "draft_ready"),
+    ],
+)
+def test_background_product_actions_reject_adapter_without_acp_prompt_method(
+    tmp_path: Path,
+    endpoint: str,
+    json_body: dict[str, str] | None,
+    expected_state: str,
+) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=LegacyOnlyDocumentActionAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    db = DocAgentState(tmp_path / "state")
+    session["status"] = expected_state
+    db.save_session(session)
+
+    response = client.post(f"/sessions/{session['id']}{endpoint}", json=json_body)
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Runtime operation failed: Runtime adapter must implement send_prompt"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == expected_state
+
+
+def test_background_message_rejects_missing_acp_prompt_without_orphan_user_timeline(tmp_path: Path) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=LegacyOnlyDocumentActionAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    session["status"] = "draft_ready"
+    DocAgentState(tmp_path / "state").save_session(session)
+
+    response = client.post(
+        f"/sessions/{session['id']}/messages?background=true",
+        json={"message": "hello"},
+    )
+
+    assert response.status_code == 502
+    timeline_events = client.get(f"/sessions/{session['id']}/timeline").json()
+    assert all(event["kind"] != "user_message" for event in timeline_events)
 
 
 def test_background_revise_selection_passes_complete_acp_prompt_metadata(tmp_path: Path, monkeypatch: Any) -> None:
@@ -733,7 +810,7 @@ def test_background_message_enqueues_celery_when_queue_enabled(tmp_path: Path, m
     )]
 
 
-def test_background_message_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:
+def test_background_message_enqueues_acp_prompt_operation(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
     delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
 
@@ -742,30 +819,11 @@ def test_background_message_enqueues_streaming_operation_when_available(tmp_path
         def delay(*args: Any, **kwargs: Any) -> None:
             delayed_calls.append((args, kwargs))
 
-    class FakeStreamingChatAdapter(FailingStreamAdapter):
-        def start_loop(self, session_id: str) -> RuntimeOperationResult:
-            return RuntimeOperationResult(
-                session_id=session_id,
-                next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
-            )
-
-        def approve_outline(self, session_id: str) -> RuntimeOperationResult:
-            return RuntimeOperationResult(
-                session_id=session_id,
-                next_state=RuntimeSessionState.DRAFT_READY,
-            )
-
-        def send_message_stream(self, session_id: str, message: str, sink: Any) -> RuntimeOperationResult:
-            return RuntimeOperationResult(
-                session_id=session_id,
-                next_state=RuntimeSessionState.DRAFT_READY,
-            )
-
     monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
     client = TestClient(create_app(
         state_root=tmp_path / "state",
         repo_root=Path("."),
-        runtime_adapter=FakeStreamingChatAdapter(),
+        runtime_adapter=PromptOnlyAdapter(),
     ))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
@@ -782,10 +840,18 @@ def test_background_message_enqueues_streaming_operation_when_available(tmp_path
     )
 
     assert response.status_code == 202
-    assert delayed_calls == [((session["id"], "send_message_stream", {"message": "hello"}, "draft_ready"), {})]
+    assert delayed_calls == [(
+        (
+            session["id"],
+            "send_prompt",
+            {"prompt": "hello", "metadata": {"action": "send_message"}},
+            "draft_ready",
+        ),
+        {},
+    )]
 
 
-def test_background_start_loop_enqueues_streaming_operation_when_available(tmp_path: Path, monkeypatch: Any) -> None:
+def test_background_start_loop_enqueues_acp_prompt_operation(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setenv("DOCAGENT_QUEUE", "celery")
     delayed_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
 
@@ -795,17 +861,10 @@ def test_background_start_loop_enqueues_streaming_operation_when_available(tmp_p
             delayed_calls.append((args, kwargs))
 
     monkeypatch.setattr("docagent_api.worker_tasks.run_session", FakeTask)
-    class FakeStreamingAdapter(FailingStreamAdapter):
-        def start_loop_stream(self, session_id: str, sink: Any) -> RuntimeOperationResult:
-            return RuntimeOperationResult(
-                session_id=session_id,
-                next_state=RuntimeSessionState.AWAIT_OUTLINE_APPROVAL,
-            )
-
     client = TestClient(create_app(
         state_root=tmp_path / "state",
         repo_root=Path("."),
-        runtime_adapter=FakeStreamingAdapter(),
+        runtime_adapter=PromptOnlyAdapter(),
     ))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
     session = client.post(f"/tasks/{task['id']}/sessions").json()
@@ -813,7 +872,18 @@ def test_background_start_loop_enqueues_streaming_operation_when_available(tmp_p
     response = client.post(f"/sessions/{session['id']}/loop/start?background=true")
 
     assert response.status_code == 202
-    assert delayed_calls == [((session["id"], "start_loop_stream", {}, "idle"), {})]
+    assert delayed_calls == [(
+        (
+            session["id"],
+            "send_prompt",
+            {
+                "prompt": "Build context files and propose an outline. Stop when outline approval is required.",
+                "metadata": {"action": "start_loop"},
+            },
+            "idle",
+        ),
+        {},
+    )]
 
 
 def test_background_operation_rejects_concurrent_session_operation(tmp_path: Path, monkeypatch: Any) -> None:

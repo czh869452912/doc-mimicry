@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 from docagent_api.state import DocAgentState
+from docagent_contracts import PromptBundle, RuntimeOperationResult, RuntimeSessionState
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -243,6 +244,43 @@ def test_acp_websocket_prompt_sends_docagent_prompt_and_agent_update(tmp_path: P
         and event["payload"]["prompt"] == "Write through ACP UI"
         for event in acp_events
     )
+
+
+def test_acp_websocket_prompt_requires_acp_runtime_method(tmp_path: Path) -> None:
+    class LegacyOnlyAdapter:
+        def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+        def cancel(self, session_id: str) -> RuntimeOperationResult:
+            return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=REPO_ROOT,
+        runtime_adapter=LegacyOnlyAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "ACP prompt"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    with client.websocket_connect(f"/sessions/{session['id']}/acp/ws") as ws:
+        ws.send_json({"jsonrpc": "2.0", "id": 1, "method": "session/new", "params": {}})
+        assert ws.receive_json()["result"]["sessionId"] == session["id"]
+
+        ws.send_json({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "session/prompt",
+            "params": {"sessionId": session["id"], "prompt": "Hello"},
+        })
+
+        response = ws.receive_json()
+
+    assert response == {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {"code": -32000, "message": "Runtime adapter must implement send_prompt"},
+    }
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == "idle"
 
 
 def test_acp_websocket_cancel_maps_to_session_cancel(tmp_path: Path) -> None:
