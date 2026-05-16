@@ -5,7 +5,9 @@
 > surface, assistant-ui is no longer a package dependency, runtime names are
 > `mock-acp` / `openhands-acp`, and `/events` is the authoring event source.
 > Before executing unchecked steps, reconcile the checklist against live code
-> and update this plan instead of replaying tasks blindly.
+> and update this plan instead of replaying tasks blindly. The checkbox
+> walkthrough below is historical implementation detail; use the reconciliation
+> table in this document as the current execution state.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -25,6 +27,45 @@
 - Runtime boundary: `docs/architecture/agent-runtime.md`
 - Event model: `docs/architecture/event-model.md`
 - Frontend third-party checklist: `docs/quality/frontend-component-integration-checklist.md`
+
+## Reconciliation Status (2026-05-16)
+
+The original checklist still uses unchecked task boxes, but most of the ACP
+thin-client work has landed. Treat the task bodies below as reference notes,
+not as a command queue.
+
+| Task | Current state | Code facts |
+| --- | --- | --- |
+| 1. Add ACP Event Helpers And Contract Tests | Implemented | `apps/web/src/shell/acp/acpEvents.ts` and `apps/web/src/shell/acp/__tests__/acpEvents.test.ts` cover event classification, merging, invalidation hints, reload input, and text extraction. |
+| 2. Change Timeline State To Return ACP Events | Implemented | `apps/web/src/shell/state/useTimeline.ts` stores `AcpEvent[]`, loads `api.getAcpEvents`, streams `streamAcpEventsUrl`, and derives product invalidation from ACP events. |
+| 3. Build ACP Interaction Surface And Renderer | Implemented | `AcpInteractionSurface.tsx`, `AcpEventRenderer.tsx`, and `AcpRenderSlots.tsx` render ACP-native messages plus product-card read models. |
+| 4. Build Local ACP Composer | Implemented | `AcpComposer.tsx`, `DocAgentSlashCommands.tsx`, and `AcpComposer.test.tsx` cover draft input, commands, send, cancel, reload, and attachments. |
+| 5. Integrate ACP Surface Into ConversationPane | Implemented | `ConversationPane.tsx` accepts `AcpEvent[]` and renders either the local `AcpInteractionSurface` or configured external `AcpUiEmbed`. |
+| 6. Replace Assistant UI Styling And Remove Assistant Runtime Code | Implemented for the authoring path | `@assistant-ui/*` is absent from `apps/web/package.json`; `apps/web/src/shell/acp/__tests__/noAssistantUiImports.test.ts` guards the five core ACP package files against assistant-ui imports; `apps/web/src/shell/theme/acp.css` is imported by `styles.css`. Broader authoring-path files such as `ConversationPane.tsx` and `AppShell.tsx` are covered by the timeline authoring guard, not by a global assistant-ui import guard. |
+| 7. Backend ACP Event Store Guards | Mostly implemented | `_shared.py` appends ACP prompt/status/error/projection/runtime updates and maps OpenHands raw runtime events through `map_openhands_raw_event` into both legacy timeline entries and ACP projection entries. `services/api/tests/test_acp_events.py` covers `/events`, `/events/stream`, Last-Event-ID, WebSocket ACP operations, and session/task scoping. `/timeline` remains as compatibility/read-model output. |
+| 8. Expand Mock ACP Runtime Coverage | Implemented | Mock runtime tests require message, tool, file, permission, status, and unknown ACP event families. |
+| 9. Tighten OpenHands ACP Shim Boundary | Implemented with one intentional behavior change | OpenHands adapter tests preserve raw unknown payloads and filter housekeeping events such as `session_created`; the original expected emitted creation event should not be reintroduced without a new decision. |
+| 10. Runtime Names And Deployment Configuration | Implemented | `runtime_factory.py`, `.env.example`, `docker-compose.override.yml`, `scripts/dev.ps1`, and `tests/test_dev_entrypoint.py` use canonical `mock-acp` / `openhands-acp` names while preserving migration aliases where needed. |
+| 11. Deprecate `/timeline` Authoring UI Consumers | Implemented for authoring UI | `apps/web/src/api.ts` has ACP event APIs for the workbench path, guard tests block old timeline authoring helpers, and `TimelineEvent` remains only for projections/read models. |
+| 12. Full Verification And Documentation Sync | Open | This reconciliation did not run the full frontend, backend, package, compose, and documentation verification bundle. Run it before moving this plan to `docs/superpowers/completed/`. |
+
+## Remaining Follow-Up
+
+- Run the full verification bundle from Task 12 before claiming the ACP-native
+  thin-client plan is complete.
+- Decide whether to remove the legacy runtime compatibility layer or split that
+  cleanup into a separate compatibility-retirement plan. The cleanup is broader
+  than deleting `LegacyRuntimeAdapter`: `packages/contracts/docagent_contracts/runtime.py`
+  defines the protocol, while `services/api/docagent_api/routes/sessions.py`
+  uses `_adapter_prompt_operation` to prefer `send_prompt` and fall back to
+  legacy document action methods across `start_loop`, `approve_outline`,
+  `revise_selection`, `run_checklist`, and `export_markdown`.
+- Keep `/timeline` documented as compatibility/read-model output unless a new
+  decision removes it entirely; it is no longer the authoring source for the
+  center pane.
+- After verification, either move this plan to `docs/superpowers/completed/` or
+  replace it with a smaller follow-up plan that contains only the legacy
+  compatibility cleanup.
 
 ## Scope
 

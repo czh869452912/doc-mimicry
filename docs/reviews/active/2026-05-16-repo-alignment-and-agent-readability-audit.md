@@ -39,25 +39,38 @@ on old facts before finding the live product boundary.
 ## Current Active Work Signals
 
 - `docs/superpowers/plans/2026-05-15-acp-native-thin-client.md` remains active,
-  but must be reconciled against live code before execution. The live code
-  already includes ACP helpers, an ACP interaction surface, external ACP UI
-  embed support, canonical ACP runtime names, and guard tests around the
-  authoring event source.
+  and now includes a 2026-05-16 reconciliation table. The live code already
+  includes ACP helpers, an ACP interaction surface, external ACP UI embed
+  support, canonical ACP runtime names, and guard tests around the authoring
+  event source.
 - `docs/reviews/active/` now contains only this current audit.
 - `docs/exec-plans/active/` contains no active durable execution plan.
 
+## ACP-Native Plan Reconciliation
+
+The first reconciliation pass found Tasks 1-6 and 8-11 implemented, Task 7
+mostly implemented with `/timeline` retained as compatibility/read-model
+output, and Task 12 still open because the full verification bundle has not
+been rerun in this pass.
+
+The remaining product/architecture decision is whether to remove the legacy
+runtime compatibility layer now or split it into a follow-up plan. The backend
+still keeps `LegacyRuntimeAdapter` compatibility plus `_adapter_prompt_operation`
+fallback dispatch across legacy document action routes, even though ACP
+prompt/events are now the primary authoring path.
+
 ## Findings
 
-### Medium: ACP-native plan checklist no longer matches live code
+### Medium: ACP-native plan still needs completion disposition
 
-The active ACP-native thin client plan still has many unchecked steps that
-describe files and tests already present in the repo. This is risky because a
-new agent could re-implement or delete working code while following the plan
-literally.
+The active ACP-native thin client plan now has a live-code reconciliation table,
+but it remains in `docs/superpowers/plans/` until full verification is rerun and
+the legacy compatibility decision is made. This is safer than leaving stale
+unchecked tasks unqualified, but it is not yet a completed-plan state.
 
-Suggested action: run a focused reconciliation pass that checks each task
-against live code, marks completed items, and moves any remaining work into a
-shorter follow-up plan.
+Suggested action: run the full verification bundle listed in Task 12, then move
+the plan to `docs/superpowers/completed/` or replace it with a small legacy
+compatibility cleanup plan.
 
 ### Medium: Skill-pack management remains under-specified relative to product intent
 
