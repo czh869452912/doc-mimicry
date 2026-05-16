@@ -202,28 +202,24 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             "Revise this selected text according to the instruction.\n\n"
             f"Selection:\n{request.selected_text}\n\nInstruction:\n{request.instruction}"
         )
+        revision_metadata = {
+            "action": "revise_selection",
+            "selection": request.selected_text,
+            "instruction": request.instruction,
+        }
         append_acp_prompt_event(
             state,
             session_id,
             revision_prompt,
-            {
-                "action": "revise_selection",
-                "selection": request.selected_text,
-                "instruction": request.instruction,
-            },
+            revision_metadata,
         )
         try:
-            prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
             if background:
-                operation = _send_prompt_operation(
-                    session_id,
-                    revision_prompt,
-                    {
-                        "action": "revise_selection",
-                        "selection": request.selected_text,
-                        "instruction": request.instruction,
-                    },
-                )
+                try:
+                    operation = _send_prompt_operation(session_id, revision_prompt, revision_metadata)
+                except RuntimeError as exc:
+                    raise HTTPException(status_code=502, detail=f"Runtime operation failed: {exc}") from exc
+                prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
                 response.status_code = 202
                 return start_background_runtime_operation(
                     state, task["id"], session, RuntimeSessionState.RUNNING_REVISION, operation,
@@ -232,22 +228,11 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                     operation_name="send_prompt",
                     operation_kwargs={
                         "prompt": revision_prompt,
-                        "metadata": {
-                            "action": "revise_selection",
-                            "selection": request.selected_text,
-                            "instruction": request.instruction,
-                        },
+                        "metadata": revision_metadata,
                     },
                 )
-            operation = _send_prompt_operation(
-                session_id,
-                revision_prompt,
-                {
-                    "action": "revise_selection",
-                    "selection": request.selected_text,
-                    "instruction": request.instruction,
-                },
-            )
+            prepare_transition(state, session, RuntimeSessionState.RUNNING_REVISION, task_id=task["id"])
+            operation = _send_prompt_operation(session_id, revision_prompt, revision_metadata)
             result = operation()
         except HTTPException:
             raise

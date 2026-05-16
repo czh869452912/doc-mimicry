@@ -145,7 +145,7 @@ def test_draft_update_is_blocked_while_session_running_unless_forced(tmp_path: P
     assert forced.json()["markdown"] == "# Edited\n"
 
 
-def test_background_message_streams_partial_timeline_before_completion(tmp_path: Path) -> None:
+def test_background_message_records_user_message_while_chat_is_running(tmp_path: Path) -> None:
     adapter = StreamingFakeAdapter()
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_adapter=adapter))
 

@@ -448,6 +448,43 @@ def test_product_action_endpoint_rejects_adapter_without_acp_prompt_method(tmp_p
 
 
 @pytest.mark.parametrize(
+    ("endpoint", "json_body", "initial_state"),
+    [
+        ("/messages", {"message": "hello"}, "draft_ready"),
+        ("/outline/approve", {"outline_markdown": "# Outline\n"}, "await_outline_approval"),
+        (
+            "/revision/selection",
+            {"selected_text": "Define the desired product outcome.", "instruction": "Make it sharper"},
+            "draft_ready",
+        ),
+        ("/checklist/run", None, "draft_ready"),
+        ("/artifacts/export-markdown", None, "draft_ready"),
+    ],
+)
+def test_sync_product_actions_reject_adapter_without_acp_prompt_method(
+    tmp_path: Path,
+    endpoint: str,
+    json_body: dict[str, str] | None,
+    initial_state: str,
+) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=LegacyOnlyDocumentActionAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    session["status"] = initial_state
+    DocAgentState(tmp_path / "state").save_session(session)
+
+    response = client.post(f"/sessions/{session['id']}{endpoint}", json=json_body)
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Runtime operation failed: Runtime adapter must implement send_prompt"
+    assert client.get(f"/sessions/{session['id']}").json()["status"] == initial_state
+
+
+@pytest.mark.parametrize(
     ("endpoint", "json_body", "expected_state"),
     [
         ("/messages?background=true", {"message": "hello"}, "draft_ready"),
@@ -504,6 +541,32 @@ def test_background_message_rejects_missing_acp_prompt_without_orphan_user_timel
     assert response.status_code == 502
     timeline_events = client.get(f"/sessions/{session['id']}/timeline").json()
     assert all(event["kind"] != "user_message" for event in timeline_events)
+
+
+def test_background_revise_selection_rejects_missing_acp_prompt_without_running_state_transition(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=LegacyOnlyDocumentActionAdapter(),
+    ))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    session["status"] = "draft_ready"
+    DocAgentState(tmp_path / "state").save_session(session)
+
+    response = client.post(
+        f"/sessions/{session['id']}/revision/selection?background=true",
+        json={"selected_text": "Example text", "instruction": "Make it sharper"},
+    )
+
+    assert response.status_code == 502
+    timeline_events = client.get(f"/sessions/{session['id']}/timeline").json()
+    assert all(
+        event["kind"] != "session_status" or "running_revision" not in event["summary"]
+        for event in timeline_events
+    )
 
 
 def test_background_revise_selection_passes_complete_acp_prompt_metadata(tmp_path: Path, monkeypatch: Any) -> None:
