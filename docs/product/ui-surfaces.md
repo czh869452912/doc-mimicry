@@ -9,28 +9,28 @@ They share the same product model but serve different jobs.
 
 ## Management Interface
 
-The management interface is a dashboard for building and maintaining document type skill packs.
+The management interface is a dashboard for building and maintaining versioned document type skill packs.
 
 It should help users configure reusable imitation resources without designing fixed workflows.
 
 ### Jobs
 
-- Create a document type.
-- Upload best-practice documents.
-- Upload writing specifications.
-- Upload checklists.
-- Upload optional export reference files.
-- Convert uploaded resources to Markdown.
+- Create a skill pack.
+- Paste or upload best-practice documents.
+- Paste or upload writing specifications.
+- Paste or upload checklists.
+- Paste or upload optional export reference files.
+- Convert resources to Markdown at import boundaries.
 - Inspect converted Markdown and conversion warnings.
 - Use a Skill Creator conversation to generate or revise `SKILL.md`, checklists, and resource notes.
-- Publish and version a document type pack.
+- Validate, publish, and version a skill pack.
 
 ### Main Areas
 
 ```text
-DocType Dashboard
-  -> DocType list
-  -> DocType detail
+Skill Pack Management
+  -> Skill pack list
+  -> Skill pack detail
     -> Resources
     -> Converted Markdown
     -> Skill Creator chat
@@ -53,10 +53,12 @@ Skill Creator should feel like a Claude Code-style interaction over a document t
 It can:
 
 - Read uploaded resource Markdown.
+- Read current artifacts before revising them.
 - Summarize observed structure and style.
 - Draft `SKILL.md`.
 - Suggest checklist items.
 - Revise a document type pack after user feedback.
+- Preserve direct user edits as current artifact state.
 
 It must not:
 
@@ -67,6 +69,10 @@ It must not:
 ## Authoring Interface
 
 The authoring interface is the main document imitation workspace. It should feel closer to Codex App or Claude Code than to a document management system.
+
+Authoring tasks bind to immutable published skill-pack versions when available.
+Legacy repo `doc-types/*/SKILL.md` remains a fallback only for packs that have
+not yet been published.
 
 ### Layout
 
@@ -137,6 +143,7 @@ Phase 0 should prefer a source-oriented Markdown editor plus preview over heavy 
 
 - Keep the management interface operational and dense.
 - Keep the authoring interface focused on the agent loop.
+- Keep management and authoring as separate surfaces; the settings drawer may link to management, but the dedicated route is the durable home.
 - Do not hide workspace files; they are part of user trust and audit.
 - Do not force users into a wizard or fixed workflow.
 - Let users interrupt from the timeline at any time.

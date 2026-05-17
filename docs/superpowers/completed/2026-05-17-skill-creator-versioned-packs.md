@@ -1,6 +1,6 @@
 # Skill Creator Versioned Packs Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build the MVP for material-driven Skill Creator over versioned document type packs, with draft pack workspaces, immutable published versions, and authoring tasks bound to published pack versions.
 
@@ -52,7 +52,7 @@
 - Create: `services/api/alembic/versions/0004_skill_packs.py`
 - Create: `services/api/tests/test_skill_pack_state.py`
 
-- [ ] **Step 1: Write failing contract tests**
+- [x] **Step 1: Write failing contract tests**
 
 Add these tests to `packages/contracts/tests/test_models.py`:
 
@@ -95,7 +95,7 @@ def test_prompt_bundle_can_identify_pack_management_owner(tmp_path: Path) -> Non
     assert bundle.doc_type_id == ""
 ```
 
-- [ ] **Step 2: Run contract tests and verify the expected failure**
+- [x] **Step 2: Run contract tests and verify the expected failure**
 
 Run:
 
@@ -105,7 +105,7 @@ python -m pytest packages/contracts/tests/test_models.py -q
 
 Expected: FAIL with import errors for `PackResourceGroup`, `SkillPackResourceStatus`, and `RuntimeSessionScope`, or a `PromptBundle` constructor error for `pack_id`.
 
-- [ ] **Step 3: Add shared enum contracts**
+- [x] **Step 3: Add shared enum contracts**
 
 In `packages/contracts/docagent_contracts/models.py`, add:
 
@@ -147,7 +147,7 @@ class PromptBundle:
 
 Export `PackResourceGroup`, `SkillPackResourceStatus`, and `RuntimeSessionScope` from `packages/contracts/docagent_contracts/__init__.py`.
 
-- [ ] **Step 4: Write failing state tests**
+- [x] **Step 4: Write failing state tests**
 
 Create `services/api/tests/test_skill_pack_state.py`:
 
@@ -191,7 +191,7 @@ def test_skill_pack_version_rows_are_queryable(pg_state: DocAgentState, tmp_path
     assert latest["version"] == "v001"
 ```
 
-- [ ] **Step 5: Run state tests and verify the expected failure**
+- [x] **Step 5: Run state tests and verify the expected failure**
 
 Run:
 
@@ -201,7 +201,7 @@ python -m pytest services/api/tests/test_skill_pack_state.py -q
 
 Expected: FAIL because `save_skill_pack` and `save_skill_pack_version` do not exist.
 
-- [ ] **Step 6: Add database rows and Alembic migration**
+- [x] **Step 6: Add database rows and Alembic migration**
 
 In `services/api/docagent_api/db.py`, add row classes:
 
@@ -298,7 +298,7 @@ pack_version_id = Column(String, ForeignKey("skill_pack_versions.id"), nullable=
 
 Create `services/api/alembic/versions/0004_skill_packs.py` with idempotent table creation for these tables and an idempotent `pack_version_id` column addition to `tasks`.
 
-- [ ] **Step 7: Add state methods**
+- [x] **Step 7: Add state methods**
 
 In `services/api/docagent_api/state.py`, add concrete persistence methods with these behaviors:
 
@@ -328,7 +328,7 @@ conn.execute(text(
 
 The explicit child-before-parent order keeps the statement readable; `CASCADE` handles the `tasks.pack_version_id` relationship once Task 5 adds it.
 
-- [ ] **Step 8: Run Task 1 verification**
+- [x] **Step 8: Run Task 1 verification**
 
 Run:
 
@@ -338,7 +338,7 @@ python -m pytest packages/contracts/tests/test_models.py services/api/tests/test
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Task 1**
+- [x] **Step 9: Commit Task 1**
 
 ```powershell
 git add packages/contracts services/api/docagent_api/db.py services/api/docagent_api/state.py services/api/alembic/versions/0004_skill_packs.py services/api/tests/conftest.py services/api/tests/test_skill_pack_state.py
@@ -355,7 +355,7 @@ git commit -m "feat: add skill pack persistence model"
 - Modify: `services/api/tests/test_skill_pack_state.py`
 - Create: `services/api/tests/test_skill_packs.py`
 
-- [ ] **Step 1: Write failing workspace and bootstrap tests**
+- [x] **Step 1: Write failing workspace and bootstrap tests**
 
 Create `services/api/tests/test_skill_packs.py`:
 
@@ -402,7 +402,7 @@ def test_publish_snapshot_is_immutable_after_draft_edit(tmp_path: Path) -> None:
     assert "Use for memos." in (Path(version["snapshot_path"]) / "SKILL.md").read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2: Run tests and verify expected failure**
+- [x] **Step 2: Run tests and verify expected failure**
 
 Run:
 
@@ -412,7 +412,7 @@ python -m pytest services/api/tests/test_skill_packs.py -q
 
 Expected: FAIL because `docagent_api.skill_packs` does not exist.
 
-- [ ] **Step 3: Implement pack workspace helpers**
+- [x] **Step 3: Implement pack workspace helpers**
 
 Move `PyYAML>=6.0` from the dev optional dependencies into `[project].dependencies` in `pyproject.toml`, because API pack validation imports `yaml` at runtime.
 
@@ -583,7 +583,7 @@ def _source_copy_warnings(root: Path, skill_content: str, resources: list[dict[s
 
 `bootstrap_seed_skill_packs` is implemented in Step 4.
 
-- [ ] **Step 4: Implement seed bootstrap**
+- [x] **Step 4: Implement seed bootstrap**
 
 In `bootstrap_seed_skill_packs(state, seed_root)`, scan `doc-types/*`, create pack rows, copy the seed pack into `state.skill_pack_root(pack_id)/draft`, and publish `v001` when no version exists. Use the seed `SKILL.md` as-is. Use title `path.name.upper()` for current seed packs.
 
@@ -597,7 +597,7 @@ from docagent_api.skill_packs import bootstrap_seed_skill_packs
 bootstrap_seed_skill_packs(state, root / "doc-types")
 ```
 
-- [ ] **Step 5: Run Task 2 verification**
+- [x] **Step 5: Run Task 2 verification**
 
 Run:
 
@@ -607,7 +607,7 @@ python -m pytest services/api/tests/test_skill_packs.py services/api/tests/test_
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```powershell
 git add pyproject.toml services/api/docagent_api/skill_packs.py services/api/docagent_api/app.py services/api/tests/test_skill_packs.py
@@ -624,7 +624,7 @@ git commit -m "feat: bootstrap versioned skill packs"
 - Modify: `services/api/docagent_api/skill_packs.py`
 - Create: `services/api/tests/test_skill_pack_routes.py`
 
-- [ ] **Step 1: Write failing route tests**
+- [x] **Step 1: Write failing route tests**
 
 Create `services/api/tests/test_skill_pack_routes.py`:
 
@@ -684,7 +684,7 @@ def test_pack_artifact_path_traversal_is_rejected(tmp_path: Path) -> None:
     assert response.status_code == 400
 ```
 
-- [ ] **Step 2: Run route tests and verify expected failure**
+- [x] **Step 2: Run route tests and verify expected failure**
 
 Run:
 
@@ -694,7 +694,7 @@ python -m pytest services/api/tests/test_skill_pack_routes.py -q
 
 Expected: FAIL because `/skill-packs` routes are not registered.
 
-- [ ] **Step 3: Add request and response models**
+- [x] **Step 3: Add request and response models**
 
 In `services/api/docagent_api/request_models.py`, add:
 
@@ -778,7 +778,7 @@ class SkillCreatorEventResponse(BaseModel):
 
 Do not expose `snapshot_path` through the API response; it stays in backend state for prompt resolution.
 
-- [ ] **Step 4: Add resource conversion helper**
+- [x] **Step 4: Add resource conversion helper**
 
 In `services/api/docagent_api/skill_packs.py`, add `add_text_resource` that mirrors `import_text_input` but writes under the pack draft root:
 
@@ -790,7 +790,7 @@ resources/reports/{group}/{stem}.json
 
 Store `source_path`, `markdown_path`, and `conversion_report_path` as paths relative to the draft root. Return status `ready` when conversion succeeds. Defer binary upload routes; when they are introduced, they should return status `unsupported` with a conversion report that has `status: failed`.
 
-- [ ] **Step 5: Add routes and include them**
+- [x] **Step 5: Add routes and include them**
 
 Create `services/api/docagent_api/routes/skill_packs.py` with:
 
@@ -824,7 +824,7 @@ Add the remaining endpoints with these behaviors:
 
 In `services/api/docagent_api/app.py`, include `create_skill_packs_router(state)`.
 
-- [ ] **Step 6: Run Task 3 verification**
+- [x] **Step 6: Run Task 3 verification**
 
 Run:
 
@@ -834,7 +834,7 @@ python -m pytest services/api/tests/test_skill_pack_routes.py services/api/tests
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```powershell
 git add services/api/docagent_api/request_models.py services/api/docagent_api/response_models.py services/api/docagent_api/routes/skill_packs.py services/api/docagent_api/app.py services/api/docagent_api/skill_packs.py services/api/tests/test_skill_pack_routes.py
@@ -855,7 +855,7 @@ git commit -m "feat: expose skill pack management routes"
 - Create: `services/api/tests/test_skill_creator_sessions.py`
 - Modify: `agent/runtime-adapters/mock/tests/test_adapter.py`
 
-- [ ] **Step 1: Write failing Skill Creator session tests**
+- [x] **Step 1: Write failing Skill Creator session tests**
 
 Create `services/api/tests/test_skill_creator_sessions.py`:
 
@@ -921,7 +921,7 @@ def test_skill_creator_revision_reads_manual_edit(tmp_path: Path) -> None:
     assert event_types.index("file/read") < event_types.index("file/write")
 ```
 
-- [ ] **Step 2: Run session tests and verify expected failure**
+- [x] **Step 2: Run session tests and verify expected failure**
 
 Run:
 
@@ -931,7 +931,7 @@ python -m pytest services/api/tests/test_skill_creator_sessions.py -q
 
 Expected: FAIL because Skill Creator session endpoints do not exist.
 
-- [ ] **Step 3: Add Skill Creator prompt bundle**
+- [x] **Step 3: Add Skill Creator prompt bundle**
 
 In `services/api/docagent_api/prompts.py`, add:
 
@@ -1007,7 +1007,7 @@ def _budget_skill_creator_resources(resource_manifest: dict[str, object], budget
 
 Add `services/api/tests/test_prompts.py` coverage that passes one spec resource and one long example resource, sets `budget_words=20`, and asserts `budget_warnings` contains a truncation warning and the returned manifest does not include full `markdown` bodies.
 
-- [ ] **Step 4: Add Skill Creator routes**
+- [x] **Step 4: Add Skill Creator routes**
 
 In `request_models.py`, add `SkillCreatorMessageRequest` with `message: str`.
 
@@ -1024,7 +1024,7 @@ In `routes/skill_packs.py`, add:
 
 Session creation should build the prompt bundle with `build_skill_creator_prompt_bundle`, call `adapter.create_session(session_id, prompt_bundle)`, persist a `skill_creator_sessions` row with `session_scope: pack-management` in the response, and persist runtime ACP updates into `skill_creator_events`.
 
-- [ ] **Step 5: Extend mock runtime for pack-management sessions**
+- [x] **Step 5: Extend mock runtime for pack-management sessions**
 
 In `MockRuntimeAdapter.create_session`, store:
 
@@ -1060,7 +1060,7 @@ Add `_run_skill_creator_action` that writes:
 
 It must read existing `SKILL.md` and append revision notes without deleting existing manual lines. Return `RuntimeOperationResult` with `changed_paths` and `acp_updates` containing `message_delta`, `file/read`, `file/write`, and `message_completed`; the `file/read` update for `SKILL.md` must appear before the `file/write` update when revising existing artifacts.
 
-- [ ] **Step 6: Run Task 4 verification**
+- [x] **Step 6: Run Task 4 verification**
 
 Run:
 
@@ -1070,7 +1070,7 @@ python -m pytest services/api/tests/test_prompts.py services/api/tests/test_skil
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 4**
+- [x] **Step 7: Commit Task 4**
 
 ```powershell
 git add services/api/docagent_api/app.py services/api/docagent_api/prompts.py services/api/docagent_api/request_models.py services/api/docagent_api/response_models.py services/api/docagent_api/routes/skill_packs.py services/api/docagent_api/skill_packs.py agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py services/api/tests/test_prompts.py services/api/tests/test_skill_creator_sessions.py agent/runtime-adapters/mock/tests/test_adapter.py
@@ -1089,7 +1089,7 @@ git commit -m "feat: add skill creator management sessions"
 - Create: `services/api/tests/test_authoring_pack_binding.py`
 - Modify: `apps/web/src/types.ts`
 
-- [ ] **Step 1: Write failing binding tests**
+- [x] **Step 1: Write failing binding tests**
 
 Create `services/api/tests/test_authoring_pack_binding.py`:
 
@@ -1146,7 +1146,7 @@ def test_task_creation_keeps_legacy_doc_type_fallback(tmp_path: Path) -> None:
     assert response.json()["pack_version_id"] is None
 ```
 
-- [ ] **Step 2: Run binding tests and verify expected failure**
+- [x] **Step 2: Run binding tests and verify expected failure**
 
 Run:
 
@@ -1156,7 +1156,7 @@ python -m pytest services/api/tests/test_authoring_pack_binding.py -q
 
 Expected: FAIL because `pack_version_id` is not accepted or returned.
 
-- [ ] **Step 3: Add request/response fields**
+- [x] **Step 3: Add request/response fields**
 
 In `CreateTaskRequest`, add:
 
@@ -1176,7 +1176,7 @@ In frontend `TaskRecord`, add:
 pack_version_id?: string | null;
 ```
 
-- [ ] **Step 4: Resolve pack version during task creation**
+- [x] **Step 4: Resolve pack version during task creation**
 
 In `routes/tasks.py`, replace the current `get_doc_type` validation with a published-pack-first lookup that keeps the legacy repo `doc-types` fallback:
 
@@ -1191,7 +1191,7 @@ Save `pack_version_id` on the task row when `pack_version` exists; save `None` w
 
 Update `_task_row_to_dict` in `state.py` and every task response construction path so `pack_version_id` is returned for both newly-created tasks and fetched tasks.
 
-- [ ] **Step 5: Update prompt bundle resolution**
+- [x] **Step 5: Update prompt bundle resolution**
 
 In `build_prompt_bundle`, accept `pack_version_id: str | None` and `skill_path: Path | None` after `doc_type_id`:
 
@@ -1233,7 +1233,7 @@ prompt_bundle = build_prompt_bundle(
 
 Update `worker_tasks.py` `_create_runtime_session` with the same lookup so background workers rehydrate sessions from the immutable published snapshot. Keep `worker_tasks.py` authoring-only: if a loaded session dict ever has `session_scope == "pack-management"`, raise `RuntimeError("Pack-management sessions are not handled by authoring worker")` before reading `task_id`.
 
-- [ ] **Step 6: Run Task 5 verification**
+- [x] **Step 6: Run Task 5 verification**
 
 Run:
 
@@ -1243,7 +1243,7 @@ python -m pytest services/api/tests/test_authoring_pack_binding.py services/api/
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 5**
+- [x] **Step 7: Commit Task 5**
 
 ```powershell
 git add services/api/docagent_api/request_models.py services/api/docagent_api/response_models.py services/api/docagent_api/routes/tasks.py services/api/docagent_api/prompts.py services/api/docagent_api/state.py services/api/tests/test_authoring_pack_binding.py services/api/tests/test_phase2_api.py services/api/tests/test_worker_tasks.py apps/web/src/types.ts
@@ -1262,7 +1262,7 @@ git commit -m "feat: bind authoring tasks to skill pack versions"
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 - Modify: `apps/web/src/shell/__tests__/api.test.ts`
 
-- [ ] **Step 1: Write failing frontend API tests**
+- [x] **Step 1: Write failing frontend API tests**
 
 Add to `apps/web/src/shell/__tests__/api.test.ts`:
 
@@ -1288,7 +1288,7 @@ it("sends Skill Creator generate messages", async () => {
 });
 ```
 
-- [ ] **Step 2: Run frontend API tests and verify expected failure**
+- [x] **Step 2: Run frontend API tests and verify expected failure**
 
 Run:
 
@@ -1299,7 +1299,7 @@ npm run test:unit -- --run src/shell/__tests__/api.test.ts
 
 Expected: FAIL because `createSkillPack` and `generateSkillPack` are not defined.
 
-- [ ] **Step 3: Add frontend types and API methods**
+- [x] **Step 3: Add frontend types and API methods**
 
 In `apps/web/src/types.ts`, add interfaces:
 
@@ -1409,7 +1409,7 @@ publishSkillPack: (packId: string, publish_note: string, acknowledged_warnings: 
   }),
 ```
 
-- [ ] **Step 4: Add Query hooks**
+- [x] **Step 4: Add Query hooks**
 
 Create `apps/web/src/shell/state/useSkillPacks.ts` with:
 
@@ -1505,7 +1505,7 @@ export function usePublishSkillPack(packId: string | null) {
 
 This keeps the MVP drawer as a continuing management conversation for the selected pack instead of creating an orphaned Skill Creator session on every Generate click.
 
-- [ ] **Step 5: Write failing management UI test**
+- [x] **Step 5: Write failing management UI test**
 
 In `AppShell.test.tsx`, extend the API mock with skill-pack methods. Add:
 
@@ -1542,7 +1542,7 @@ it("creates a material-driven skill pack from the settings drawer", async () => 
 });
 ```
 
-- [ ] **Step 6: Implement `SkillPackManager` and drawer integration**
+- [x] **Step 6: Implement `SkillPackManager` and drawer integration**
 
 Create `apps/web/src/shell/management/SkillPackManager.tsx` with:
 
@@ -1561,7 +1561,7 @@ In `SettingsDrawer.tsx`, replace the existing drawer section headed `Skill Creat
 <SkillPackManager />
 ```
 
-- [ ] **Step 7: Run Task 6 verification**
+- [x] **Step 7: Run Task 6 verification**
 
 Run:
 
@@ -1573,7 +1573,7 @@ npm run test
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Task 6**
+- [x] **Step 8: Commit Task 6**
 
 ```powershell
 git add apps/web/src/types.ts apps/web/src/api.ts apps/web/src/shell/state/useSkillPacks.ts apps/web/src/shell/management/SkillPackManager.tsx apps/web/src/shell/SettingsDrawer.tsx apps/web/src/shell/theme/shell.css apps/web/src/shell/__tests__/AppShell.test.tsx apps/web/src/shell/__tests__/api.test.ts
@@ -1589,7 +1589,7 @@ git commit -m "feat: add skill pack management drawer"
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 - Create: `apps/web/src/shell/management/__tests__/ManagementPage.test.tsx`
 
-- [ ] **Step 1: Write failing route test**
+- [x] **Step 1: Write failing route test**
 
 Create `apps/web/src/shell/management/__tests__/ManagementPage.test.tsx`:
 
@@ -1624,7 +1624,7 @@ describe("ManagementPage", () => {
 });
 ```
 
-- [ ] **Step 2: Run route test and verify expected failure**
+- [x] **Step 2: Run route test and verify expected failure**
 
 Run:
 
@@ -1635,7 +1635,7 @@ npm run test:unit -- --run src/shell/management/__tests__/ManagementPage.test.ts
 
 Expected: FAIL because `/management/skill-packs` does not exist.
 
-- [ ] **Step 3: Add route and page**
+- [x] **Step 3: Add route and page**
 
 In `apps/web/src/App.tsx`, add:
 
@@ -1653,11 +1653,11 @@ const routeTree = rootRoute.addChildren([indexRoute, managementRoute]);
 
 Create `ManagementPage.tsx` that renders a full-width operational layout with heading `Skill Packs` and reuses `SkillPackManager`.
 
-- [ ] **Step 4: Add navigation entry**
+- [x] **Step 4: Add navigation entry**
 
 In `TopBar.tsx`, add a compact icon+text button or link labelled `Skill Packs` that navigates to `/management/skill-packs`. Keep the existing settings button because runtime and document type read-only details still live there during the transition.
 
-- [ ] **Step 5: Run Task 7 verification**
+- [x] **Step 5: Run Task 7 verification**
 
 Run:
 
@@ -1669,7 +1669,7 @@ npm run test
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 7**
+- [x] **Step 6: Commit Task 7**
 
 ```powershell
 git add apps/web/src/App.tsx apps/web/src/shell/TopBar.tsx apps/web/src/shell/management/ManagementPage.tsx apps/web/src/shell/management/__tests__/ManagementPage.test.tsx
@@ -1684,7 +1684,7 @@ git commit -m "feat: add skill pack management route"
 - Modify: `docs/architecture/agent-runtime.md`
 - Modify: `docs/superpowers/plans/2026-05-17-skill-creator-versioned-packs.md`
 
-- [ ] **Step 1: Update docs with the new product facts**
+- [x] **Step 1: Update docs with the new product facts**
 
 Update `README.md` current implementation notes to say skill packs are versioned product objects with draft and published states.
 
@@ -1698,7 +1698,7 @@ Update `docs/product/ui-surfaces.md` to replace future-tense Skill Creator wordi
 
 Update `docs/architecture/agent-runtime.md` to state that authoring sessions use `session_scope = authoring` and Skill Creator sessions use `session_scope = pack-management`.
 
-- [ ] **Step 2: Run backend verification**
+- [x] **Step 2: Run backend verification**
 
 Run:
 
@@ -1708,7 +1708,7 @@ python -m pytest packages/contracts/tests services/api/tests agent/runtime-adapt
 
 Expected: PASS.
 
-- [ ] **Step 3: Run frontend verification**
+- [x] **Step 3: Run frontend verification**
 
 Run:
 
@@ -1721,7 +1721,7 @@ npm run build
 
 Expected: PASS. `npm run build` may still emit the existing Vite large-chunk warning; no TypeScript errors are acceptable.
 
-- [ ] **Step 4: Run documentation structure check**
+- [x] **Step 4: Run documentation structure check**
 
 Run:
 
@@ -1731,7 +1731,7 @@ Get-ChildItem -Recurse -File | Select-Object FullName | Out-Null
 
 Expected: exit code 0.
 
-- [ ] **Step 5: Search for stale stubs and old assumptions**
+- [x] **Step 5: Search for stale stubs and old assumptions**
 
 Run:
 
@@ -1741,7 +1741,7 @@ rg -n "Phase 2 place[h]older retained|manual SKILL[.]md editor|doc_type_id only"
 
 Expected: no matches except historical completed plans or quoted review material. If historical matches appear under `docs/*/completed`, leave them unchanged.
 
-- [ ] **Step 6: Mark this plan complete and commit**
+- [x] **Step 6: Mark this plan complete and commit**
 
 Move this file to `docs/superpowers/completed/2026-05-17-skill-creator-versioned-packs.md`, preserving all completed checkboxes.
 

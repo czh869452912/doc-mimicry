@@ -39,6 +39,7 @@ def test_state_persists_task_and_session(tmp_path: Path) -> None:
 
     assert reloaded.get_task("task-001") == {
         **task,
+        "pack_version_id": None,
         "title": "Draft a PRD",
         "description": "Draft a PRD",
     }

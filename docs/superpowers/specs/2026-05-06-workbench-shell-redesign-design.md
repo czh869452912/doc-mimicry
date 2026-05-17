@@ -191,7 +191,7 @@ A line that starts with `/` and matches a known command in the registry is parse
 - Triggered by the gear icon in the top bar. Slides in from the right at ~520px width with a `hairline` left edge. Non-modal — clicking outside closes it; `Esc` closes it.
 - Contents replace the current `ManagementPage`:
   - Section: **Document Types**. List of doc types with selectable detail. Detail shows the resource groups (best-practice examples, specs, checklists, export references, SKILL.md) using the existing read-only layout.
-  - Section: **Skill Creator** — Phase 2 placeholder retained as-is.
+  - Section: **Skill Creator** — at the time of this shell redesign, this was still a Phase 2 placeholder.
   - Section: **Runtime** — read-only display of current runtime adapter (mock vs OpenHands) for transparency. No interactive switching in this redesign.
 - Drawer state lives in component state; closing returns the user to the workspace.
 

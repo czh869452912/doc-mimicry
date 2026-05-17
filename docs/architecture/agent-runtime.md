@@ -57,12 +57,21 @@ checklist, and export are prompts with metadata and product-owned expected
 states. They are not runtime adapter methods. Any runtime-specific implementation
 must adapt to the ACP surface before product state or UI timeline consumption.
 
+Runtime sessions are scoped. Authoring sessions use
+`session_scope = authoring`, a task workspace, and skill guidance resolved from
+the task's immutable published `pack_version_id` when available. Skill Creator
+sessions use `session_scope = pack-management`, a draft skill-pack workspace,
+and management ACP events stored separately from authoring timelines. Background
+authoring workers must reject pack-management sessions instead of treating them
+as task sessions.
+
 ## Runtime-Agnostic Expectations
 
 The rest of the product should reason about:
 
 - task id
 - session id
+- session scope
 - workspace paths
 - ACP events
 - semantic projections

@@ -18,7 +18,7 @@ The project goal is a general document coding-agent experience, not a fixed work
 | `packages/` | Shared ACP contracts, workspace helpers, doctype pack helpers, and projection helpers. |
 | `agent/` | System prompts, skill guidance, and runtime adapter notes. |
 | `tools/` | Fixed workspace, export, and repository scripts. |
-| `doc-types/` | Seed document type packs, starting with PRD. |
+| `doc-types/` | Seed document type packs that bootstrap into versioned skill packs. |
 | `tests/` | Cross-cutting tests once implementation begins. |
 
 ## Local Startup
@@ -99,6 +99,14 @@ agent interaction is ACP-first: the backend owns the ACP event log, the center
 authoring surface reads `/sessions/{session_id}/events`, runtime selection uses
 `mock-acp` or `openhands-acp`, and OpenHands model traffic is routed through
 LiteLLM aliases when the real runtime is selected.
+
+Document type guidance is now a versioned product object. Seed packs under
+`doc-types/` bootstrap into draft/published skill packs, published snapshots are
+immutable, and new authoring tasks bind to a published `pack_version_id` when
+one exists. The Skill Creator management surface accepts pasted source
+materials, lets the agent generate or revise `SKILL.md`, checklists, and notes,
+keeps direct user edits as current artifact state, validates the draft, and
+publishes a new version only by explicit user action.
 
 Current active work should preserve the original product boundary while closing
 implementation gaps:

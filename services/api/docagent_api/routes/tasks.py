@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
 
-from docagent_api.doctypes import get_doc_type
+from docagent_api.doctypes import get_doc_type, is_valid_doc_type_id
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
 from docagent_api.prompts import build_prompt_bundle
@@ -47,6 +47,8 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
 
     @router.post("/tasks", response_model=TaskResponse)
     def create_task(request: CreateTaskRequest) -> dict[str, Any]:
+        if not is_valid_doc_type_id(request.doc_type_id):
+            raise HTTPException(status_code=404, detail="Document type not found")
         pack_version = (
             state.get_skill_pack_version(request.pack_version_id)
             if request.pack_version_id
