@@ -75,7 +75,7 @@ Rules:
 source_path: string
 markdown_path: string | null
 asset_dir: string | null
-engine: docling | markitdown | pandoc | mineru | marker | manual | unknown
+engine: docling | markitdown | pandoc | mineru | marker | pypdf | manual | unknown
 status: succeeded | succeeded_with_warnings | failed
 warnings:
   - type: string

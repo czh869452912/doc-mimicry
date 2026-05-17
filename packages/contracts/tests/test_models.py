@@ -64,6 +64,7 @@ def test_conversion_report_warning_shape():
 
     assert report.warnings[0]["type"] == "unsupported"
     assert report.features_detected["pages"] is None
+    assert ConversionEngine.PYPDF.value == "pypdf"
 
 
 def test_semantic_timeline_event_shape():

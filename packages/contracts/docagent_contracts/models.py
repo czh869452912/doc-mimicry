@@ -42,6 +42,7 @@ class ConversionEngine(str, Enum):
     PANDOC = "pandoc"
     MINERU = "mineru"
     MARKER = "marker"
+    PYPDF = "pypdf"
     MANUAL = "manual"
     UNKNOWN = "unknown"
 

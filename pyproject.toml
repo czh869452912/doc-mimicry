@@ -11,6 +11,7 @@ dependencies = [
   "celery[redis]>=5.3",
   "redis>=5.0",
   "PyYAML>=6.0",
+  "pypdf>=5.0",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,7 @@ packages = []
 [tool.pytest.ini_options]
 pythonpath = [
   "packages/contracts",
+  "packages/conversion",
   "packages/workspace",
   "packages/timeline",
   "tools/import",
