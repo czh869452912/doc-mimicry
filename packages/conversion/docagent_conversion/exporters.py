@@ -1,6 +1,71 @@
 from __future__ import annotations
 
+import html
 import textwrap
+import zipfile
+from pathlib import Path
+from typing import Any
+
+
+def export_markdown_to_docx(source_markdown: Path, output_path: Path) -> dict[str, Any]:
+    text = source_markdown.read_text(encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    document_xml = _document_xml(_markdown_lines_to_text(text))
+    with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", _content_types_xml())
+        archive.writestr("_rels/.rels", _rels_xml())
+        archive.writestr("word/document.xml", document_xml)
+    return {"status": "created", "kind": "docx", "path": str(output_path)}
+
+
+def export_markdown_to_pdf(source_markdown: Path, output_path: Path) -> dict[str, Any]:
+    text = source_markdown.read_text(encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(_simple_pdf_bytes(_markdown_lines_to_text(text)))
+    return {"status": "created", "kind": "pdf", "path": str(output_path)}
+
+
+def _markdown_lines_to_text(markdown: str) -> list[str]:
+    lines: list[str] = []
+    for raw in markdown.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            line = line.lstrip("#").strip()
+        if line:
+            lines.append(line)
+    return lines or [""]
+
+
+def _document_xml(lines: list[str]) -> str:
+    paragraphs = "".join(
+        f"<w:p><w:r><w:t>{html.escape(line)}</w:t></w:r></w:p>"
+        for line in lines
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{paragraphs}</w:body></w:document>"
+    )
+
+
+def _content_types_xml() -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+        "</Types>"
+    )
+
+
+def _rels_xml() -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+        "</Relationships>"
+    )
 
 
 def _simple_pdf_bytes(lines: list[str]) -> bytes:

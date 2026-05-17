@@ -1,7 +1,11 @@
 # Export Tools
 
-Planned scripts:
+Fixed export tools convert internal Markdown drafts into external artifacts.
 
-- `export_docx.py`: export `draft/draft.md` to DOCX using a reference document when available.
-- `export_pdf.py`: optional later PDF export.
+```powershell
+python tools/export/export_docx.py --source path/to/workspace/draft/draft.md --output path/to/workspace/artifacts/draft.docx
+python tools/export/export_pdf.py --source path/to/workspace/draft/draft.md --output path/to/workspace/artifacts/draft.pdf
+```
 
+These tools are boundary converters. They do not make DOCX or PDF editable
+workspace formats.
