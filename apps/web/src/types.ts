@@ -110,6 +110,7 @@ export interface SkillPackResource {
   pack_id: string;
   group: "examples" | "specs" | "checklists" | "export-references";
   original_filename: string;
+  source_path: string;
   markdown_path?: string | null;
   conversion_report_path: string;
   status: "ready" | "warning" | "failed" | "unsupported";

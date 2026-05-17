@@ -7,6 +7,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import type { SkillPackResource } from "../../types";
 import {
+  useAddSkillPackFileResource,
   useAddSkillPackTextResource,
   useCreateSkillPack,
   usePublishSkillPack,
@@ -105,6 +106,7 @@ function CreatePackForm({ onCreated }: { onCreated: (id: string) => void }) {
 
 function PackWorkSurface({ packId }: { packId: string }) {
   const addResource = useAddSkillPackTextResource(packId);
+  const addFileResource = useAddSkillPackFileResource(packId);
   const generatePack = useSkillCreatorGeneration(packId);
   const skillArtifact = useSkillPackArtifact(packId, "SKILL.md");
   const updateArtifact = useUpdateSkillPackArtifact(packId);
@@ -140,11 +142,22 @@ function PackWorkSurface({ packId }: { packId: string }) {
         </div>
         <Label htmlFor="resource-content">Material text</Label>
         <Textarea id="resource-content" value={resourceContent} onChange={(event) => setResourceContent(event.target.value)} />
+        <Label htmlFor="resource-file">Upload material file</Label>
+        <Input
+          aria-label="Upload material file"
+          id="resource-file"
+          type="file"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) addFileResource.mutate({ group: resourceGroup, file });
+            event.target.value = "";
+          }}
+        />
         <Button
           size="sm"
           variant="outline"
           type="button"
-          disabled={addResource.isPending || !resourceContent.trim()}
+          disabled={addResource.isPending || addFileResource.isPending || !resourceContent.trim()}
           onClick={() => addResource.mutate({ group: resourceGroup, name: resourceName, content: resourceContent })}
         >
           <Upload size={14} />

@@ -476,6 +476,7 @@ describe("AppShell", () => {
       pack_id: "memo",
       group: "examples",
       original_filename: "memo.txt",
+      source_path: "resources/original/examples/memo.txt",
       markdown_path: "resources/markdown/examples/memo.md",
       conversion_report_path: "resources/reports/examples/memo.json",
       status: "ready",

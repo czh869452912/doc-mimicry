@@ -134,6 +134,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ group, name, content }),
     }),
+  addSkillPackFileResource: (packId: string, group: SkillPackResource["group"], file: File) => {
+    const formData = new FormData();
+    formData.append("group", group);
+    formData.append("file", file);
+    return upload<SkillPackResource>(`/skill-packs/${packId}/resources/files`, formData);
+  },
   updateSkillPackArtifact: (packId: string, path: string, content: string, summary: string) =>
     request<SkillPackArtifact>(`/skill-packs/${packId}/artifacts`, {
       method: "PUT",

@@ -27,6 +27,17 @@ export function useAddSkillPackTextResource(packId: string | null) {
   });
 }
 
+export function useAddSkillPackFileResource(packId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ group, file }: { group: SkillPackResource["group"]; file: File }) => {
+      if (!packId) throw new Error("Pack id is required");
+      return api.addSkillPackFileResource(packId, group, file);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skillPacks"] }),
+  });
+}
+
 export function useSkillPackArtifact(packId: string | null, path: string) {
   return useQuery({
     queryKey: ["skillPackArtifact", packId, path],
