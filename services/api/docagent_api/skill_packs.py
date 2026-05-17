@@ -11,6 +11,7 @@ from uuid import uuid4
 
 import yaml
 
+from docagent_conversion import ConversionLayout, convert_resource_bytes
 from docagent_api.state import DocAgentState
 from docagent_api.time import utc_now
 
@@ -66,41 +67,29 @@ def add_text_resource(
     if group not in PACK_GROUPS:
         raise ValueError("Invalid resource group")
     root = draft_root(state, pack_id)
-    stem = _unique_resource_stem(root, group, _safe_stem(name))
-    original_path = root / "resources" / "original" / group / f"{stem}.txt"
-    markdown_path = root / "resources" / "markdown" / group / f"{stem}.md"
-    report_path = root / "resources" / "reports" / group / f"{stem}.json"
-    for path in [original_path.parent, markdown_path.parent, report_path.parent]:
-        path.mkdir(parents=True, exist_ok=True)
     text = content if content.endswith("\n") else f"{content}\n"
-    original_path.write_text(text, encoding="utf-8")
-    markdown_path.write_text(text, encoding="utf-8")
-    report = {
-        "source_path": original_path.relative_to(root).as_posix(),
-        "markdown_path": markdown_path.relative_to(root).as_posix(),
-        "asset_dir": None,
-        "engine": "manual",
-        "status": "succeeded",
-        "warnings": [],
-        "features_detected": {
-            "tables": 0,
-            "images": 0,
-            "formulas": 0,
-            "footnotes": 0,
-            "pages": None,
-        },
-        "created_at": utc_now(),
-    }
-    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    result = convert_resource_bytes(
+        ConversionLayout(
+            root=root,
+            original_dir=f"resources/original/{group}",
+            markdown_dir=f"resources/markdown/{group}",
+            assets_dir=f"resources/assets/{group}",
+            reports_dir=f"resources/reports/{group}",
+        ),
+        original_filename=name,
+        content=text.encode("utf-8"),
+        mime_type="text/plain",
+        created_at=utc_now(),
+    )
     return {
         "id": f"resource-{uuid4().hex[:12]}",
         "pack_id": pack_id,
         "group": group,
         "original_filename": name,
-        "source_path": report["source_path"],
-        "markdown_path": report["markdown_path"],
-        "conversion_report_path": report_path.relative_to(root).as_posix(),
-        "status": "ready",
+        "source_path": result["source_path"],
+        "markdown_path": result["markdown_path"],
+        "conversion_report_path": result["conversion_report_path"],
+        "status": _resource_status(result),
         "summary": "",
     }
 
@@ -236,6 +225,14 @@ def _unique_resource_stem(root: Path, group: str, base_stem: str) -> str:
         stem = f"{base_stem}-{suffix}"
         suffix += 1
     return stem
+
+
+def _resource_status(result: dict[str, Any]) -> str:
+    if result["status"] == "converted" and result.get("warnings"):
+        return "warning"
+    if result["status"] == "converted":
+        return "ready"
+    return "failed"
 
 
 def _snapshot_manifest(root: Path) -> dict[str, Any]:

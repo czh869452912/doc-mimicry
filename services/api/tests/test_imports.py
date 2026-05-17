@@ -16,9 +16,11 @@ def test_import_text_input_writes_original_markdown_and_report(tmp_path: Path) -
     assert result["status"] == "converted"
     assert result["source_path"] == "inputs/original/notes.txt"
     assert result["markdown_path"] == "inputs/markdown/notes.md"
+    assert result["conversion_report_path"] == "inputs/reports/notes.conversion.json"
+    assert result["warnings"] == []
     assert (workspace / "inputs" / "original" / "notes.txt").read_text(encoding="utf-8") == "User research notes\n"
     assert (workspace / "inputs" / "markdown" / "notes.md").read_text(encoding="utf-8") == "User research notes\n"
-    assert (workspace / "inputs" / "reports" / "notes.json").exists()
+    assert (workspace / "inputs" / "reports" / "notes.conversion.json").exists()
 
 
 def test_import_text_input_uses_unique_paths_for_duplicate_names(tmp_path: Path) -> None:

@@ -51,3 +51,20 @@ def test_pack_artifact_path_traversal_is_rejected(tmp_path: Path) -> None:
     })
 
     assert response.status_code == 400
+
+
+def test_create_pack_add_text_resource_uses_conversion_report_contract(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
+
+    response = client.post("/skill-packs/memo/resources/text", json={
+        "group": "examples",
+        "name": "example.txt",
+        "content": "Memo body",
+    })
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready"
+    assert body["markdown_path"] == "resources/markdown/examples/example.md"
+    assert body["conversion_report_path"] == "resources/reports/examples/example.conversion.json"

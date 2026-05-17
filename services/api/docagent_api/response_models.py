@@ -64,10 +64,11 @@ class ImportedInputResponse(BaseModel):
     id: str
     status: str
     source_path: str
-    markdown_path: str
+    markdown_path: str | None = None
     conversion_report_path: str
     original_filename: str
     created_at: str
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
     event: dict | None = None
 
 
