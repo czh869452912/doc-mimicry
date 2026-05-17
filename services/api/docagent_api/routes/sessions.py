@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from fastapi import WebSocket
 
+from docagent_conversion import export_markdown_to_docx, export_markdown_to_pdf
 from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.celery_app import celery_app
 from docagent_api.request_models import (
@@ -354,6 +355,61 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         append_runtime_result(state, task["id"], session_id, result)
         set_session_state(state, session, result.next_state, task_id=task["id"])
         return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
+
+    @router.post("/sessions/{session_id}/artifacts/export-docx", response_model=LoopActionResponse)
+    def export_docx(session_id: str) -> dict[str, Any]:
+        return _export_draft_artifact(
+            session_id,
+            extension="docx",
+            kind=SemanticEventKind.EXPORT_DOCX,
+            summary="Export DOCX",
+        )
+
+    @router.post("/sessions/{session_id}/artifacts/export-pdf", response_model=LoopActionResponse)
+    def export_pdf(session_id: str) -> dict[str, Any]:
+        return _export_draft_artifact(
+            session_id,
+            extension="pdf",
+            kind=SemanticEventKind.EXPORT_PDF,
+            summary="Export PDF",
+        )
+
+    def _export_draft_artifact(
+        session_id: str,
+        *,
+        extension: str,
+        kind: SemanticEventKind,
+        summary: str,
+    ) -> dict[str, Any]:
+        session = require_session(state, session_id)
+        task = require_task(state, session["task_id"])
+        workspace_root = Path(task["workspace_root"])
+        draft_path = workspace_root / "draft" / "draft.md"
+        if not draft_path.exists():
+            raise HTTPException(status_code=400, detail="Draft does not exist.")
+
+        stem = str(task["doc_type_id"]).replace("/", "-").replace("\\", "-")
+        artifact_relative = f"artifacts/{stem}-draft.{extension}"
+        artifact_path = workspace_root / artifact_relative
+        if extension == "docx":
+            export_markdown_to_docx(draft_path, artifact_path)
+        elif extension == "pdf":
+            export_markdown_to_pdf(draft_path, artifact_path)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported export format: {extension}")
+
+        event = manual_event(
+            task["id"],
+            session_id,
+            f"{kind.value}-{uuid4().hex[:8]}",
+            TimelineActor.TOOL,
+            kind,
+            summary,
+            [artifact_relative],
+        )
+        state.append_timeline_event(session_id, asdict(event))
+        append_acp_projection_event(state, session_id, event)
+        return {"session_id": session_id, "artifact_path": artifact_relative, "paths": [artifact_relative]}
 
     @router.post("/sessions/{session_id}/messages", response_model=LoopActionResponse)
     def send_message(

@@ -9,6 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 for relative in [
     "services/api",
     "packages/contracts",
+    "packages/conversion",
     "packages/workspace",
     "packages/timeline",
     "agent/runtime-adapters/openhands",
@@ -65,6 +66,10 @@ def main() -> int:
     print("ran checklist")
     client.post(f"/sessions/{session['id']}/artifacts/export-markdown").raise_for_status()
     print("exported markdown")
+    client.post(f"/sessions/{session['id']}/artifacts/export-docx").raise_for_status()
+    print("exported docx")
+    client.post(f"/sessions/{session['id']}/artifacts/export-pdf").raise_for_status()
+    print("exported pdf")
     print("ok")
     return 0
 
