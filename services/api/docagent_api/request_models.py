@@ -73,3 +73,7 @@ class UpdateSkillPackArtifactRequest(BaseModel):
 class PublishSkillPackRequest(BaseModel):
     publish_note: str = ""
     acknowledged_warnings: list[str] = Field(default_factory=list)
+
+
+class SkillCreatorMessageRequest(BaseModel):
+    message: str

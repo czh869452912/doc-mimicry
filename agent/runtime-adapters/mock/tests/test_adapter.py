@@ -91,6 +91,34 @@ def test_mock_runtime_answers_permission_requests(tmp_path: Path) -> None:
     assert result.acp_updates[0].payload == {"request_id": "permission-1", "decision": "deny"}
 
 
+def test_mock_runtime_generates_skill_creator_artifacts(tmp_path: Path) -> None:
+    adapter = MockRuntimeAdapter()
+    adapter.create_session("creator-001", _skill_creator_prompt_bundle(tmp_path))
+
+    result = adapter.send_prompt("creator-001", "Generate memo pack", {"action": "skill_creator_generate"})
+
+    assert "SKILL.md" in result.changed_paths
+    assert (tmp_path / "SKILL.md").is_file()
+    assert (tmp_path / "checklists" / "quality.yaml").is_file()
+    assert any(update.event_type == "file/write" for update in result.acp_updates)
+
+
+def test_mock_runtime_skill_creator_revision_reads_existing_skill(tmp_path: Path) -> None:
+    (tmp_path / "SKILL.md").write_text(
+        "---\nname: memo\ndescription: Use for memos.\n---\n\n# Memo\n\nPreserve this line.\n",
+        encoding="utf-8",
+    )
+    adapter = MockRuntimeAdapter()
+    adapter.create_session("creator-001", _skill_creator_prompt_bundle(tmp_path))
+
+    result = adapter.send_prompt("creator-001", "Revise without removing manual edits", {"action": "skill_creator_message"})
+    event_types = [update.event_type for update in result.acp_updates]
+
+    assert "Preserve this line." in (tmp_path / "SKILL.md").read_text(encoding="utf-8")
+    assert "file/read" in event_types
+    assert event_types.index("file/read") < event_types.index("file/write")
+
+
 def _prompt_bundle(workspace: Path) -> PromptBundle:
     return PromptBundle(
         system_prompt="system",
@@ -98,4 +126,15 @@ def _prompt_bundle(workspace: Path) -> PromptBundle:
         workspace_root=workspace,
         doc_type_id="prd",
         metadata={"task_id": "task-001"},
+    )
+
+
+def _skill_creator_prompt_bundle(workspace: Path) -> PromptBundle:
+    return PromptBundle(
+        system_prompt="system",
+        task_instruction="task",
+        workspace_root=workspace,
+        doc_type_id="",
+        pack_id="memo",
+        metadata={"session_scope": "pack-management", "pack_id": "memo"},
     )

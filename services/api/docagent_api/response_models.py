@@ -153,3 +153,16 @@ class SkillCreatorEventResponse(BaseModel):
     payload: dict[str, Any]
     projection: dict[str, Any] = Field(default_factory=dict)
     created_at: str
+
+
+class SkillCreatorSessionResponse(BaseModel):
+    id: str
+    pack_id: str
+    session_scope: str
+    status: str
+    runtime: str | None = None
+    runtime_session_id: str | None = None
+
+
+class SkillCreatorRunResponse(BaseModel):
+    paths: list[str]

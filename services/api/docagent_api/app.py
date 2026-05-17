@@ -63,7 +63,7 @@ def create_app(
         return {"status": "ok", "runtime": runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock-acp")}
 
     app.include_router(create_doctypes_router(root))
-    app.include_router(create_skill_packs_router(state))
+    app.include_router(create_skill_packs_router(state, adapter))
     app.include_router(create_tasks_router(state, adapter, root))
     app.include_router(create_sessions_router(state, adapter, runner))
 

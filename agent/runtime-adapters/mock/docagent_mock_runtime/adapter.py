@@ -26,11 +26,20 @@ class MockRuntimeAdapter:
         self._sessions: dict[str, dict[str, object]] = {}
 
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
-        self._sessions[session_id] = {
-            "task_id": str(prompt_bundle.metadata["task_id"]),
+        session_scope = str(prompt_bundle.metadata.get("session_scope", "authoring"))
+        session: dict[str, object] = {
             "workspace_root": prompt_bundle.workspace_root,
             "state": RuntimeSessionState.IDLE,
+            "session_scope": session_scope,
         }
+        if session_scope == "pack-management":
+            pack_id = prompt_bundle.pack_id or prompt_bundle.metadata.get("pack_id")
+            if not pack_id:
+                raise ValueError("Pack-management sessions require pack_id")
+            session["pack_id"] = str(pack_id)
+        else:
+            session["task_id"] = str(prompt_bundle.metadata["task_id"])
+        self._sessions[session_id] = session
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
     def send_prompt(
@@ -40,13 +49,14 @@ class MockRuntimeAdapter:
         metadata: dict[str, object] | None = None,
     ) -> RuntimeOperationResult:
         result = self._run_prompt_action(session_id, prompt, metadata or {})
+        acp_updates = result.acp_updates or self._acp_updates_for_events(session_id, prompt, result.events)
         return RuntimeOperationResult(
             session_id=session_id,
             next_state=result.next_state,
             events=result.events,
             changed_paths=result.changed_paths,
             raw_events=result.raw_events,
-            acp_updates=self._acp_updates_for_events(session_id, prompt, result.events),
+            acp_updates=acp_updates,
         )
 
     def stream_updates(self, session_id: str) -> list[AcpRuntimeUpdate]:
@@ -137,6 +147,9 @@ class MockRuntimeAdapter:
         prompt: str,
         metadata: dict[str, object],
     ) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        if session.get("session_scope") == "pack-management":
+            return self._run_skill_creator_action(session_id, prompt)
         action = metadata.get("action")
         if action == "start_loop":
             return self._start_loop(session_id)
@@ -149,6 +162,80 @@ class MockRuntimeAdapter:
         if action == "export_markdown":
             return self._export_markdown(session_id)
         return self._send_message(session_id, prompt)
+
+    def _run_skill_creator_action(
+        self,
+        session_id: str,
+        prompt: str,
+    ) -> RuntimeOperationResult:
+        session = self._session(session_id)
+        pack_id = str(session["pack_id"])
+        workspace_root = Path(session["workspace_root"])
+        (workspace_root / "checklists").mkdir(parents=True, exist_ok=True)
+        (workspace_root / "notes").mkdir(parents=True, exist_ok=True)
+
+        skill_path = workspace_root / "SKILL.md"
+        existing_skill = _read_text(skill_path)
+        skill_markdown = _skill_creator_skill_markdown(pack_id, prompt, existing_skill)
+        checklist_yaml = _skill_creator_checklist_yaml(pack_id)
+        resource_notes = _skill_creator_resource_notes(pack_id, prompt)
+
+        updates = [
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="message_delta",
+                payload={
+                    "role": "assistant",
+                    "content": f"Preparing skill pack artifacts for {pack_id}.",
+                    "message_id": f"{session_id}-skill-creator-message",
+                },
+            ),
+        ]
+        if existing_skill:
+            updates.append(
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="file/read",
+                    payload={"path": "SKILL.md", "reason": "preserve current manual artifact state"},
+                )
+            )
+
+        writes = {
+            "SKILL.md": skill_markdown,
+            "checklists/quality.yaml": checklist_yaml,
+            "notes/resources.md": resource_notes,
+        }
+        for relative_path, content in writes.items():
+            target = workspace_root / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            updates.append(
+                AcpRuntimeUpdate(
+                    session_id=session_id,
+                    event_type="file/write",
+                    payload={"path": relative_path},
+                    projection={
+                        "summary": f"Write {relative_path}",
+                        "paths": [relative_path],
+                        "status": "succeeded",
+                    },
+                )
+            )
+
+        updates.append(
+            AcpRuntimeUpdate(
+                session_id=session_id,
+                event_type="message_completed",
+                payload={"role": "assistant", "message_id": f"{session_id}-skill-creator-message"},
+            )
+        )
+        self._set_state(session_id, RuntimeSessionState.IDLE)
+        return RuntimeOperationResult(
+            session_id=session_id,
+            next_state=RuntimeSessionState.IDLE,
+            changed_paths=list(writes.keys()),
+            acp_updates=updates,
+        )
 
     def _send_message(
         self,
@@ -474,6 +561,51 @@ def _read_markdown_inputs(workspace_root: Path) -> str:
     for path in sorted(markdown_dir.glob("*.md")):
         chunks.append(f"### {path.name}\n\n{path.read_text(encoding='utf-8').strip()}")
     return "\n\n".join(chunks)
+
+
+def _skill_creator_skill_markdown(pack_id: str, prompt: str, existing_skill: str) -> str:
+    title = pack_id.replace("-", " ").title()
+    if existing_skill:
+        return (
+            existing_skill.rstrip()
+            + "\n\n## Skill Creator Revision\n\n"
+            f"- User instruction: {prompt}\n"
+            "- Preserve validated human edits while tightening guidance from source materials.\n"
+        )
+    return (
+        "---\n"
+        f"name: {pack_id}\n"
+        f"description: Use for {title.lower()} documents.\n"
+        "---\n\n"
+        f"# {title}\n\n"
+        "Use this skill when creating or revising documents in this pack.\n\n"
+        "## Guidance\n\n"
+        "- Start from the user's brief and uploaded materials.\n"
+        "- Mirror useful structure and style from examples without copying source text.\n"
+        "- Keep the authoring loop conversational, interruptible, and observable.\n\n"
+        "## Skill Creator Notes\n\n"
+        f"- Initial instruction: {prompt}\n"
+    )
+
+
+def _skill_creator_checklist_yaml(pack_id: str) -> str:
+    return (
+        "checks:\n"
+        f"  - id: {pack_id}-intent\n"
+        "    description: Document reflects the user's stated intent.\n"
+        "  - id: source-use\n"
+        "    description: Source materials inform structure without verbatim copying.\n"
+        "  - id: observable-edits\n"
+        "    description: Significant changes are visible through agent events.\n"
+    )
+
+
+def _skill_creator_resource_notes(pack_id: str, prompt: str) -> str:
+    return (
+        f"# Resource Notes for {pack_id}\n\n"
+        "Skill Creator should summarize converted resources before using them as guidance.\n\n"
+        f"Latest instruction: {prompt}\n"
+    )
 
 
 def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:
