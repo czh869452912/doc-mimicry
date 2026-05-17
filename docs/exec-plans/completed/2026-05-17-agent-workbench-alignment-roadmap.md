@@ -329,7 +329,7 @@ git diff --check -- . ':!.claude/settings.local.json'
 - [x] Update `docs/product/ui-surfaces.md` if management/authoring responsibilities changed. No update was needed.
 - [x] Update `docs/architecture/agent-runtime.md` if OpenHands smoke or contract behavior changed. Covered in Phase 1.
 - [x] Update `docs/architecture/workspace-contract.md` if checkpoint semantics changed. Covered in Phase 2.
-- [ ] Move this plan from `docs/exec-plans/active/` to `docs/exec-plans/completed/` after implementation and verification.
+- [x] Move this plan from `docs/exec-plans/active/` to `docs/exec-plans/completed/` after implementation and verification.
 
 Completed verification:
 
