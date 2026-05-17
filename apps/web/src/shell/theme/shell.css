@@ -89,6 +89,10 @@
   background: #f59e0b; /* amber — outline awaiting approval */
 }
 
+.status-dot[data-status="completed"] {
+  background: var(--color-accent);
+}
+
 .icon-button,
 .command-chip {
   display: inline-flex;

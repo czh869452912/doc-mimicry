@@ -74,3 +74,39 @@ def test_create_draft_checkpoint_emits_latest_session_timeline_and_acp_event(tmp
         and event["projection"]["paths"] == ["versions/v001.md"]
         for event in acp_events
     )
+
+
+def test_create_draft_checkpoint_emits_event_to_requested_session(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Observable checkpoint"}).json()
+    active_session = client.post(f"/tasks/{task['id']}/sessions").json()
+    other_session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Draft\n"})
+
+    response = client.post(
+        f"/tasks/{task['id']}/draft/checkpoints",
+        json={"note": "Manual checkpoint", "session_id": active_session["id"]},
+    )
+
+    assert response.status_code == 200
+    active_timeline = client.get(f"/sessions/{active_session['id']}/timeline").json()
+    other_timeline = client.get(f"/sessions/{other_session['id']}/timeline").json()
+
+    assert any(event["kind"] == "create_checkpoint" for event in active_timeline)
+    assert other_timeline == []
+
+
+def test_create_draft_checkpoint_rejects_session_from_another_task(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Observable checkpoint"}).json()
+    other_task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Other workspace"}).json()
+    other_session = client.post(f"/tasks/{other_task['id']}/sessions").json()
+    client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Draft\n"})
+
+    response = client.post(
+        f"/tasks/{task['id']}/draft/checkpoints",
+        json={"note": "Manual checkpoint", "session_id": other_session["id"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Session not found or does not belong to this task."

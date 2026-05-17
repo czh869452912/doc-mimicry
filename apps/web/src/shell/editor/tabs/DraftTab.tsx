@@ -1,8 +1,8 @@
 import { MessageSquare, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LazyDraftEditor } from "../LazyDraftEditor";
 import { LazyMarkdownPreview } from "../LazyMarkdownPreview";
-import { useAutoSave } from "../useAutoSave";
+import { type SaveState, useAutoSave } from "../useAutoSave";
 
 interface DraftTabProps {
   activeSessionId: string | null;
@@ -12,8 +12,12 @@ interface DraftTabProps {
   checkpointPending?: boolean;
   taskId: string | null;
   serverDraft?: string;
-  onCreateCheckpoint?: (draft: string, lastSavedMarkdown: string) => Promise<void> | void;
+  onCreateCheckpoint?: (
+    draft: string,
+    lastSavedMarkdown: string,
+  ) => Promise<boolean | string | void> | boolean | string | void;
   onDraftChange: (draft: string) => void;
+  onSaveStateChange?: (saveState: SaveState) => void;
   onReviseSelection?: (selectedText: string) => void;
   onSendSelectionToChat?: (selectedText: string) => void;
 }
@@ -26,6 +30,7 @@ export function DraftTab({
   draft,
   onCreateCheckpoint,
   onDraftChange,
+  onSaveStateChange,
   onReviseSelection,
   onSendSelectionToChat,
   serverDraft,
@@ -34,6 +39,9 @@ export function DraftTab({
   const [mode, setMode] = useState<"preview" | "source">("preview");
   const [selectedText, setSelectedText] = useState("");
   const { lastSavedMarkdown, saveState } = useAutoSave(taskId, draft, autoSaveEnabled, serverDraft);
+  useEffect(() => {
+    onSaveStateChange?.(saveState);
+  }, [onSaveStateChange, saveState]);
   const canCreateCheckpoint = Boolean(
     taskId
     && onCreateCheckpoint

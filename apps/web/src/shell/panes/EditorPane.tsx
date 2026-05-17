@@ -6,6 +6,7 @@ import { FileTab } from "../editor/tabs/FileTab";
 import { LazyDiffTab } from "../editor/tabs/LazyDiffTab";
 import { VersionTab } from "../editor/tabs/VersionTab";
 import type { EditorTab } from "../editor/useTabs";
+import type { SaveState } from "../editor/useAutoSave";
 
 interface EditorPaneProps {
   activeSessionId: string | null;
@@ -18,8 +19,12 @@ interface EditorPaneProps {
   tabs: EditorTab[];
   taskId: string | null;
   onCloseTab: (tabId: string) => void;
-  onCreateCheckpoint?: (draft: string, lastSavedMarkdown: string) => Promise<void> | void;
+  onCreateCheckpoint?: (
+    draft: string,
+    lastSavedMarkdown: string,
+  ) => Promise<boolean | string | void> | boolean | string | void;
   onDraftChange: (draft: string) => void;
+  onDraftSaveStateChange?: (saveState: SaveState) => void;
   onReviseSelection?: (selectedText: string) => void;
   onSendSelectionToChat?: (selectedText: string) => void;
   onTabChange: (tabId: string) => void;
@@ -35,6 +40,7 @@ export function EditorPane({
   onCloseTab,
   onCreateCheckpoint,
   onDraftChange,
+  onDraftSaveStateChange,
   onReviseSelection,
   onSendSelectionToChat,
   serverDraft,
@@ -74,6 +80,7 @@ export function EditorPane({
             draftAutoSaveEnabled,
             onCreateCheckpoint,
             onDraftChange,
+            onDraftSaveStateChange,
             onReviseSelection,
             onSendSelectionToChat,
             serverDraft,
@@ -96,6 +103,7 @@ function renderTab(
     | "draftAutoSaveEnabled"
     | "onCreateCheckpoint"
     | "onDraftChange"
+    | "onDraftSaveStateChange"
     | "onReviseSelection"
     | "onSendSelectionToChat"
     | "serverDraft"
@@ -113,6 +121,7 @@ function renderTab(
         taskId={props.taskId}
         onCreateCheckpoint={props.onCreateCheckpoint}
         onDraftChange={props.onDraftChange}
+        onSaveStateChange={props.onDraftSaveStateChange}
         onReviseSelection={props.onReviseSelection}
         onSendSelectionToChat={props.onSendSelectionToChat}
         serverDraft={props.serverDraft}

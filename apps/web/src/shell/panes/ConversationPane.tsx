@@ -15,6 +15,7 @@ interface ConversationPaneProps {
   ensureSession: () => Promise<SessionRecord | null>;
   events: AcpEvent[];
   error: string | null;
+  externalStatus?: string;
   loading: boolean;
   onOpenPath: (path: string) => Promise<void>;
   onQueuedComposerDraftHandled?: () => void;
@@ -34,6 +35,7 @@ export function ConversationPane({
   ensureSession,
   events,
   error,
+  externalStatus = "",
   loading,
   onQueuedComposerDraftHandled,
   onQueuedCommandHandled,
@@ -45,14 +47,21 @@ export function ConversationPane({
   refreshSessions,
 }: ConversationPaneProps) {
   const [status, setStatus] = useState("");
+  const [statusSource, setStatusSource] = useState<"internal" | "external">("internal");
   const [showHelp, setShowHelp] = useState(false);
   const eventsRef = useRef(events);
   const cancellationInFlightRef = useRef(false);
   const isRunning = Boolean(activeSession?.status?.startsWith("running"));
+  eventsRef.current = events;
 
   useEffect(() => {
-    eventsRef.current = events;
-  }, [events]);
+    if (externalStatus) setStatusSource("external");
+  }, [externalStatus]);
+
+  const setInternalStatus = useCallback((message: string) => {
+    setStatusSource("internal");
+    setStatus(message);
+  }, []);
 
   const cancelActiveSession = useCallback(async () => {
     if (!activeSession || cancellationInFlightRef.current) return;
@@ -61,20 +70,20 @@ export function ConversationPane({
       await api.cancelSession(activeSession.id);
       await refreshTimeline();
       await refreshSessions?.();
-      setStatus("Cancelled.");
+      setInternalStatus("Cancelled.");
     } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : "Cancel failed.");
+      setInternalStatus(caught instanceof Error ? caught.message : "Cancel failed.");
     } finally {
       cancellationInFlightRef.current = false;
     }
-  }, [activeSession, refreshTimeline, refreshSessions]);
+  }, [activeSession, refreshTimeline, refreshSessions, setInternalStatus]);
 
   const submitOrCancel = useCallback(
     async (rawInput: string, attachments: MessageAttachment[] = []) => {
       const input = rawInput.trimEnd();
       if (isRunning && activeSession) {
         if (input) {
-          setStatus("Agent is working.");
+          setInternalStatus("Agent is working.");
           return;
         }
         await cancelActiveSession();
@@ -97,25 +106,25 @@ export function ConversationPane({
           refreshWorkspace,
         });
         if (commandResult.handled) {
-          setStatus(commandResult.message ?? "");
+          setInternalStatus(commandResult.message ?? "");
           return;
         }
         if (activeSession && ["completed", "cancelled"].includes(activeSession.status)) {
-          setStatus(idleSubmitHint(activeSession.status));
+          setInternalStatus(idleSubmitHint(activeSession.status));
           return;
         }
         const session = await ensureSession();
         if (!session) {
-          setStatus("Create a workspace first.");
+          setInternalStatus("Create a workspace first.");
           return;
         }
         await api.sendMessage(session.id, input, attachments);
         await refreshTimeline();
         await refreshWorkspace();
         await refreshSessions?.();
-        setStatus("");
+        setInternalStatus("");
       } catch (caught) {
-        setStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
+        setInternalStatus(caught instanceof Error ? caught.message : "Conversation action failed.");
       }
     },
     [
@@ -130,6 +139,7 @@ export function ConversationPane({
       refreshTimeline,
       refreshWorkspace,
       refreshSessions,
+      setInternalStatus,
     ],
   );
 
@@ -137,30 +147,30 @@ export function ConversationPane({
     async (parentEventId: string | null) => {
       const input = findReloadInput(eventsRef.current, parentEventId);
       if (!input) {
-        setStatus("No previous user message to reload.");
+        setInternalStatus("No previous user message to reload.");
         return;
       }
       await submitOrCancel(input);
     },
-    [submitOrCancel],
+    [setInternalStatus, submitOrCancel],
   );
 
   const answerPermission = useCallback(
     async (requestId: string, decision: AcpPermissionDecision) => {
       if (!activeSession) {
-        setStatus("Create a session before answering permissions.");
+        setInternalStatus("Create a session before answering permissions.");
         return;
       }
       try {
         await api.answerPermission(activeSession.id, requestId, decision);
         await refreshTimeline();
         await refreshSessions?.();
-        setStatus("");
+        setInternalStatus("");
       } catch (caught) {
-        setStatus(caught instanceof Error ? caught.message : "Permission response failed.");
+        setInternalStatus(caught instanceof Error ? caught.message : "Permission response failed.");
       }
     },
-    [activeSession, refreshTimeline, refreshSessions],
+    [activeSession, refreshTimeline, refreshSessions, setInternalStatus],
   );
 
   const attachContext = useCallback(
@@ -182,6 +192,8 @@ export function ConversationPane({
       queuedCommandHandlingRef.current = false;
       onQueuedCommandHandled?.();
     });
+    // submitOrCancel is intentionally omitted so queued palette commands run once per queued command,
+    // not again when workspace refresh callbacks receive new identities.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queuedCommand, onQueuedCommandHandled]);
 
@@ -237,7 +249,7 @@ export function ConversationPane({
         </article>
       )}
       {composerHint && <p className="pane-note pane-note--hint">{composerHint}</p>}
-      <p className="status-line">{status}</p>
+      <p className="status-line">{statusSource === "external" && externalStatus ? externalStatus : status}</p>
     </section>
   );
 }

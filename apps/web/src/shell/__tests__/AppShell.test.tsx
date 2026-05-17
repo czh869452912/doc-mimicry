@@ -526,6 +526,8 @@ describe("AppShell", () => {
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
     await userEvent.click(await screen.findByTestId("draft-source-editor"));
+    vi.mocked(api.getAcpEvents).mockClear();
+    vi.mocked(api.getWorkspace).mockClear();
     await userEvent.click(screen.getByRole("button", { name: "Revise selection" }));
 
     await waitFor(() =>
@@ -537,6 +539,19 @@ describe("AppShell", () => {
     );
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
+  });
+
+  it("shows selected-text revision failures in the conversation status", async () => {
+    vi.mocked(api.reviseSelection).mockRejectedValue(new Error("409 Conflict: running"));
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    await userEvent.click(await screen.findByTestId("draft-source-editor"));
+    await userEvent.click(screen.getByRole("button", { name: "Revise selection" }));
+
+    expect(await screen.findByText("409 Conflict: running")).toBeTruthy();
   });
 
   it("saves local draft edits before creating a manual checkpoint", async () => {
@@ -564,9 +579,24 @@ describe("AppShell", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /\+ checkpoint/i }));
 
-    await waitFor(() => expect(api.createDraftCheckpoint).toHaveBeenCalledWith("task-1", "Manual checkpoint"));
+    await waitFor(() => expect(api.createDraftCheckpoint).toHaveBeenCalledWith(
+      "task-1",
+      "Manual checkpoint",
+      "session-1",
+    ));
     await waitFor(() => expect(api.getWorkspace).toHaveBeenCalledWith("task-1"));
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
+  });
+
+  it("shows manual checkpoint failures in the conversation status", async () => {
+    vi.mocked(api.createDraftCheckpoint).mockRejectedValue(new Error("400 Bad Request: Draft does not exist."));
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: /\+ checkpoint/i }));
+
+    expect(await screen.findByText("400 Bad Request: Draft does not exist.")).toBeTruthy();
   });
 
   it("keeps manual checkpoint disabled while the active session is running", async () => {
@@ -584,6 +614,22 @@ describe("AppShell", () => {
 
     await screen.findByRole("heading", { name: "Restored draft" });
     expect((screen.getByRole("button", { name: /\+ checkpoint/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("reports why slash command checkpoints wait for draft autosave", async () => {
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    await waitFor(() => expect(screen.getByText(/last save · idle/i)).toBeTruthy());
+    await userEvent.type(await screen.findByLabelText("Draft source"), "\nUnsaved edit");
+    await waitFor(() => expect(screen.getByText(/last save · saving/i)).toBeTruthy());
+
+    await userEvent.type(screen.getByLabelText("Message"), "/checkpoint");
+    await userEvent.keyboard("{Enter}");
+
+    expect(api.createDraftCheckpoint).not.toHaveBeenCalled();
+    expect(await screen.findByText("Waiting for autosave to finish.")).toBeTruthy();
   });
 
   it("sends chat messages in background mode and refreshes timeline and workspace", async () => {

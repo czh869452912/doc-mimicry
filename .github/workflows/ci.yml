@@ -103,3 +103,5 @@ jobs:
         working-directory: apps/web
         run: npm run build
 
+      - name: Check web bundle budget
+        run: python tools/quality/check_web_bundle.py apps/web/dist

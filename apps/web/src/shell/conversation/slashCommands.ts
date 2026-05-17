@@ -29,8 +29,9 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
   }
   if (command === "/checkpoint") {
     if (!context.createCheckpoint) return { handled: true, message: "Use the Checkpoint button in the draft toolbar." };
-    await context.createCheckpoint();
-    return { handled: true, message: "Checkpoint created." };
+    const result = await context.createCheckpoint();
+    if (typeof result === "string") return { handled: true, message: result };
+    return { handled: true, message: result === false ? "Checkpoint was not created." : "Checkpoint created." };
   }
   if (command === "/files" || command === "/versions") {
     return { handled: true, message: `${command.slice(1)} view is available from the workspace tree.` };

@@ -119,10 +119,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ markdown }),
     }),
-  createDraftCheckpoint: (taskId: string, note: string) =>
+  createDraftCheckpoint: (taskId: string, note: string, sessionId?: string | null) =>
     request<DraftCheckpoint>(`/tasks/${taskId}/draft/checkpoints`, {
       method: "POST",
-      body: JSON.stringify({ note }),
+      body: JSON.stringify({ note, ...(sessionId ? { session_id: sessionId } : {}) }),
     }),
   listSkillPacks: () => request<SkillPackSummary[]>("/skill-packs"),
   createSkillPack: (id: string, title: string, description: string) =>

@@ -55,6 +55,7 @@ class UpdateDraftRequest(BaseModel):
 
 class CreateDraftCheckpointRequest(BaseModel):
     note: str = "Manual checkpoint"
+    session_id: str | None = None
 
 
 class CreateSkillPackRequest(BaseModel):

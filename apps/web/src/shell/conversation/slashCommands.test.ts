@@ -99,6 +99,30 @@ describe("slash commands", () => {
     expect(createCheckpoint).toHaveBeenCalledOnce();
   });
 
+  it("keeps checkpoint command feedback aligned with a guarded authoring action", async () => {
+    const createCheckpoint = vi.fn().mockResolvedValue(false);
+    const context = commandContext({ createCheckpoint });
+
+    const result = await executeSlashCommand("/checkpoint", context);
+
+    expect(result).toEqual({
+      handled: true,
+      message: "Checkpoint was not created.",
+    });
+  });
+
+  it("shows the guarded checkpoint reason when the authoring action returns one", async () => {
+    const createCheckpoint = vi.fn().mockResolvedValue("Waiting for autosave to finish.");
+    const context = commandContext({ createCheckpoint });
+
+    const result = await executeSlashCommand("/checkpoint", context);
+
+    expect(result).toEqual({
+      handled: true,
+      message: "Waiting for autosave to finish.",
+    });
+  });
+
   it("lists DOCX and PDF export commands", () => {
     expect(SLASH_COMMANDS.map((item) => item.command)).toContain("/export-docx");
     expect(SLASH_COMMANDS.map((item) => item.command)).toContain("/export-pdf");

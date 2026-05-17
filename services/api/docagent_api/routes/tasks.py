@@ -148,18 +148,18 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
         except FileNotFoundError as exc:
             raise HTTPException(status_code=400, detail="Draft does not exist.") from exc
 
-        if sessions:
-            latest = sorted(sessions, key=lambda session: session.get("updated_at", ""))[-1]
+        session_for_event = _checkpoint_session(sessions, request.session_id)
+        if session_for_event:
             event = manual_event(
                 task_id,
-                latest["id"],
+                session_for_event["id"],
                 f"checkpoint-{version.version}",
                 TimelineActor.USER,
                 SemanticEventKind.CREATE_CHECKPOINT,
                 version.summary,
                 [version.version_path],
             )
-            append_semantic_event(state, latest["id"], event)
+            append_semantic_event(state, session_for_event["id"], event)
 
         return asdict(version)
 
@@ -266,3 +266,17 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
         return result
 
     return router
+
+
+def _checkpoint_session(
+    sessions: list[dict[str, Any]],
+    requested_session_id: str | None,
+) -> dict[str, Any] | None:
+    if requested_session_id:
+        for session in sessions:
+            if session["id"] == requested_session_id:
+                return session
+        raise HTTPException(status_code=400, detail="Session not found or does not belong to this task.")
+    if not sessions:
+        return None
+    return sorted(sessions, key=lambda session: session.get("updated_at", ""))[-1]

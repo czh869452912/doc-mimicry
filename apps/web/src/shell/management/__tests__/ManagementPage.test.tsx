@@ -35,6 +35,20 @@ function renderManagementPage() {
   );
 }
 
+function renderManagementPageWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createAppRouter(createMemoryHistory({ initialEntries: ["/management/skill-packs"] }));
+
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+  };
+}
+
 describe("ManagementPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -207,5 +221,22 @@ describe("ManagementPage", () => {
       "",
       ["SKILL.md shares 25+ consecutive words with example.txt"],
     ));
+  });
+
+  it("clears the work surface when the selected skill pack disappears", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+      { id: "proposal", title: "Proposal", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+
+    const { queryClient } = renderManagementPageWithClient();
+
+    await user.click(await screen.findByText("Proposal"));
+    vi.mocked(api.listSkillPackResources).mockClear();
+    queryClient.setQueryData(["skillPacks"], []);
+
+    await waitFor(() => expect(screen.queryByText("Proposal")).toBeNull());
+    expect(api.listSkillPackResources).not.toHaveBeenCalledWith("proposal");
   });
 });
