@@ -464,36 +464,15 @@ describe("AppShell", () => {
     expect(await screen.findByText("examples/enterprise-prd.md")).toBeTruthy();
   });
 
-  it("creates a material-driven skill pack from the settings drawer", async () => {
-    vi.mocked(api.listSkillPacks).mockResolvedValue([]);
-    vi.mocked(api.createSkillPack).mockResolvedValue({
-      id: "memo",
-      title: "Memo",
-      description: "Executive memo pack",
-      draft_status: "draft",
-      latest_version_id: null,
-    });
-    vi.mocked(api.addSkillPackTextResource).mockResolvedValue({
-      id: "resource-1",
-      pack_id: "memo",
-      group: "examples",
-      original_filename: "memo.txt",
-      source_path: "resources/original/examples/memo.txt",
-      markdown_path: "resources/markdown/examples/memo.md",
-      conversion_report_path: "resources/reports/examples/memo.json",
-      status: "ready",
-      summary: "",
-    });
-
-    renderAppShell("/?task=task-1&session=session-1");
+  it("links to dedicated skill pack management from the settings drawer", async () => {
+    const { router } = renderAppShell("/?task=task-1&session=session-1");
     await userEvent.click(await screen.findByRole("button", { name: /open settings/i }));
-    await userEvent.click(await screen.findByRole("button", { name: /new skill pack/i }));
-    await userEvent.type(screen.getByLabelText("Pack id"), "memo");
-    await userEvent.type(screen.getByLabelText("Pack title"), "Memo");
-    await userEvent.type(screen.getByLabelText("Pack description"), "Executive memo pack");
-    await userEvent.click(screen.getByRole("button", { name: "Create pack" }));
 
-    await waitFor(() => expect(api.createSkillPack).toHaveBeenCalledWith("memo", "Memo", "Executive memo pack"));
+    const link = await screen.findByRole("link", { name: /open skill pack management/i });
+    expect(link.getAttribute("href")).toBe("/management/skill-packs");
+
+    await userEvent.click(link);
+    await waitFor(() => expect(router.state.location.pathname).toBe("/management/skill-packs"));
   });
 
   it("loads the source editor only when source mode is selected", async () => {

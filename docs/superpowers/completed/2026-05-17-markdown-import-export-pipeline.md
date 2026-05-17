@@ -1,5 +1,7 @@
 # Markdown Import Export Pipeline Implementation Plan
 
+> Status reconciled on 2026-05-17. The implementation files, tests, routes, and UI commands described by this plan are present in the repository. Some original checklist boxes below were left unchecked during archival, so this note is the durable status marker for future agents.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build product import/export boundaries that accept Word and PDF while keeping Markdown as the only internal document format.
@@ -62,7 +64,7 @@
 - Modify: `pyproject.toml`
 - Modify: `services/api/Dockerfile`
 
-- [ ] **Step 1: Add failing conversion package tests**
+- [x] **Step 1: Add failing conversion package tests**
 
 Create `packages/conversion/tests/test_importers.py`:
 
@@ -185,7 +187,7 @@ def test_unsupported_binary_keeps_original_and_failed_report(tmp_path: Path) -> 
     assert report["warnings"][0]["type"] == "unsupported_format"
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -195,7 +197,7 @@ python -m pytest packages/contracts/tests packages/conversion/tests/test_importe
 
 Expected: FAIL because `docagent_conversion` does not exist.
 
-- [ ] **Step 3: Add conversion package to pytest path and dependency**
+- [x] **Step 3: Add conversion package to pytest path and dependency**
 
 In `packages/contracts/docagent_contracts/models.py`, add the PDF text
 extractor engine:
@@ -261,7 +263,7 @@ new package. Replace the existing `PYTHONPATH=` line with:
     PYTHONPATH=/app/services/api:/app/packages/contracts:/app/packages/conversion:/app/packages/workspace:/app/packages/timeline:/app/tools/import:/app/agent/runtime-adapters/mock:/app/agent/runtime-adapters/openhands
 ```
 
-- [ ] **Step 4: Implement shared importer**
+- [x] **Step 4: Implement shared importer**
 
 Create `packages/conversion/docagent_conversion/__init__.py`:
 
@@ -501,7 +503,7 @@ def _pdf_to_markdown(content: bytes) -> tuple[str, int]:
     return "\n\n".join(pages), len(reader.pages)
 ```
 
-- [ ] **Step 5: Run conversion tests**
+- [x] **Step 5: Run conversion tests**
 
 Run:
 
@@ -511,7 +513,7 @@ python -m pytest packages/conversion/tests/test_importers.py -q
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 ```powershell
 git add pyproject.toml services/api/Dockerfile packages/contracts/docagent_contracts/models.py packages/contracts/schemas.md packages/contracts/tests/test_models.py packages/conversion/docagent_conversion packages/conversion/tests/test_importers.py
@@ -528,7 +530,7 @@ git commit -m "feat: add shared conversion importer"
 - Modify: `services/api/tests/test_skill_packs.py`
 - Modify: `services/api/tests/test_skill_pack_routes.py`
 
-- [ ] **Step 1: Write failing compatibility tests**
+- [x] **Step 1: Write failing compatibility tests**
 
 In `services/api/tests/test_imports.py`, update the first test to expect `.conversion.json` and warnings:
 
@@ -573,7 +575,7 @@ def test_create_pack_add_text_resource_uses_conversion_report_contract(tmp_path:
     assert body["conversion_report_path"] == "resources/reports/examples/example.conversion.json"
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -583,7 +585,7 @@ python -m pytest services/api/tests/test_imports.py services/api/tests/test_skil
 
 Expected: FAIL because current wrappers still write `*.json` reports and do not include `warnings`.
 
-- [ ] **Step 3: Update authoring import wrapper**
+- [x] **Step 3: Update authoring import wrapper**
 
 Replace `services/api/docagent_api/imports.py` implementation with a wrapper around `docagent_conversion`:
 
@@ -619,7 +621,7 @@ def import_text_input(
     )
 ```
 
-- [ ] **Step 4: Update Skill Pack text resource wrapper**
+- [x] **Step 4: Update Skill Pack text resource wrapper**
 
 In `services/api/docagent_api/skill_packs.py`, replace `add_text_resource` internals with shared conversion and status mapping:
 
@@ -671,7 +673,7 @@ Also add imports:
 from docagent_conversion import ConversionLayout, convert_resource_bytes
 ```
 
-- [ ] **Step 5: Update response model**
+- [x] **Step 5: Update response model**
 
 In `services/api/docagent_api/response_models.py`, change `ImportedInputResponse`:
 
@@ -688,7 +690,7 @@ class ImportedInputResponse(BaseModel):
     event: dict | None = None
 ```
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -698,7 +700,7 @@ python -m pytest services/api/tests/test_imports.py services/api/tests/test_skil
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 ```powershell
 git add services/api/docagent_api/imports.py services/api/docagent_api/skill_packs.py services/api/docagent_api/response_models.py services/api/tests/test_imports.py services/api/tests/test_skill_pack_routes.py services/api/tests/test_skill_packs.py
@@ -713,7 +715,7 @@ git commit -m "refactor: share conversion for text resources"
 - Modify: `services/api/tests/test_imports.py`
 - Modify: `services/api/tests/test_skill_pack_routes.py`
 
-- [ ] **Step 1: Add failing authoring upload route tests**
+- [x] **Step 1: Add failing authoring upload route tests**
 
 Append to `services/api/tests/test_imports.py`:
 
@@ -780,7 +782,7 @@ def test_upload_unsupported_input_returns_report_without_markdown_attachment(tmp
     assert body["warnings"][0]["type"] == "unsupported_format"
 ```
 
-- [ ] **Step 2: Add failing Skill Pack upload route test**
+- [x] **Step 2: Add failing Skill Pack upload route test**
 
 Append to `services/api/tests/test_skill_pack_routes.py`:
 
@@ -825,7 +827,7 @@ def test_upload_skill_pack_resource_file_converts_docx(tmp_path: Path) -> None:
     assert body["markdown_path"] == "resources/markdown/examples/memo.md"
 ```
 
-- [ ] **Step 3: Run route tests to verify failure**
+- [x] **Step 3: Run route tests to verify failure**
 
 Run:
 
@@ -835,7 +837,7 @@ python -m pytest services/api/tests/test_imports.py services/api/tests/test_skil
 
 Expected: FAIL with 404 for the new routes.
 
-- [ ] **Step 4: Add FastAPI multipart imports and routes**
+- [x] **Step 4: Add FastAPI multipart imports and routes**
 
 In `services/api/docagent_api/routes/tasks.py`, add imports:
 
@@ -914,7 +916,7 @@ Add route after `add_pack_text_resource`:
 
 Add `add_file_resource` to `services/api/docagent_api/skill_packs.py` next to `add_text_resource`, using the same status mapping but passing bytes and MIME type.
 
-- [ ] **Step 5: Ensure multipart dependency is declared**
+- [x] **Step 5: Ensure multipart dependency is declared**
 
 Add to `pyproject.toml` dependencies:
 
@@ -922,7 +924,7 @@ Add to `pyproject.toml` dependencies:
 "python-multipart>=0.0.9",
 ```
 
-- [ ] **Step 6: Run route tests**
+- [x] **Step 6: Run route tests**
 
 Run:
 
@@ -932,7 +934,7 @@ python -m pytest services/api/tests/test_imports.py services/api/tests/test_skil
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```powershell
 git add pyproject.toml services/api/docagent_api/routes/tasks.py services/api/docagent_api/routes/skill_packs.py services/api/docagent_api/skill_packs.py services/api/tests/test_imports.py services/api/tests/test_skill_pack_routes.py
@@ -949,7 +951,7 @@ git commit -m "feat: add file upload conversion routes"
 - Modify: `apps/web/src/shell/acp/__tests__/AcpInteractionSurface.test.tsx`
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 
-- [ ] **Step 1: Update failing frontend attachment tests**
+- [x] **Step 1: Update failing frontend attachment tests**
 
 In `apps/web/src/shell/acp/__tests__/AcpComposer.test.tsx`, change import assertions from `api.importTextInput` to `api.importFileInput`:
 
@@ -985,7 +987,7 @@ it("does not send failed binary conversions as message attachments", async () =>
 });
 ```
 
-- [ ] **Step 2: Run frontend tests to verify failure**
+- [x] **Step 2: Run frontend tests to verify failure**
 
 Run:
 
@@ -996,7 +998,7 @@ npm run test:unit -- --run src/shell/acp/__tests__/AcpComposer.test.tsx src/shel
 
 Expected: FAIL because `api.importFileInput` does not exist.
 
-- [ ] **Step 3: Add file upload API client**
+- [x] **Step 3: Add file upload API client**
 
 In `apps/web/src/api.ts`, add:
 
@@ -1046,7 +1048,7 @@ export interface ImportedInput {
 }
 ```
 
-- [ ] **Step 4: Update composer to upload files directly**
+- [x] **Step 4: Update composer to upload files directly**
 
 In `apps/web/src/shell/acp/AcpComposer.tsx`, change pending attachments to store only `File`:
 
@@ -1101,7 +1103,7 @@ async function importAttachments(): Promise<MessageAttachment[]> {
 }
 ```
 
-- [ ] **Step 5: Run frontend focused tests**
+- [x] **Step 5: Run frontend focused tests**
 
 Run:
 
@@ -1112,7 +1114,7 @@ npm run test:unit -- --run src/shell/acp/__tests__/AcpComposer.test.tsx src/shel
 
 Expected: PASS.
 
-- [ ] **Step 6: Run browser regression for attachment flow**
+- [x] **Step 6: Run browser regression for attachment flow**
 
 Run:
 
@@ -1125,7 +1127,7 @@ Expected: PASS. The existing test name can stay as-is for this task because
 Markdown upload still uses the file-upload path and should render the same
 attached workspace input message.
 
-- [ ] **Step 7: Commit Task 4**
+- [x] **Step 7: Commit Task 4**
 
 ```powershell
 git add apps/web/src/api.ts apps/web/src/types.ts apps/web/src/shell/acp/AcpComposer.tsx apps/web/src/shell/acp/__tests__/AcpComposer.test.tsx apps/web/src/shell/acp/__tests__/AcpInteractionSurface.test.tsx apps/web/src/shell/__tests__/AppShell.test.tsx
@@ -1140,7 +1142,7 @@ git commit -m "feat: upload attachments through conversion boundary"
 - Modify: `apps/web/src/shell/management/__tests__/SkillPackManager.test.tsx`
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 
-- [ ] **Step 1: Add failing management upload test**
+- [x] **Step 1: Add failing management upload test**
 
 In `SkillPackManager.test.tsx`, add:
 
@@ -1173,7 +1175,7 @@ it("uploads a Word material file into a resource group", async () => {
 });
 ```
 
-- [ ] **Step 2: Run management test to verify failure**
+- [x] **Step 2: Run management test to verify failure**
 
 Run:
 
@@ -1184,7 +1186,7 @@ npm run test:unit -- --run src/shell/management/__tests__/SkillPackManager.test.
 
 Expected: FAIL because `addSkillPackFileResource` and file input do not exist.
 
-- [ ] **Step 3: Add Skill Pack file upload API**
+- [x] **Step 3: Add Skill Pack file upload API**
 
 In `apps/web/src/api.ts`, add:
 
@@ -1197,7 +1199,7 @@ addSkillPackFileResource: (packId: string, group: SkillPackResource["group"], fi
 },
 ```
 
-- [ ] **Step 4: Add file input to management panel**
+- [x] **Step 4: Add file input to management panel**
 
 In `SkillPackManager.tsx`, add a file input inside the Materials panel:
 
@@ -1237,7 +1239,7 @@ In `SkillPackManager.tsx`, create `addFileResource` with the hook:
 const addFileResource = useAddSkillPackFileResource(packId);
 ```
 
-- [ ] **Step 5: Run management tests**
+- [x] **Step 5: Run management tests**
 
 Run:
 
@@ -1248,7 +1250,7 @@ npm run test:unit -- --run src/shell/management/__tests__/SkillPackManager.test.
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 5**
+- [x] **Step 6: Commit Task 5**
 
 ```powershell
 git add apps/web/src/api.ts apps/web/src/shell/state/useSkillPacks.ts apps/web/src/shell/management/SkillPackManager.tsx apps/web/src/shell/management/__tests__/SkillPackManager.test.tsx apps/web/src/shell/__tests__/AppShell.test.tsx
@@ -1264,7 +1266,7 @@ git commit -m "feat: upload skill pack resource files"
 - Create: `tools/export/export_pdf.py`
 - Modify: `tools/export/README.md`
 
-- [ ] **Step 1: Add failing exporter tests**
+- [x] **Step 1: Add failing exporter tests**
 
 Create `packages/conversion/tests/test_exporters.py`:
 
@@ -1300,7 +1302,7 @@ def test_export_markdown_to_pdf_creates_pdf_file(tmp_path: Path) -> None:
     assert output.read_bytes().startswith(b"%PDF-")
 ```
 
-- [ ] **Step 2: Run exporter tests to verify failure**
+- [x] **Step 2: Run exporter tests to verify failure**
 
 Run:
 
@@ -1310,7 +1312,7 @@ python -m pytest packages/conversion/tests/test_exporters.py -q
 
 Expected: FAIL because exporters do not exist.
 
-- [ ] **Step 3: Implement exporters**
+- [x] **Step 3: Implement exporters**
 
 Extend `packages/conversion/docagent_conversion/exporters.py` with:
 
@@ -1405,7 +1407,7 @@ __all__ = [
 ]
 ```
 
-- [ ] **Step 4: Add CLI wrappers**
+- [x] **Step 4: Add CLI wrappers**
 
 Create `tools/export/export_docx.py`:
 
@@ -1465,7 +1467,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: Update export README**
+- [x] **Step 5: Update export README**
 
 Replace `tools/export/README.md` with:
 
@@ -1483,7 +1485,7 @@ These tools are boundary converters. They do not make DOCX or PDF editable
 workspace formats.
 ````
 
-- [ ] **Step 6: Run exporter tests and CLI smoke**
+- [x] **Step 6: Run exporter tests and CLI smoke**
 
 Run:
 
@@ -1504,7 +1506,7 @@ python tools/export/export_pdf.py --source .local/export-smoke/draft.md --output
 
 Expected: both commands print output paths and create files.
 
-- [ ] **Step 7: Commit Task 6**
+- [x] **Step 7: Commit Task 6**
 
 ```powershell
 git add packages/conversion/docagent_conversion/__init__.py packages/conversion/docagent_conversion/exporters.py packages/conversion/tests/test_exporters.py tools/export/export_docx.py tools/export/export_pdf.py tools/export/README.md
@@ -1518,7 +1520,7 @@ git commit -m "feat: add markdown docx pdf exporters"
 - Modify: `services/api/tests/test_phase3_api.py`
 - Modify: `tools/runtime/openhands_smoke.py`
 
-- [ ] **Step 1: Add failing export route tests**
+- [x] **Step 1: Add failing export route tests**
 
 Append to `services/api/tests/test_phase3_api.py`:
 
@@ -1553,7 +1555,7 @@ def test_export_pdf_route_creates_artifact_without_runtime_prompt(tmp_path: Path
     assert any(event["kind"] == "export_pdf" for event in timeline)
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -1563,7 +1565,7 @@ python -m pytest services/api/tests/test_phase3_api.py::test_export_docx_route_c
 
 Expected: FAIL with 404 for new routes.
 
-- [ ] **Step 3: Implement export helper route function**
+- [x] **Step 3: Implement export helper route function**
 
 In `services/api/docagent_api/routes/sessions.py`, import:
 
@@ -1620,7 +1622,7 @@ Add routes near `export_markdown`:
         return _export_artifact(session_id, "pdf")
 ```
 
-- [ ] **Step 4: Run focused export route tests**
+- [x] **Step 4: Run focused export route tests**
 
 Run:
 
@@ -1630,7 +1632,7 @@ python -m pytest services/api/tests/test_phase3_api.py::test_export_docx_route_c
 
 Expected: PASS.
 
-- [ ] **Step 5: Update smoke to use product DOCX export**
+- [x] **Step 5: Update smoke to use product DOCX export**
 
 In `tools/runtime/openhands_smoke.py`, after the existing Markdown export call, add:
 
@@ -1639,7 +1641,7 @@ In `tools/runtime/openhands_smoke.py`, after the existing Markdown export call, 
     print("exported docx")
 ```
 
-- [ ] **Step 6: Commit Task 7**
+- [x] **Step 6: Commit Task 7**
 
 ```powershell
 git add services/api/docagent_api/routes/sessions.py services/api/tests/test_phase3_api.py tools/runtime/openhands_smoke.py
@@ -1654,7 +1656,7 @@ git commit -m "feat: export docx and pdf artifacts"
 - Modify: `apps/web/src/shell/conversation/__tests__/slashCommands.test.ts`
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
 
-- [ ] **Step 1: Add failing slash command tests**
+- [x] **Step 1: Add failing slash command tests**
 
 In `slashCommands.test.ts`, add:
 
@@ -1672,7 +1674,7 @@ it("runs docx and pdf export commands", async () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify failure**
+- [x] **Step 2: Run test to verify failure**
 
 Run:
 
@@ -1683,7 +1685,7 @@ npm run test:unit -- --run src/shell/conversation/__tests__/slashCommands.test.t
 
 Expected: FAIL because `exportDocx` and `exportPdf` are missing.
 
-- [ ] **Step 3: Add API methods**
+- [x] **Step 3: Add API methods**
 
 In `apps/web/src/api.ts`, add:
 
@@ -1694,7 +1696,7 @@ exportPdf: (sessionId: string) =>
   request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-pdf`, { method: "POST" }),
 ```
 
-- [ ] **Step 4: Add slash commands**
+- [x] **Step 4: Add slash commands**
 
 In `slashCommands.ts`, add:
 
@@ -1720,7 +1722,7 @@ Add to `SLASH_COMMANDS`:
 { command: "/export-pdf", description: "Export PDF artifact" },
 ```
 
-- [ ] **Step 5: Run frontend tests**
+- [x] **Step 5: Run frontend tests**
 
 Run:
 
@@ -1731,7 +1733,7 @@ npm run test:unit -- --run src/shell/conversation/__tests__/slashCommands.test.t
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 8**
+- [x] **Step 6: Commit Task 8**
 
 ```powershell
 git add apps/web/src/api.ts apps/web/src/shell/conversation/slashCommands.ts apps/web/src/shell/conversation/__tests__/slashCommands.test.ts apps/web/src/shell/__tests__/AppShell.test.tsx
@@ -1747,7 +1749,7 @@ git commit -m "feat: add docx pdf export commands"
 - Modify: `tools/import/README.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Update docs with implementation facts**
+- [x] **Step 1: Update docs with implementation facts**
 
 In `docs/architecture/markdown-pipeline.md`, add an implementation status section:
 
@@ -1797,7 +1799,7 @@ with:
 - make conversion reports, export artifacts, and skill-pack versioning durable;
 ```
 
-- [ ] **Step 2: Run final backend verification**
+- [x] **Step 2: Run final backend verification**
 
 Run:
 
@@ -1807,7 +1809,7 @@ python -m pytest packages/conversion/tests tools/import/tests packages/contracts
 
 Expected: PASS.
 
-- [ ] **Step 3: Run final frontend verification**
+- [x] **Step 3: Run final frontend verification**
 
 Run:
 
@@ -1820,7 +1822,7 @@ npm run build
 
 Expected: PASS. Existing Vite large-chunk warning is acceptable.
 
-- [ ] **Step 4: Run concrete documentation/file structure checks**
+- [x] **Step 4: Run concrete documentation/file structure checks**
 
 Run:
 
@@ -1840,7 +1842,7 @@ Get-ChildItem -Recurse -File | Select-Object FullName | Measure-Object | Out-Nul
 
 Expected: exit code 0 and no missing-file exception.
 
-- [ ] **Step 5: Commit docs**
+- [x] **Step 5: Commit docs**
 
 ```powershell
 git add README.md docs/architecture/markdown-pipeline.md docs/architecture/event-model.md docs/index.md tools/import/README.md

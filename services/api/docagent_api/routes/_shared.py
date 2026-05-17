@@ -75,10 +75,18 @@ def set_session_state(
         append_acp_projection_event(state, session["id"], event)
 
 
+def append_semantic_event(
+    state: DocAgentState,
+    session_id: str,
+    event: SemanticTimelineEvent,
+) -> None:
+    state.append_timeline_event(session_id, asdict(event))
+    append_acp_projection_event(state, session_id, event)
+
+
 def append_events(state: DocAgentState, session_id: str, events: list[SemanticTimelineEvent]) -> None:
     for event in events:
-        state.append_timeline_event(session_id, asdict(event))
-        append_acp_projection_event(state, session_id, event)
+        append_semantic_event(state, session_id, event)
 
 
 def append_runtime_result(

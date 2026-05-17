@@ -240,6 +240,24 @@ def resolve_artifact_path(root: Path, relative_path: str) -> Path:
     return _resolve_artifact_path(root, relative_path)
 
 
+def list_resource_summaries(state: DocAgentState, pack_id: str) -> list[dict[str, Any]]:
+    root = draft_root(state, pack_id)
+    summaries: list[dict[str, Any]] = []
+    for resource in state.list_skill_pack_resources(pack_id):
+        summary = dict(resource)
+        summary["warnings"] = _resource_warnings(root, resource)
+        summaries.append(summary)
+    return summaries
+
+
+def list_resource_details(state: DocAgentState, pack_id: str) -> list[dict[str, Any]]:
+    root = draft_root(state, pack_id)
+    details: list[dict[str, Any]] = []
+    for resource in state.list_skill_pack_resources(pack_id):
+        details.append(_resource_detail(root, resource))
+    return details
+
+
 def _next_version(state: DocAgentState, pack_id: str) -> str:
     versions = state.list_skill_pack_versions(pack_id)
     return f"v{len(versions) + 1:03d}"
@@ -251,6 +269,53 @@ def _resource_status(result: dict[str, Any]) -> str:
     if result["status"] == "converted":
         return "ready"
     return "failed"
+
+
+def _resource_detail(root: Path, resource: dict[str, Any]) -> dict[str, Any]:
+    detail = dict(resource)
+    markdown_path = resource.get("markdown_path")
+    markdown = ""
+    conversion_report = _resource_report(root, resource)
+    warnings = list(conversion_report.get("warnings") or [])
+    if markdown_path:
+        markdown_file = _resolve_resource_path(root, markdown_path)
+        if markdown_file.is_file():
+            markdown = markdown_file.read_text(encoding="utf-8")
+    detail["markdown"] = markdown
+    # Cap each resource before serializing the complete prompt bundle.
+    detail["markdown_excerpt"] = _word_excerpt(markdown, 800)
+    detail["warnings"] = warnings
+    detail["conversion_report"] = conversion_report
+    return detail
+
+
+def _resource_warnings(root: Path, resource: dict[str, Any]) -> list[dict[str, Any]]:
+    return list(_resource_report(root, resource).get("warnings") or [])
+
+
+def _resource_report(root: Path, resource: dict[str, Any]) -> dict[str, Any]:
+    report_path = resource.get("conversion_report_path")
+    if not report_path:
+        return {}
+    report_file = _resolve_resource_path(root, report_path)
+    if not report_file.is_file():
+        return {}
+    return json.loads(report_file.read_text(encoding="utf-8"))
+
+
+def _resolve_resource_path(root: Path, relative_path: str) -> Path:
+    root = root.resolve()
+    target = (root / relative_path).resolve()
+    if not target.is_relative_to(root):
+        raise ValueError("Resource path escapes pack workspace")
+    return target
+
+
+def _word_excerpt(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    return " ".join(words[:max_words])
 
 
 def _snapshot_manifest(root: Path) -> dict[str, Any]:

@@ -124,6 +124,12 @@ class SkillPackResourceResponse(BaseModel):
     conversion_report_path: str
     status: str
     summary: str = ""
+    warnings: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class SkillPackResourceDetailResponse(SkillPackResourceResponse):
+    markdown: str = ""
+    conversion_report: dict[str, Any] = Field(default_factory=dict)
 
 
 class SkillPackArtifactResponse(BaseModel):

@@ -18,6 +18,7 @@ from docagent_api.response_models import (
     SkillCreatorRunResponse,
     SkillCreatorSessionResponse,
     SkillPackArtifactResponse,
+    SkillPackResourceDetailResponse,
     SkillPackResourceResponse,
     SkillPackSummaryResponse,
     SkillPackValidationResponse,
@@ -30,6 +31,8 @@ from docagent_api.skill_packs import (
     add_text_resource,
     draft_root,
     is_valid_pack_id,
+    list_resource_details,
+    list_resource_summaries,
     publish_skill_pack_snapshot,
     resolve_artifact_path,
     validate_skill_pack_draft,
@@ -94,6 +97,25 @@ def create_skill_packs_router(state: DocAgentState, adapter: Any | None = None) 
         )
         state.save_skill_pack_resource(resource)
         return resource
+
+    @router.get("/skill-packs/{pack_id}/resources", response_model=list[SkillPackResourceResponse])
+    def list_pack_resources(pack_id: str) -> list[dict[str, Any]]:
+        _require_pack(state, pack_id)
+        try:
+            return list_resource_summaries(state, pack_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @router.get("/skill-packs/{pack_id}/resources/{resource_id}", response_model=SkillPackResourceDetailResponse)
+    def get_pack_resource(pack_id: str, resource_id: str) -> dict[str, Any]:
+        _require_pack(state, pack_id)
+        try:
+            for resource in list_resource_details(state, pack_id):
+                if resource["id"] == resource_id:
+                    return resource
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=404, detail="Skill pack resource not found")
 
     @router.put("/skill-packs/{pack_id}/artifacts", response_model=SkillPackArtifactResponse)
     def update_artifact(pack_id: str, request: UpdateSkillPackArtifactRequest) -> dict[str, str]:
@@ -261,7 +283,7 @@ def _append_skill_creator_updates(state: DocAgentState, session_id: str, updates
 
 
 def _resource_manifest(state: DocAgentState, pack_id: str) -> dict[str, object]:
-    return {"resources": state.list_skill_pack_resources(pack_id)}
+    return {"resources": list_resource_details(state, pack_id)}
 
 
 def _current_artifacts(state: DocAgentState, pack_id: str) -> dict[str, str]:

@@ -1,10 +1,12 @@
 from pathlib import Path
+from typing import Any
 
 from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
 from docagent_api.db import SkillCreatorSessionRow
 from docagent_api.state import DocAgentState
+from docagent_contracts import PromptBundle, RuntimeOperationResult, RuntimeSessionState
 
 
 def _pack_with_resource(client: TestClient) -> None:
@@ -64,6 +66,56 @@ def test_skill_creator_revision_reads_manual_edit(tmp_path: Path) -> None:
 class FailingCreateAdapter:
     def create_session(self, session_id, prompt_bundle):
         raise RuntimeError("runtime unavailable")
+
+
+class CapturingSkillCreatorAdapter:
+    def __init__(self) -> None:
+        self.bundle: PromptBundle | None = None
+
+    def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
+        self.bundle = prompt_bundle
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def send_prompt(
+        self,
+        session_id: str,
+        prompt: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
+
+    def cancel(self, session_id: str) -> RuntimeOperationResult:
+        return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.CANCELLED)
+
+
+def test_skill_creator_prompt_includes_converted_resource_markdown_and_warnings(tmp_path: Path) -> None:
+    adapter = CapturingSkillCreatorAdapter()
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=adapter,
+    ))
+    assert client.post("/skill-packs", json={"id": "memo", "title": "Memo"}).status_code == 200
+    assert client.post(
+        "/skill-packs/memo/resources/text",
+        json={
+            "group": "examples",
+            "name": "board-memo.txt",
+            "content": "Executive summary first. Élan 中文. Then decision context. Then risks.",
+        },
+    ).status_code == 200
+
+    response = client.post(
+        "/skill-packs/memo/skill-creator/sessions",
+        json={"message": "Generate the memo skill"},
+    )
+
+    assert response.status_code == 200
+    assert adapter.bundle is not None
+    assert "Executive summary first" in adapter.bundle.task_instruction
+    assert "Élan 中文" in adapter.bundle.task_instruction
+    assert "resources/markdown/examples/board-memo.md" in adapter.bundle.task_instruction
+    assert "warnings" in adapter.bundle.task_instruction
 
 
 def test_skill_creator_session_create_failure_removes_session(tmp_path: Path) -> None:

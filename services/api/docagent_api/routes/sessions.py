@@ -389,7 +389,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
             raise HTTPException(status_code=400, detail="Draft does not exist.")
 
         stem = str(task["doc_type_id"]).replace("/", "-").replace("\\", "-")
-        artifact_relative = f"artifacts/{stem}-draft.{extension}"
+        artifact_relative = f"artifacts/{stem}-draft-{uuid4().hex[:8]}.{extension}"
         artifact_path = workspace_root / artifact_relative
         if extension == "docx":
             export_markdown_to_docx(draft_path, artifact_path)

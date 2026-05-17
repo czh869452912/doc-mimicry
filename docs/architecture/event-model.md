@@ -56,6 +56,11 @@ Store all three layers with clear ownership:
 - raw runtime payload for audit and debugging when a runtime shim receives one
 - semantic projection for DocAgent cards, workspace invalidation, and reporting
 
+Every product-created semantic event that affects user trust or workspace state
+must be persisted through the shared semantic-event helper so it appears in both
+the compatibility `/timeline` read model and the ACP event log consumed by the
+authoring UI.
+
 The `/timeline` endpoint returns semantic projections as a derived read
 endpoint. It is not the source of truth for the authoring timeline.
 

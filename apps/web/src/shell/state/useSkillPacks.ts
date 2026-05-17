@@ -23,7 +23,10 @@ export function useAddSkillPackTextResource(packId: string | null) {
       if (!packId) throw new Error("Select a pack before adding resources");
       return api.addSkillPackTextResource(packId, group, name, content);
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skillPacks"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["skillPacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["skillPackResources", packId] });
+    },
   });
 }
 
@@ -34,7 +37,26 @@ export function useAddSkillPackFileResource(packId: string | null) {
       if (!packId) throw new Error("Pack id is required");
       return api.addSkillPackFileResource(packId, group, file);
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skillPacks"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["skillPacks"] });
+      void queryClient.invalidateQueries({ queryKey: ["skillPackResources", packId] });
+    },
+  });
+}
+
+export function useSkillPackResources(packId: string | null) {
+  return useQuery({
+    queryKey: ["skillPackResources", packId],
+    queryFn: () => api.listSkillPackResources(packId ?? ""),
+    enabled: Boolean(packId),
+  });
+}
+
+export function useSkillPackResource(packId: string | null, resourceId: string | null) {
+  return useQuery({
+    queryKey: ["skillPackResource", packId, resourceId],
+    queryFn: () => api.getSkillPackResource(packId ?? "", resourceId ?? ""),
+    enabled: Boolean(packId && resourceId),
   });
 }
 

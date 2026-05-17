@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import type { DocTypeSummary } from "../types";
 import {
   Sheet,
@@ -7,7 +8,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
-import { SkillPackManager } from "./management/SkillPackManager";
 
 interface SettingsDrawerProps {
   docTypes: DocTypeSummary[];
@@ -65,7 +65,13 @@ export function SettingsDrawer({ docTypes, onOpenChange, open, runtimeLabel }: S
             )}
           </section>
           <section className="drawer-section">
-            <SkillPackManager />
+            <h2>Skill Packs</h2>
+            <p className="muted">
+              Manage reusable materials, generated SKILL.md guidance, validation, and published versions in the dedicated management surface.
+            </p>
+            <Link className="command-chip" to="/management/skill-packs" aria-label="Open skill pack management">
+              Open skill pack management
+            </Link>
           </section>
           <section className="drawer-section">
             <h2>Runtime</h2>

@@ -13,6 +13,8 @@ import {
   usePublishSkillPack,
   useSkillCreatorGeneration,
   useSkillPackArtifact,
+  useSkillPackResource,
+  useSkillPackResources,
   useSkillPacks,
   useUpdateSkillPackArtifact,
   useValidateSkillPack,
@@ -107,6 +109,7 @@ function CreatePackForm({ onCreated }: { onCreated: (id: string) => void }) {
 function PackWorkSurface({ packId }: { packId: string }) {
   const addResource = useAddSkillPackTextResource(packId);
   const addFileResource = useAddSkillPackFileResource(packId);
+  const resourcesQuery = useSkillPackResources(packId);
   const generatePack = useSkillCreatorGeneration(packId);
   const skillArtifact = useSkillPackArtifact(packId, "SKILL.md");
   const updateArtifact = useUpdateSkillPackArtifact(packId);
@@ -119,6 +122,9 @@ function PackWorkSurface({ packId }: { packId: string }) {
   const [skillDraft, setSkillDraft] = useState("");
   const [publishNote, setPublishNote] = useState("");
   const [resourceError, setResourceError] = useState<string | null>(null);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+  const resourceDetail = useSkillPackResource(packId, selectedResourceId);
+  const resources = resourcesQuery.data ?? [];
   const validationWarnings = validatePack.data?.warnings ?? [];
 
   useEffect(() => {
@@ -175,6 +181,38 @@ function PackWorkSurface({ packId }: { packId: string }) {
           <Upload size={14} />
           Add material
         </Button>
+        <div className="skill-pack-resource-list" aria-label="Pack resources">
+          {resources.map((resource) => (
+            <article className="skill-pack-resource-row" key={resource.id}>
+              <div>
+                <strong>{resource.original_filename}</strong>
+                <p className="muted">{resource.group} · {resource.status}</p>
+                {(resource.warnings ?? []).map((warning) => (
+                  <p className="status-warning" key={`${resource.id}-${warning.type}-${warning.message}`}>
+                    {warning.message}
+                  </p>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                aria-label={`View converted ${resource.original_filename}`}
+                disabled={!resource.markdown_path}
+                onClick={() => setSelectedResourceId(resource.id)}
+              >
+                <FileText size={14} />
+                View converted
+              </Button>
+            </article>
+          ))}
+        </div>
+        {resourceDetail.data ? (
+          <section className="skill-pack-resource-preview">
+            <h4>{resourceDetail.data.original_filename}</h4>
+            <pre>{resourceDetail.data.markdown}</pre>
+          </section>
+        ) : null}
       </section>
 
       <section className="skill-pack-panel">

@@ -829,6 +829,50 @@
   justify-self: start;
 }
 
+.skill-pack-resource-list {
+  display: grid;
+  gap: 6px;
+}
+
+.skill-pack-resource-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-card);
+  min-width: 0;
+}
+
+.skill-pack-resource-row p {
+  margin: 2px 0 0;
+}
+
+.skill-pack-resource-preview {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skill-pack-resource-preview h4 {
+  margin: 0;
+}
+
+.skill-pack-resource-preview pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-card);
+  font-family: var(--font-code);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
 .status-ok {
   margin: 0;
   color: var(--color-success);
@@ -837,4 +881,8 @@
 .status-error {
   margin: 0;
   color: var(--color-error);
+}
+
+.status-warning {
+  color: #9a6500;
 }

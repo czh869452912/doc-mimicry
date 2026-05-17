@@ -23,6 +23,7 @@ from docagent_api.response_models import (
 )
 from docagent_api.routes._shared import (
     append_runtime_result,
+    append_semantic_event,
     manual_event,
     require_task,
 )
@@ -189,7 +190,7 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
                 "Convert input to Markdown",
                 [path for path in [result.get("markdown_path"), result["conversion_report_path"]] if path],
             )
-            state.append_timeline_event(latest["id"], asdict(event))
+            append_semantic_event(state, latest["id"], event)
             result["event"] = asdict(event)
         return result
 
@@ -222,7 +223,7 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
                 "Convert input to Markdown",
                 [path for path in [result.get("markdown_path"), result["conversion_report_path"]] if path],
             )
-            state.append_timeline_event(latest["id"], asdict(event))
+            append_semantic_event(state, latest["id"], event)
             result["event"] = asdict(event)
         return result
 

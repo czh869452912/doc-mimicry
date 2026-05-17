@@ -112,3 +112,26 @@ def test_upload_skill_pack_resource_file_converts_docx(tmp_path: Path) -> None:
     assert body["status"] in {"ready", "warning"}
     assert body["source_path"] == "resources/original/examples/memo.docx"
     assert body["markdown_path"] == "resources/markdown/examples/memo.md"
+
+
+def test_skill_pack_resource_detail_exposes_markdown_and_warnings(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo"})
+    resource = client.post(
+        "/skill-packs/memo/resources/text",
+        json={"group": "examples", "name": "memo.txt", "content": "Memo pattern"},
+    ).json()
+
+    list_response = client.get("/skill-packs/memo/resources")
+    detail_response = client.get(f"/skill-packs/memo/resources/{resource['id']}")
+
+    assert list_response.status_code == 200
+    assert [item["id"] for item in list_response.json()] == [resource["id"]]
+    assert "warnings" in list_response.json()[0]
+    assert "markdown" not in list_response.json()[0]
+    assert "conversion_report" not in list_response.json()[0]
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["markdown"] == "Memo pattern\n"
+    assert detail["conversion_report"]["source_path"] == "resources/original/examples/memo.txt"
+    assert detail["warnings"] == []

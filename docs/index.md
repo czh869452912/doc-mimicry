@@ -28,6 +28,7 @@ This directory is the current project truth. The `reference/` directory contains
 - `exec-plans/completed/`: archived completed plans.
 - `superpowers/plans/`: active task-sized implementation plans, if any.
 - `superpowers/completed/`: archived task-sized implementation plans.
+  - `superpowers/completed/2026-05-17-workbench-alignment-hardening.md`: completed implementation plan for closing project review alignment gaps around ACP event persistence, material-driven Skill Creator, management resource visibility, settings surface boundaries, export artifacts, and documentation state.
   - `superpowers/completed/2026-05-17-markdown-import-export-pipeline.md`: completed implementation plan for Word/PDF boundary import/export while keeping Markdown internal.
 - `superpowers/specs/`: design references that inform plans but are not active checklists.
   - `superpowers/specs/2026-05-17-markdown-import-export-pipeline-design.md`: accepted design for Word/PDF boundary import/export while keeping Markdown internal.
