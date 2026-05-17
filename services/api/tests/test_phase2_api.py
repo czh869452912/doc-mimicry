@@ -81,6 +81,40 @@ def test_phase2_prd_authoring_loop(tmp_path: Path) -> None:
     assert "export_markdown" in event_kinds
 
 
+def test_phase2_non_prd_authoring_loop_uses_generic_doc_type_paths(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
+    client.put("/skill-packs/memo/artifacts", json={
+        "path": "SKILL.md",
+        "content": "---\nname: memo\ndescription: Use for memos.\n---\n\n# Memo\n",
+        "summary": "Initial memo skill",
+    })
+    version = client.post("/skill-packs/memo/publish", json={"publish_note": "Memo v1"}).json()
+    task = client.post("/tasks", json={
+        "doc_type_id": "memo",
+        "pack_version_id": version["id"],
+        "brief": "Write a board memo",
+    }).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    start_response = client.post(f"/sessions/{session['id']}/loop/start")
+    assert start_response.status_code == 200
+    outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
+    approve_response = client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": outline["content"]},
+    )
+    assert approve_response.status_code == 200
+
+    draft = client.get(f"/tasks/{task['id']}/draft").json()["markdown"]
+    assert "# Memo Draft" in draft
+    assert "# PRD Draft" not in draft
+
+    export_response = client.post(f"/sessions/{session['id']}/artifacts/export-markdown")
+    assert export_response.status_code == 200
+    assert export_response.json()["artifact_path"] == "artifacts/memo-draft.md"
+
+
 def test_phase2_session_statuses_are_persisted(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()

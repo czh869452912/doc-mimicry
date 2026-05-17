@@ -28,6 +28,21 @@ def test_first_message_creates_context_outline_draft_and_events(tmp_path: Path) 
     ]
 
 
+def test_first_message_for_non_prd_uses_generic_heading_and_skill_path(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "brief.md").write_text("Create a board memo\n", encoding="utf-8")
+
+    adapter = MockRuntimeAdapter()
+    adapter.create_session("session-001", _prompt_bundle(workspace, doc_type_id="memo"))
+    result = adapter.send_prompt("session-001", "Start drafting", {"action": "send_message"})
+
+    draft = (workspace / "draft" / "draft.md").read_text(encoding="utf-8")
+    assert "# Memo Draft" in draft
+    assert "# PRD Draft" not in draft
+    assert result.events[1].paths == ["doc-types/memo/SKILL.md"]
+
+
 def test_later_message_checkpoints_and_updates_draft(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     (workspace / "draft").mkdir(parents=True)
@@ -147,12 +162,12 @@ def test_mock_skill_creator_resource_notes_include_prompt_manifest(tmp_path: Pat
     assert "Élan 中文" in notes
 
 
-def _prompt_bundle(workspace: Path) -> PromptBundle:
+def _prompt_bundle(workspace: Path, doc_type_id: str = "prd") -> PromptBundle:
     return PromptBundle(
         system_prompt="system",
         task_instruction="task",
         workspace_root=workspace,
-        doc_type_id="prd",
+        doc_type_id=doc_type_id,
         metadata={"task_id": "task-001"},
     )
 

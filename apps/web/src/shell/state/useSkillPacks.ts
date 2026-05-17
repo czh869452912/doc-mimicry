@@ -119,9 +119,9 @@ export function useValidateSkillPack(packId: string | null) {
 export function usePublishSkillPack(packId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ note, warnings }: { note: string; warnings: string[] }) => {
+    mutationFn: ({ note, acknowledgedWarnings }: { note: string; acknowledgedWarnings: string[] }) => {
       if (!packId) throw new Error("Select a pack before publishing");
-      return api.publishSkillPack(packId, note, warnings);
+      return api.publishSkillPack(packId, note, acknowledgedWarnings);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["skillPacks"] }),
   });

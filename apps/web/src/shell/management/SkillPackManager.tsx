@@ -121,15 +121,22 @@ function PackWorkSurface({ packId }: { packId: string }) {
   const [creatorMessage, setCreatorMessage] = useState("Generate a skill from these materials.");
   const [skillDraft, setSkillDraft] = useState("");
   const [publishNote, setPublishNote] = useState("");
+  const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<string[]>([]);
   const [resourceError, setResourceError] = useState<string | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   const resourceDetail = useSkillPackResource(packId, selectedResourceId);
   const resources = resourcesQuery.data ?? [];
   const validationWarnings = validatePack.data?.warnings ?? [];
+  const allWarningsAcknowledged = validationWarnings.every((warning) => acknowledgedWarnings.includes(warning));
+  const canPublish = !publishPack.isPending && validatePack.data?.status === "passed" && allWarningsAcknowledged;
 
   useEffect(() => {
     if (skillArtifact.data?.content) setSkillDraft(skillArtifact.data.content);
   }, [skillArtifact.data?.content]);
+
+  useEffect(() => {
+    setAcknowledgedWarnings([]);
+  }, [packId, validationWarnings.join("\n")]);
 
   return (
     <div className="skill-pack-work">
@@ -252,7 +259,22 @@ function PackWorkSurface({ packId }: { packId: string }) {
             {validatePack.data.status}
           </p>
         ) : null}
-        {validationWarnings.map((warning) => <p className="muted" key={warning}>{warning}</p>)}
+        {validationWarnings.map((warning) => (
+          <label className="skill-pack-warning-ack" key={warning}>
+            <input
+              type="checkbox"
+              checked={acknowledgedWarnings.includes(warning)}
+              onChange={(event) => {
+                setAcknowledgedWarnings((current) =>
+                  event.target.checked
+                    ? [...new Set([...current, warning])]
+                    : current.filter((item) => item !== warning),
+                );
+              }}
+            />
+            <span>{warning}</span>
+          </label>
+        ))}
         <div className="skill-pack-row">
           <Input value={publishNote} onChange={(event) => setPublishNote(event.target.value)} placeholder="Publish note" />
           <Button size="sm" variant="outline" type="button" onClick={() => validatePack.mutate()}>
@@ -262,8 +284,8 @@ function PackWorkSurface({ packId }: { packId: string }) {
           <Button
             size="sm"
             type="button"
-            disabled={publishPack.isPending}
-            onClick={() => publishPack.mutate({ note: publishNote, warnings: validationWarnings })}
+            disabled={!canPublish}
+            onClick={() => publishPack.mutate({ note: publishNote, acknowledgedWarnings })}
           >
             <Play size={14} />
             Publish

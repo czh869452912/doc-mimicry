@@ -46,7 +46,18 @@ logger = logging.getLogger(__name__)
 START_LOOP_PROMPT = "Build context files and propose an outline. Stop when outline approval is required."
 APPROVE_OUTLINE_PROMPT = "The outline is approved. Generate the draft in Markdown."
 RUN_CHECKLIST_PROMPT = "Run the document type checklist and write reviews/checklist_result.md."
-EXPORT_MARKDOWN_PROMPT = "Export the current draft to artifacts/prd-draft.md."
+
+
+def _artifact_stem(task: dict[str, Any]) -> str:
+    return str(task["doc_type_id"]).replace("/", "-").replace("\\", "-")
+
+
+def _markdown_artifact_relative(task: dict[str, Any]) -> str:
+    return f"artifacts/{_artifact_stem(task)}-draft.md"
+
+
+def _export_markdown_prompt(task: dict[str, Any]) -> str:
+    return f"Export the current draft to {_markdown_artifact_relative(task)}."
 
 
 def create_sessions_router(state: DocAgentState, adapter: Any, runner: BackgroundRuntimeRunner) -> APIRouter:
@@ -311,17 +322,19 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
     ) -> dict[str, Any]:
         session = require_session(state, session_id)
         task = require_task(state, session["task_id"])
+        artifact_relative = _markdown_artifact_relative(task)
+        export_prompt = _export_markdown_prompt(task)
         append_acp_prompt_event(
             state,
             session_id,
-            EXPORT_MARKDOWN_PROMPT,
+            export_prompt,
             {"action": "export_markdown"},
         )
         if background:
             try:
                 operation = _send_prompt_operation(
                     session_id,
-                    EXPORT_MARKDOWN_PROMPT,
+                    export_prompt,
                     {"action": "export_markdown"},
                 )
             except RuntimeError as exc:
@@ -336,14 +349,14 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
                 runner,
                 operation_name="send_prompt",
                 operation_kwargs={
-                    "prompt": EXPORT_MARKDOWN_PROMPT,
+                    "prompt": export_prompt,
                     "metadata": {"action": "export_markdown"},
                 },
             )
         try:
             operation = _send_prompt_operation(
                 session_id,
-                EXPORT_MARKDOWN_PROMPT,
+                export_prompt,
                 {"action": "export_markdown"},
             )
         except RuntimeError as exc:
@@ -354,7 +367,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         )
         append_runtime_result(state, task["id"], session_id, result)
         set_session_state(state, session, result.next_state, task_id=task["id"])
-        return {"session_id": session_id, "artifact_path": "artifacts/prd-draft.md", "event_count": len(result.events)}
+        return {"session_id": session_id, "artifact_path": artifact_relative, "event_count": len(result.events)}
 
     @router.post("/sessions/{session_id}/artifacts/export-docx", response_model=LoopActionResponse)
     def export_docx(session_id: str) -> dict[str, Any]:
@@ -388,7 +401,7 @@ def create_sessions_router(state: DocAgentState, adapter: Any, runner: Backgroun
         if not draft_path.exists():
             raise HTTPException(status_code=400, detail="Draft does not exist.")
 
-        stem = str(task["doc_type_id"]).replace("/", "-").replace("\\", "-")
+        stem = _artifact_stem(task)
         artifact_relative = f"artifacts/{stem}-draft-{uuid4().hex[:8]}.{extension}"
         artifact_path = workspace_root / artifact_relative
         if extension == "docx":

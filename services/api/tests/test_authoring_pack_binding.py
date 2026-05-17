@@ -88,3 +88,33 @@ def test_task_creation_keeps_legacy_doc_type_fallback(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json()["pack_version_id"] is None
+
+
+def test_markdown_export_uses_task_doc_type_path(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
+    client.put("/skill-packs/memo/artifacts", json={
+        "path": "SKILL.md",
+        "content": "---\nname: memo\ndescription: Use for memos.\n---\n\n# Memo\n",
+        "summary": "Initial memo skill",
+    })
+    version = client.post("/skill-packs/memo/publish", json={"publish_note": "Memo v1"}).json()
+    task = client.post("/tasks", json={
+        "doc_type_id": "memo",
+        "pack_version_id": version["id"],
+        "brief": "Write a board memo",
+    }).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.post(f"/sessions/{session['id']}/loop/start")
+    outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
+    client.post(
+        f"/sessions/{session['id']}/outline/approve",
+        json={"outline_markdown": outline["content"]},
+    )
+
+    response = client.post(f"/sessions/{session['id']}/artifacts/export-markdown")
+
+    assert response.status_code == 200
+    assert response.json()["artifact_path"] == "artifacts/memo-draft.md"
+    workspace = client.get(f"/tasks/{task['id']}/workspace").json()
+    assert "artifacts/memo-draft.md" in [file["path"] for file in workspace["files"]]
