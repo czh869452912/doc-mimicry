@@ -229,6 +229,39 @@ describe("ConversationPane", () => {
     expect(refreshWorkspace).toHaveBeenCalledOnce();
   });
 
+  it("shows toolbar action feedback over stale conversation status", async () => {
+    const { rerender } = renderPane();
+
+    await userEvent.type(screen.getByLabelText("Message"), "/files");
+    await userEvent.keyboard("{Enter}");
+    expect(await screen.findByText("files view is available from the workspace tree.")).toBeTruthy();
+
+    rerender(
+      <ConversationPane
+        activeSession={session}
+        activeTask={task}
+        createSession={vi.fn().mockResolvedValue(session)}
+        ensureSession={vi.fn().mockResolvedValue(session)}
+        events={events}
+        error={null}
+        externalStatus="Checkpoint created."
+        loading={false}
+        refreshTimeline={vi.fn()}
+        refreshWorkspace={vi.fn()}
+        onOpenPath={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Checkpoint created.")).toBeTruthy();
+    expect(screen.queryByText("files view is available from the workspace tree.")).toBeNull();
+
+    await userEvent.type(screen.getByLabelText("Message"), "/versions");
+    await userEvent.keyboard("{Enter}");
+
+    expect(await screen.findByText("versions view is available from the workspace tree.")).toBeTruthy();
+    expect(screen.queryByText("Checkpoint created.")).toBeNull();
+  });
+
   it("starts the outline loop in a fresh session when the current session is not idle", async () => {
     const freshSession = { ...session, id: "session-fresh", status: "idle" };
     const createSession = vi.fn().mockResolvedValue(freshSession);

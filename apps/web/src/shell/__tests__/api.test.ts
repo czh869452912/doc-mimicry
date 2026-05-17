@@ -56,4 +56,14 @@ describe("api request helper", () => {
     expect(init.method).toBe("POST");
     expect(init.body).toBe(JSON.stringify({ message: "Generate the pack" }));
   });
+
+  it("passes the active session id when creating draft checkpoints", async () => {
+    const { api } = await import("../../api");
+    await api.createDraftCheckpoint("task-1", "Manual checkpoint", "session-1");
+
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/tasks/task-1/draft/checkpoints");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ note: "Manual checkpoint", session_id: "session-1" }));
+  });
 });

@@ -11,9 +11,11 @@ class FakeOpenHandsClient:
     def __init__(self) -> None:
         self.messages: list[str] = []
         self.create_calls = 0
+        self.prompt_bundles: list[PromptBundle] = []
 
     def create_session(self, prompt_bundle: PromptBundle) -> str:
         self.create_calls += 1
+        self.prompt_bundles.append(prompt_bundle)
         return "openhands-session-001"
 
     def send_message(self, runtime_session_id: str, message: str) -> list[dict[str, Any]]:
@@ -70,6 +72,20 @@ def test_openhands_adapter_defers_runtime_session_until_first_operation(tmp_path
     adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
 
     assert client.create_calls == 1
+
+
+def test_openhands_adapter_forwards_non_prd_prompt_bundle_to_runtime(tmp_path: Path) -> None:
+    client = FakeOpenHandsClient()
+    adapter = OpenHandsRuntimeAdapter(client)
+    bundle = _prompt_bundle(tmp_path, doc_type_id="memo")
+
+    adapter.create_session("session-001", bundle)
+    result = adapter.send_prompt("session-001", "Build context", {"action": "start_loop"})
+
+    assert client.prompt_bundles == [bundle]
+    assert result.raw_events[0].payload["doc_type_id"] == "memo"
+    assert result.acp_updates[0].projection["timeline_kind"] == "update_draft"
+    assert "PRD" not in result.acp_updates[0].projection["summary"]
 
 
 def test_openhands_adapter_cancel_sets_cancelled(tmp_path: Path) -> None:
@@ -260,11 +276,11 @@ def test_openhands_error_payload_maps_to_failed_acp_update() -> None:
     assert "APIError" in update.projection["summary"]
 
 
-def _prompt_bundle(workspace: Path) -> PromptBundle:
+def _prompt_bundle(workspace: Path, doc_type_id: str = "prd") -> PromptBundle:
     return PromptBundle(
         system_prompt="system",
         task_instruction="task",
         workspace_root=workspace,
-        doc_type_id="prd",
+        doc_type_id=doc_type_id,
         metadata={"task_id": "task-001"},
     )

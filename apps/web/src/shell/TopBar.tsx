@@ -4,7 +4,7 @@ import { Settings } from "lucide-react";
 interface TopBarProps {
   workspaceLabel: string;
   sessionLabel: string;
-  status: "idle" | "running" | "failed" | "waiting";
+  status: "idle" | "running" | "failed" | "waiting" | "completed";
   onOpenCommandPalette: () => void;
   onOpenSettings: () => void;
 }

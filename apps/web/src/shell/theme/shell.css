@@ -89,6 +89,10 @@
   background: #f59e0b; /* amber — outline awaiting approval */
 }
 
+.status-dot[data-status="completed"] {
+  background: var(--color-accent);
+}
+
 .icon-button,
 .command-chip {
   display: inline-flex;
@@ -844,6 +848,11 @@
   border-radius: var(--radius-md);
   background: var(--color-surface-card);
   min-width: 0;
+}
+
+.skill-pack-resource-row.active {
+  border-color: var(--color-hairline-strong);
+  box-shadow: inset 2px 0 0 var(--color-accent);
 }
 
 .skill-pack-resource-row p {

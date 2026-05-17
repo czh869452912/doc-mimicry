@@ -27,9 +27,9 @@ async function reachDraftReady(page: Page) {
   await createWorkspace(page);
   await sendComposer(page, "/start");
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
-  await outlineCard(page).getByRole("button", { name: /approve/i }).click();
-  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+  await approveOutline(page);
   await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
+  await expect(draftBody(page)).toContainText(/Draft|Problem|Goals/i, { timeout: 8_000 });
 }
 
 test("start loop produces outline card", async ({ page }) => {
@@ -51,10 +51,10 @@ test("approve outline makes draft content visible", async ({ page }) => {
   await sendComposer(page, "/start");
 
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
-  await outlineCard(page).getByRole("button", { name: /approve/i }).click();
+  await approveOutline(page);
 
-  // Mock adapter generates a draft with heading "PRD Draft"
-  await expect(page.getByText("PRD Draft")).toBeVisible({ timeout: 8_000 });
+  await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
+  await expect(draftBody(page)).toContainText(/Draft|Problem|Goals/i, { timeout: 8_000 });
 });
 
 test("run checklist shows checklist card", async ({ page }) => {
@@ -70,7 +70,7 @@ test("export markdown shows artifact card", async ({ page }) => {
 
   await sendComposer(page, "/export");
 
-  await expect(page.getByText(/artifact · artifacts\/prd-draft\.md/i)).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByText(/artifact · artifacts\/[a-z0-9_-]+-draft\.md/i)).toBeVisible({ timeout: 8_000 });
 });
 
 test("selected source text can be queued into assistant composer", async ({ page }) => {
@@ -85,7 +85,7 @@ test("selected source text can be queued into assistant composer", async ({ page
   await page.getByRole("button", { name: "Send to chat" }).click();
 
   await expect(messageBox(page)).toContainText("Please review this selected passage");
-  await expect(messageBox(page)).toContainText("PRD Draft");
+  await expect(messageBox(page)).toContainText("Draft");
 });
 
 test("selected source text can trigger revise selection", async ({ page }) => {
@@ -102,6 +102,22 @@ test("selected source text can trigger revise selection", async ({ page }) => {
   await expect(page.locator(".acp-event").filter({ hasText: "Revise selected passage" }).first()).toBeVisible({ timeout: 8_000 });
 });
 
+test("manual checkpoint creates a version in the workspace tree", async ({ page }) => {
+  await reachDraftReady(page);
+
+  await page.getByRole("button", { name: "Source" }).click();
+  const editor = page.locator(".cm-content");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
+  await page.keyboard.type("\n\nManual checkpoint note.");
+
+  await expect(page.getByText(/last save · saved/i)).toBeVisible({ timeout: 8_000 });
+  await page.getByRole("button", { name: /\+ checkpoint/i }).click();
+
+  await expect(page.locator(".acp-event").filter({ hasText: "Manual checkpoint" }).first()).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByTestId("left").getByText("v001.md")).toBeVisible({ timeout: 8_000 });
+});
+
 function messageBox(page: Page) {
   return page.getByRole("textbox", { name: "Message" });
 }
@@ -115,10 +131,24 @@ function outlineCard(page: Page) {
   return page.locator(".acp-event--card").filter({ hasText: "Outline · waiting for review" }).first();
 }
 
+async function approveOutline(page: Page) {
+  const approveButton = outlineCard(page).getByRole("button", { name: /approve/i });
+  await expect(approveButton).toBeVisible({ timeout: 8_000 });
+  const approveResponse = page.waitForResponse((response) =>
+    response.url().includes("/outline/approve") && response.request().method() === "POST",
+  );
+  await approveButton.click({ force: true });
+  expect((await approveResponse).ok()).toBe(true);
+}
+
 function checklistCard(page: Page) {
   return page.locator(".acp-event--card").filter({ hasText: "Checklist · succeeded" }).first();
 }
 
+function draftBody(page: Page) {
+  return page.locator(".markdown-preview, .cm-content").first();
+}
+
 function activeSession(page: Page) {
-  return page.getByRole("button", { name: /session-[a-f0-9]+/i }).first();
+  return page.getByRole("button", { name: /session-[a-f0-9]+.*draft_ready/i }).first();
 }

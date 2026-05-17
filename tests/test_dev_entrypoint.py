@@ -232,3 +232,24 @@ def test_compose_smoke_checks_acp_events_not_legacy_timeline() -> None:
 
     assert "/api/sessions/{session['id']}/events" in smoke
     assert "/api/sessions/{session['id']}/timeline" not in smoke
+
+
+def test_openhands_smoke_accepts_doc_type_argument() -> None:
+    smoke = (ROOT / "tools" / "runtime" / "openhands_smoke.py").read_text(encoding="utf-8")
+
+    assert "--doc-type" in smoke
+    assert "doc_type_id" in smoke
+
+
+def test_playwright_e2e_uses_project_managed_api_runner() -> None:
+    playwright_config = (ROOT / "apps" / "web" / "playwright.config.ts").read_text(encoding="utf-8")
+    runner = (ROOT / "tools" / "runtime" / "e2e_api_server.py").read_text(encoding="utf-8")
+
+    assert ".local\\dev\\.venv" not in playwright_config
+    assert ".local/dev/.venv" not in playwright_config
+    assert "tools\\\\runtime\\\\e2e_api_server.py" in playwright_config
+    assert "PostgresContainer" in runner
+    assert "DATABASE_URL" in runner
+    assert "DOCAGENT_QUEUE" in runner
+    assert "TemporaryDirectory" in runner
+    assert "DOCAGENT_STATE_ROOT" in runner

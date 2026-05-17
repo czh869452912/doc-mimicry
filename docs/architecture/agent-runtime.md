@@ -38,6 +38,12 @@ and `DOCAGENT_RUNTIME=openhands-acp` for OpenHands. The OpenHands adapter reads
 `DOCAGENT_ACP_RUNTIME_URL`; `OPENHANDS_BASE_URL` is only a temporary
 compatibility fallback for the current SDK client.
 
+CI covers the OpenHands boundary with fake-client adapter contract tests. Those
+tests verify prompt-bundle forwarding, generic document-type metadata, ACP event
+mapping, and error projection without requiring live provider credentials. Live
+OpenHands smoke remains opt-in through `tools/runtime/openhands_smoke.py` and
+can be pointed at a second document type with `--doc-type`.
+
 ## Adapter Boundary
 
 The backend calls a runtime adapter, not the runtime directly. Supported

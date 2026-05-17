@@ -12,8 +12,14 @@ from docagent_api.doctypes import get_doc_type, is_valid_doc_type_id
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
 from docagent_api.prompts import build_prompt_bundle
-from docagent_api.request_models import CreateTaskRequest, ImportTextRequest, UpdateDraftRequest
+from docagent_api.request_models import (
+    CreateDraftCheckpointRequest,
+    CreateTaskRequest,
+    ImportTextRequest,
+    UpdateDraftRequest,
+)
 from docagent_api.response_models import (
+    DraftCheckpointResponse,
     DraftResponse,
     ImportedInputResponse,
     SessionResponse,
@@ -31,8 +37,8 @@ from docagent_api.session_state import RUNNING_STATES
 from docagent_api.state import DocAgentState
 from docagent_api.time import utc_now
 from docagent_api.workspace_files import list_workspace_files, read_workspace_text_file
-from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor
-from docagent_workspace import create_workspace
+from docagent_contracts import SemanticEventKind, TimelineActor
+from docagent_workspace import checkpoint_draft, create_workspace
 
 
 def _title_from_description(description: str) -> str:
@@ -124,6 +130,38 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
                 )
         write_draft(Path(task["workspace_root"]), request.markdown)
         return {"task_id": task_id, "markdown": read_draft(Path(task["workspace_root"]))}
+
+    @router.post("/tasks/{task_id}/draft/checkpoints", response_model=DraftCheckpointResponse)
+    def create_draft_checkpoint(task_id: str, request: CreateDraftCheckpointRequest) -> dict[str, str]:
+        task = require_task(state, task_id)
+        sessions = state.list_sessions_by_task(task_id)
+        running_sessions = [session for session in sessions if session["status"] in RUNNING_STATES]
+        if running_sessions:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot create a draft checkpoint while a runtime session is running.",
+            )
+
+        summary = request.note.strip() or "Manual checkpoint"
+        try:
+            version = checkpoint_draft(Path(task["workspace_root"]), summary=summary, created_by="user")
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=400, detail="Draft does not exist.") from exc
+
+        session_for_event = _checkpoint_session(sessions, request.session_id)
+        if session_for_event:
+            event = manual_event(
+                task_id,
+                session_for_event["id"],
+                f"checkpoint-{version.version}",
+                TimelineActor.USER,
+                SemanticEventKind.CREATE_CHECKPOINT,
+                version.summary,
+                [version.version_path],
+            )
+            append_semantic_event(state, session_for_event["id"], event)
+
+        return asdict(version)
 
     @router.post("/tasks/{task_id}/sessions", response_model=SessionResponse)
     def create_session(task_id: str) -> dict[str, Any]:
@@ -228,3 +266,17 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
         return result
 
     return router
+
+
+def _checkpoint_session(
+    sessions: list[dict[str, Any]],
+    requested_session_id: str | None,
+) -> dict[str, Any] | None:
+    if requested_session_id:
+        for session in sessions:
+            if session["id"] == requested_session_id:
+                return session
+        raise HTTPException(status_code=400, detail="Session not found or does not belong to this task.")
+    if not sessions:
+        return None
+    return sorted(sessions, key=lambda session: session.get("updated_at", ""))[-1]

@@ -339,7 +339,7 @@ def _source_copy_warnings(root: Path, skill_content: str, resources: list[dict[s
     skill_runs = {" ".join(skill_words[index:index + 25]) for index in range(len(skill_words) - 24)}
     warnings: list[str] = []
     for resource in resources:
-        if resource["group"] not in {"examples", "specs"} or resource["status"] != "ready":
+        if resource["group"] not in {"examples", "specs"} or resource["status"] not in {"ready", "warning"}:
             continue
         markdown_path = resource.get("markdown_path")
         if not markdown_path:

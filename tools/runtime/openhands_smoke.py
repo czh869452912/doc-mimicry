@@ -25,7 +25,9 @@ from docagent_api.app import create_app
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run an opt-in in-process OpenHands adapter smoke.")
-    parser.parse_args()
+    parser.add_argument("--doc-type", default="prd", help="Document type id to use for the smoke task.")
+    parser.add_argument("--brief", default="Build onboarding analytics", help="Brief for the smoke task.")
+    args = parser.parse_args()
 
     """Run an opt-in in-process smoke against the OpenHands adapter."""
     if not os.environ.get("DATABASE_URL"):
@@ -39,7 +41,7 @@ def main() -> int:
             runtime_name="openhands",
         )
     )
-    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Build onboarding analytics"}).json()
+    task = client.post("/tasks", json={"doc_type_id": args.doc_type, "brief": args.brief}).json()
     print("created task")
     session = client.post(f"/tasks/{task['id']}/sessions").json()
     print("created session")
@@ -56,7 +58,7 @@ def main() -> int:
     ).raise_for_status()
     print("approved outline")
     draft = client.get(f"/tasks/{task['id']}/draft").json()["markdown"]
-    selected = "Build onboarding analytics" if "Build onboarding analytics" in draft else draft.splitlines()[0]
+    selected = args.brief if args.brief in draft else draft.splitlines()[0]
     client.post(
         f"/sessions/{session['id']}/revision/selection",
         json={"selected_text": selected, "instruction": "Make this more specific."},

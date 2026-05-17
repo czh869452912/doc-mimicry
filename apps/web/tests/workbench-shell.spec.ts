@@ -12,7 +12,7 @@ test("workbench shell mounts core surfaces", async ({ page }) => {
 });
 
 test("workbench shell exposes workspace creation flow", async ({ page }) => {
-  const title = `First loop PRD ${Date.now()}`;
+  const title = `First loop workspace ${Date.now()}`;
 
   await page.goto("/");
   await page
@@ -22,7 +22,7 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
     .click();
   await expect(page.locator("form").getByText("Document type", { exact: true })).toBeVisible();
   await page.getByLabel(/title/i).fill(title);
-  await page.getByLabel(/description/i).fill("Write a PRD for the first usable document imitation loop.");
+  await page.getByLabel(/description/i).fill("Write a first usable document imitation loop.");
   await page
     .locator("form")
     .filter({ has: page.getByLabel(/description/i) })
@@ -36,7 +36,7 @@ test("workbench shell exposes workspace creation flow", async ({ page }) => {
 
 test("ACP center pane sends messages and renders timeline updates", async ({ page }) => {
   await page.goto("/");
-  await createDraftReadyWorkspace(page, `Assistant UI PRD ${Date.now()}`);
+  await createDraftReadyWorkspace(page, `Assistant UI workspace ${Date.now()}`);
 
   await expect(page.locator(".acp-composer")).toBeVisible();
   await sendComposer(page, "Revise the launch scope");
@@ -48,7 +48,7 @@ test("ACP center pane sends messages and renders timeline updates", async ({ pag
 
 test("ACP reload action resends the previous user message", async ({ page }) => {
   await page.goto("/");
-  await createDraftReadyWorkspace(page, `Reload PRD ${Date.now()}`);
+  await createDraftReadyWorkspace(page, `Reload workspace ${Date.now()}`);
 
   await sendComposer(page, "Revise the launch scope");
   await expect(page.locator(".acp-thread")).toContainText("Revise the launch scope");
@@ -63,7 +63,7 @@ test("ACP reload action resends the previous user message", async ({ page }) => 
 
 test("ACP composer imports text attachments before sending", async ({ page }) => {
   await page.goto("/");
-  await createWorkspace(page, `Attachment PRD ${Date.now()}`);
+  await createWorkspace(page, `Attachment workspace ${Date.now()}`);
 
   const fileChooserPromise = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: /attach file/i }).click();
@@ -133,7 +133,11 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
   const approveButton = outlineCard(page).getByRole("button", { name: /approve/i });
   await expect(approveButton).toBeVisible({ timeout: 8_000 });
-  await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
+  const approveResponse = page.waitForResponse((response) =>
+    response.url().includes("/outline/approve") && response.request().method() === "POST",
+  );
+  await approveButton.click({ force: true });
+  expect((await approveResponse).ok()).toBe(true);
   await expect(messageBox(page)).toBeEnabled({ timeout: 8_000 });
   await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
 }
@@ -168,5 +172,5 @@ function outlineCard(page: import("@playwright/test").Page) {
 }
 
 function activeSession(page: import("@playwright/test").Page) {
-  return page.getByRole("button", { name: /session-[a-f0-9]+/i }).first();
+  return page.getByRole("button", { name: /session-[a-f0-9]+.*draft_ready/i }).first();
 }

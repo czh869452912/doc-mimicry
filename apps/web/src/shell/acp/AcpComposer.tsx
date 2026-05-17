@@ -35,7 +35,6 @@ export function AcpComposer({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!draftText) return;
@@ -138,16 +137,23 @@ export function AcpComposer({
         <DocAgentSlashCommands query={text} onSelect={selectCommand} />
         {attachmentError && <p className="pane-note pane-note--error">{attachmentError}</p>}
       </div>
-      <input ref={fileInputRef} className="sr-only" type="file" multiple onChange={addLocalAttachments} />
-      <button
-        type="button"
-        className="acp-attach-button"
-        disabled={disabled}
+      <label
+        className={`acp-attach-button${disabled ? " acp-attach-button--disabled" : ""}`}
         aria-label="Attach file"
-        onClick={() => fileInputRef.current?.click()}
+        aria-disabled={disabled}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
       >
+        <input
+          aria-label="Choose attachment file"
+          className="acp-file-input"
+          type="file"
+          multiple
+          disabled={disabled}
+          onChange={addLocalAttachments}
+        />
         <Paperclip size={15} />
-      </button>
+      </label>
       {isRunning ? (
         <button type="button" className="acp-send-button acp-send-button--stop" aria-label="Stop the running agent" onClick={() => void onCancel?.()}>
           <Square size={13} />

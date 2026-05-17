@@ -20,7 +20,12 @@ def _next_version(root: Path) -> tuple[str, Path]:
     return version, versions_dir / f"{version}.md"
 
 
-def checkpoint_draft(root: Path, summary: str, created_at: str | None = None) -> DraftVersion:
+def checkpoint_draft(
+    root: Path,
+    summary: str,
+    created_at: str | None = None,
+    created_by: str = "agent",
+) -> DraftVersion:
     source = root / "draft" / "draft.md"
     if not source.is_file():
         raise FileNotFoundError("Cannot checkpoint missing draft/draft.md")
@@ -34,6 +39,6 @@ def checkpoint_draft(root: Path, summary: str, created_at: str | None = None) ->
         source_path="draft/draft.md",
         version_path=f"versions/{version}.md",
         summary=summary,
-        created_by="agent",
+        created_by=created_by,
         created_at=created_at or _utc_now(),
     )

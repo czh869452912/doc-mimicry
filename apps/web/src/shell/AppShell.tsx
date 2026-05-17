@@ -17,6 +17,7 @@ import { useDraft } from "./state/useDraft";
 import { buildWorkspaceTreeData } from "./state/useWorkspaces";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../components/ui/resizable";
 import { ErrorBoundary } from "./ErrorBoundary";
+import type { SaveState } from "./editor/useAutoSave";
 
 export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -24,6 +25,9 @@ export function AppShell() {
   const [queuedComposerDraft, setQueuedComposerDraft] = useState<string | null>(null);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
   const [localDraft, setLocalDraft] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState("");
+  const [draftSaveState, setDraftSaveState] = useState<SaveState>("idle");
+  const [checkpointPending, setCheckpointPending] = useState(false);
   const queryClient = useQueryClient();
 
   const workspaces = useActiveWorkspace();
@@ -47,21 +51,18 @@ export function AppShell() {
     right: collapse.rightPanelSize,
   };
 
+  const workspaceTreeTasks = workspaces.activeTask
+    ? [workspaces.activeTask, ...workspaces.tasks.filter((task) => task.id !== workspaces.activeTask?.id)]
+    : workspaces.tasks;
   const treeData = buildWorkspaceTreeData(
-    workspaces.tasks,
+    workspaceTreeTasks,
     workspaces.activeTask ? { [workspaces.activeTask.id]: workspaces.sessions } : {},
     workspaces.activeTask && workspaceTreeQuery.data
       ? { [workspaces.activeTask.id]: workspaceTreeQuery.data }
       : {},
   );
 
-  const topBarStatus = workspaces.activeSession?.status?.startsWith("running")
-    ? "running"
-    : workspaces.activeSession?.status === "failed"
-      ? "failed"
-      : workspaces.activeSession?.status === "await_outline_approval"
-        ? "waiting"
-        : "idle";
+  const topBarStatus = topBarStatusFor(workspaces.activeSession?.status);
   const activeSessionIsRunning = Boolean(workspaces.activeSession?.status?.startsWith("running"));
 
   return (
@@ -118,6 +119,8 @@ export function AppShell() {
               <ConversationPane
                 activeSession={workspaces.activeSession}
                 activeTask={workspaces.activeTask}
+                externalStatus={actionStatus}
+                createCheckpoint={() => createManualCheckpoint(draft, null)}
                 createSession={workspaces.createSessionForActiveTask}
                 ensureSession={workspaces.ensureSession}
                 events={timeline.events}
@@ -147,12 +150,17 @@ export function AppShell() {
               <EditorPane
                 activeSessionId={workspaces.activeSession?.id ?? null}
                 activeTabId={editorTabs.activeTabId}
+                checkpointDisabled={activeSessionIsRunning}
+                checkpointPending={checkpointPending}
                 draft={draft}
                 draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null) && !activeSessionIsRunning}
+                serverDraft={draftQueryTaskId === activeTaskId ? draftQuery.data?.markdown : undefined}
                 tabs={editorTabs.tabs}
                 taskId={workspaces.activeTask?.id ?? null}
                 onCloseTab={editorTabs.removeTab}
+                onCreateCheckpoint={createManualCheckpoint}
                 onDraftChange={setLocalDraft}
+                onDraftSaveStateChange={setDraftSaveState}
                 onReviseSelection={reviseSelectedText}
                 onSendSelectionToChat={(selectedText) => {
                   setQueuedComposerDraft(selectionPrompt(selectedText));
@@ -188,12 +196,62 @@ export function AppShell() {
 
   async function reviseSelectedText(selectedText: string) {
     if (!workspaces.activeSession) return;
-    await api.reviseSelection(
-      workspaces.activeSession.id,
-      selectedText,
-      "Please revise the selected passage while preserving its meaning.",
-    );
-    // SSE will push workspace/draft invalidation when the worker completes
+    setActionStatus("");
+    try {
+      await api.reviseSelection(
+        workspaces.activeSession.id,
+        selectedText,
+        "Please revise the selected passage while preserving its meaning.",
+      );
+      await Promise.all([
+        timeline.refreshTimeline(),
+        queryClient.invalidateQueries({ queryKey: ["workspace", activeTaskId] }),
+        queryClient.invalidateQueries({ queryKey: ["draft", activeTaskId] }),
+        queryClient.invalidateQueries({ queryKey: ["sessions", activeTaskId] }),
+      ]);
+    } catch (caught) {
+      setActionStatus(caught instanceof Error ? caught.message : "Revision failed.");
+    }
+  }
+
+  async function createManualCheckpoint(draftMarkdown: string, lastSavedMarkdown: string | null): Promise<boolean | string> {
+    if (!activeTaskId) {
+      return setCheckpointStatus("Create a workspace first.");
+    }
+    if (activeSessionIsRunning) {
+      return setCheckpointStatus("Checkpoint is unavailable while the agent is running.");
+    }
+    if (checkpointPending) {
+      return setCheckpointStatus("Creating checkpoint.");
+    }
+    if (draftSaveState === "saving") {
+      return setCheckpointStatus("Waiting for autosave to finish.");
+    }
+    setCheckpointPending(true);
+    setActionStatus("");
+    try {
+      if (lastSavedMarkdown === null || draftMarkdown !== lastSavedMarkdown) {
+        const response = await api.updateDraft(activeTaskId, draftMarkdown);
+        setLocalDraft(response.markdown);
+      }
+      await api.createDraftCheckpoint(activeTaskId, "Manual checkpoint", workspaces.activeSession?.id ?? null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["workspace", activeTaskId] }),
+        workspaces.activeSession?.id ? timeline.refreshTimeline() : Promise.resolve(),
+      ]);
+      setActionStatus("Checkpoint created.");
+      return true;
+    } catch (caught) {
+      setActionStatus(caught instanceof Error ? caught.message : "Checkpoint failed.");
+      return false;
+    } finally {
+      setCheckpointPending(false);
+    }
+  }
+
+  function setCheckpointStatus(message: string) {
+    setActionStatus(message);
+    return message;
   }
 }
 
@@ -207,4 +265,12 @@ function tabFromWorkspaceFile(file: WorkspaceFileContent) {
   if (kind === "version") return { ...common, kind };
   if (kind === "artifact") return { ...common, kind };
   return { ...common, kind: "file" as const };
+}
+
+function topBarStatusFor(status?: string): "idle" | "running" | "failed" | "waiting" | "completed" {
+  if (status?.startsWith("running")) return "running";
+  if (status === "failed") return "failed";
+  if (status === "await_outline_approval") return "waiting";
+  if (status === "completed") return "completed";
+  return "idle";
 }

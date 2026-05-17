@@ -45,4 +45,13 @@ describe("EditorPane tabs", () => {
 
     expect(onCloseTab).toHaveBeenCalledWith("file:notes.md");
   });
+
+  it("reports draft autosave state so external checkpoint commands can share the same guard", async () => {
+    const onDraftSaveStateChange = vi.fn();
+    renderEditor({ onDraftSaveStateChange });
+
+    await screen.findByText(/last save/i);
+
+    expect(onDraftSaveStateChange).toHaveBeenCalledWith("idle");
+  });
 });

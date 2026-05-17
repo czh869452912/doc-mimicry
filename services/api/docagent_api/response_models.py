@@ -60,6 +60,17 @@ class DraftResponse(BaseModel):
     markdown: str
 
 
+class DraftCheckpointResponse(BaseModel):
+    id: str
+    task_id: str
+    version: str
+    source_path: str
+    version_path: str
+    summary: str
+    created_by: str
+    created_at: str
+
+
 class ImportedInputResponse(BaseModel):
     id: str
     status: str

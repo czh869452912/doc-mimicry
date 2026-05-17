@@ -41,6 +41,7 @@ class MockRuntimeAdapter:
             session["pack_id"] = str(pack_id)
         else:
             session["task_id"] = str(prompt_bundle.metadata["task_id"])
+            session["doc_type_id"] = prompt_bundle.doc_type_id or "document"
         self._sessions[session_id] = session
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
 
@@ -247,12 +248,13 @@ class MockRuntimeAdapter:
     ) -> RuntimeOperationResult:
         session = self._session(session_id)
         task_id = str(session["task_id"])
+        doc_type_id = _doc_type_id(session)
         workspace_root = Path(session["workspace_root"])
         if (workspace_root / "draft" / "draft.md").exists():
             events = self._revise(task_id, session_id, workspace_root, message)
             next_state = RuntimeSessionState.DRAFT_READY
         else:
-            events = self._first_draft(task_id, session_id, workspace_root, message)
+            events = self._first_draft(task_id, session_id, workspace_root, message, doc_type_id)
             next_state = RuntimeSessionState.DRAFT_READY
         self._set_state(session_id, next_state)
         return RuntimeOperationResult(
@@ -268,6 +270,7 @@ class MockRuntimeAdapter:
             str(session["task_id"]),
             session_id,
             Path(session["workspace_root"]),
+            _doc_type_id(session),
         )
         self._set_state(session_id, RuntimeSessionState.AWAIT_OUTLINE_APPROVAL)
         return RuntimeOperationResult(
@@ -286,6 +289,7 @@ class MockRuntimeAdapter:
             session_id,
             workspace_root,
             outline_markdown,
+            _doc_type_id(session),
         )
         self._set_state(session_id, RuntimeSessionState.DRAFT_READY)
         return RuntimeOperationResult(
@@ -323,6 +327,7 @@ class MockRuntimeAdapter:
             str(session["task_id"]),
             session_id,
             Path(session["workspace_root"]),
+            _doc_type_id(session),
         )
         self._set_state(session_id, RuntimeSessionState.DRAFT_READY)
         return RuntimeOperationResult(
@@ -338,6 +343,7 @@ class MockRuntimeAdapter:
             str(session["task_id"]),
             session_id,
             Path(session["workspace_root"]),
+            _doc_type_id(session),
         )
         self._set_state(session_id, RuntimeSessionState.COMPLETED)
         return RuntimeOperationResult(
@@ -369,6 +375,7 @@ class MockRuntimeAdapter:
         session_id: str,
         workspace_root: Path,
         message: str,
+        doc_type_id: str,
     ) -> list[SemanticTimelineEvent]:
         (workspace_root / "context").mkdir(parents=True, exist_ok=True)
         (workspace_root / "draft").mkdir(parents=True, exist_ok=True)
@@ -382,7 +389,7 @@ class MockRuntimeAdapter:
             encoding="utf-8",
         )
         (workspace_root / "context" / "structure_notes.md").write_text(
-            "# Structure Notes\n\nUse a concise PRD structure with goals, users, requirements, and risks.\n",
+            "# Structure Notes\n\nUse a concise document structure with goals, audience, requirements, risks, and open questions when relevant.\n",
             encoding="utf-8",
         )
         (workspace_root / "draft" / "outline.md").write_text(
@@ -390,7 +397,8 @@ class MockRuntimeAdapter:
             encoding="utf-8",
         )
         (workspace_root / "draft" / "draft.md").write_text(
-            "# PRD Draft\n\n"
+            _draft_heading(doc_type_id)
+            +
             "## Background\n\n"
             f"{brief.strip()}\n\n"
             "## Goals\n\n- Clarify the product outcome.\n\n"
@@ -400,7 +408,7 @@ class MockRuntimeAdapter:
         )
         return [
             _event(task_id, session_id, "user-1", TimelineActor.USER, SemanticEventKind.USER_MESSAGE, message, []),
-            _event(task_id, session_id, "skill-1", TimelineActor.AGENT, SemanticEventKind.READ_SKILL, "Read document type skill", ["doc-types/prd/SKILL.md"]),
+            _event(task_id, session_id, "skill-1", TimelineActor.AGENT, SemanticEventKind.READ_SKILL, "Read document type skill", [_skill_path(doc_type_id)]),
             _event(task_id, session_id, "style-1", TimelineActor.AGENT, SemanticEventKind.EXTRACT_STYLE, "Extract style notes", ["context/style_notes.md"]),
             _event(task_id, session_id, "structure-1", TimelineActor.AGENT, SemanticEventKind.EXTRACT_STRUCTURE, "Extract structure notes", ["context/structure_notes.md"]),
             _event(task_id, session_id, "outline-1", TimelineActor.AGENT, SemanticEventKind.GENERATE_OUTLINE, "Generate outline", ["draft/outline.md"]),
@@ -432,6 +440,7 @@ class MockRuntimeAdapter:
         task_id: str,
         session_id: str,
         workspace_root: Path,
+        doc_type_id: str,
     ) -> list[SemanticTimelineEvent]:
         (workspace_root / "context").mkdir(parents=True, exist_ok=True)
         (workspace_root / "draft").mkdir(parents=True, exist_ok=True)
@@ -446,11 +455,11 @@ class MockRuntimeAdapter:
             encoding="utf-8",
         )
         (workspace_root / "context" / "style_notes.md").write_text(
-            "# Style Notes\n\nUse concise PRD prose, explicit bullets, and decision-ready sections.\n",
+            "# Style Notes\n\nUse concise prose, explicit bullets, and decision-ready sections.\n",
             encoding="utf-8",
         )
         (workspace_root / "context" / "structure_notes.md").write_text(
-            "# Structure Notes\n\nProblem, Goals, Users, Requirements, Risks, Open Questions.\n",
+            "# Structure Notes\n\nProblem, Goals, Audience, Requirements, Risks, Open Questions.\n",
             encoding="utf-8",
         )
         (workspace_root / "draft" / "outline.md").write_text(
@@ -465,8 +474,8 @@ class MockRuntimeAdapter:
             encoding="utf-8",
         )
         return [
-            _event(task_id, session_id, "skill", TimelineActor.AGENT, SemanticEventKind.READ_SKILL, "Read PRD skill", ["doc-types/prd/SKILL.md"]),
-            _event(task_id, session_id, "examples", TimelineActor.AGENT, SemanticEventKind.ANALYZE_EXAMPLES, "Analyze PRD examples", ["doc-types/prd/examples/markdown"]),
+            _event(task_id, session_id, "skill", TimelineActor.AGENT, SemanticEventKind.READ_SKILL, f"Read {doc_type_id} skill", [_skill_path(doc_type_id)]),
+            _event(task_id, session_id, "examples", TimelineActor.AGENT, SemanticEventKind.ANALYZE_EXAMPLES, f"Analyze {doc_type_id} examples", [_examples_path(doc_type_id)]),
             _event(task_id, session_id, "context", TimelineActor.AGENT, SemanticEventKind.BUILD_CONTEXT, "Build context files", ["context/user_intent.md", "context/doc_map.md"]),
             _event(task_id, session_id, "style", TimelineActor.AGENT, SemanticEventKind.EXTRACT_STYLE, "Extract style notes", ["context/style_notes.md"]),
             _event(task_id, session_id, "structure", TimelineActor.AGENT, SemanticEventKind.EXTRACT_STRUCTURE, "Extract structure notes", ["context/structure_notes.md"]),
@@ -480,13 +489,15 @@ class MockRuntimeAdapter:
         session_id: str,
         workspace_root: Path,
         outline_markdown: str,
+        doc_type_id: str,
     ) -> list[SemanticTimelineEvent]:
         (workspace_root / "draft").mkdir(parents=True, exist_ok=True)
         outline_text = outline_markdown if outline_markdown.endswith("\n") else f"{outline_markdown}\n"
         (workspace_root / "draft" / "outline.md").write_text(outline_text, encoding="utf-8")
         brief = _read_text(workspace_root / "brief.md").strip()
         (workspace_root / "draft" / "draft.md").write_text(
-            "# PRD Draft\n\n"
+            _draft_heading(doc_type_id)
+            +
             "## Problem\n\n"
             f"{brief or 'Clarify the product problem.'}\n\n"
             "## Goals\n\n- Define the desired product outcome.\n\n"
@@ -527,14 +538,15 @@ class MockRuntimeAdapter:
         task_id: str,
         session_id: str,
         workspace_root: Path,
+        doc_type_id: str,
     ) -> list[SemanticTimelineEvent]:
         (workspace_root / "reviews").mkdir(parents=True, exist_ok=True)
         draft = _read_text(workspace_root / "draft" / "draft.md")
-        result = "# Checklist Result\n\n- [x] Has draft content\n- [x] Has PRD heading\n"
+        result = "# Checklist Result\n\n- [x] Has draft content\n- [x] Has document heading\n"
         if "## Risks" not in draft:
-            result += "- [ ] Includes risks section\n"
+            result += "- [ ] Includes risks or caveats section\n"
         else:
-            result += "- [x] Includes risks section\n"
+            result += "- [x] Includes risks or caveats section\n"
         (workspace_root / "reviews" / "checklist_result.md").write_text(result, encoding="utf-8")
         return [_event(task_id, session_id, "checklist", TimelineActor.AGENT, SemanticEventKind.RUN_CHECKLIST, "Run checklist", ["reviews/checklist_result.md"])]
 
@@ -543,17 +555,45 @@ class MockRuntimeAdapter:
         task_id: str,
         session_id: str,
         workspace_root: Path,
+        doc_type_id: str,
     ) -> list[SemanticTimelineEvent]:
         (workspace_root / "artifacts").mkdir(parents=True, exist_ok=True)
-        artifact_path = workspace_root / "artifacts" / "prd-draft.md"
+        artifact_relative = _markdown_artifact_relative(doc_type_id)
+        artifact_path = workspace_root / artifact_relative
         artifact_path.write_text(_read_text(workspace_root / "draft" / "draft.md"), encoding="utf-8")
-        return [_event(task_id, session_id, "export-md", TimelineActor.SYSTEM, SemanticEventKind.EXPORT_MARKDOWN, "Export Markdown artifact", ["artifacts/prd-draft.md"])]
+        return [_event(task_id, session_id, "export-md", TimelineActor.SYSTEM, SemanticEventKind.EXPORT_MARKDOWN, "Export Markdown artifact", [artifact_relative])]
 
 
 def _read_text(path: Path) -> str:
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")
+
+
+def _doc_type_id(session: dict[str, object]) -> str:
+    return str(session.get("doc_type_id") or "document")
+
+
+def _doc_type_title(doc_type_id: str) -> str:
+    if doc_type_id.lower() == "prd":
+        return "PRD"
+    return doc_type_id.replace("-", " ").replace("_", " ").title()
+
+
+def _draft_heading(doc_type_id: str) -> str:
+    return f"# {_doc_type_title(doc_type_id)} Draft\n\n"
+
+
+def _skill_path(doc_type_id: str) -> str:
+    return f"doc-types/{doc_type_id}/SKILL.md"
+
+
+def _examples_path(doc_type_id: str) -> str:
+    return f"doc-types/{doc_type_id}/examples/markdown"
+
+
+def _markdown_artifact_relative(doc_type_id: str) -> str:
+    return f"artifacts/{doc_type_id.replace('/', '-').replace(chr(92), '-')}-draft.md"
 
 
 def _read_markdown_inputs(workspace_root: Path) -> str:

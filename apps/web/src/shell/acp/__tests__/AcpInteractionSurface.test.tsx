@@ -217,6 +217,59 @@ describe("AcpInteractionSurface", () => {
     expect(screen.getByText("Checklist · succeeded")).toBeTruthy();
   });
 
+  it("renders projection-backed manual checkpoint cards", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "projection-checkpoint",
+            sequence: 1,
+            event_type: "docagent/projection",
+            payload: { method: "docagent/projection", timeline_event_id: "timeline-checkpoint" },
+            projection: {
+              timeline_id: "timeline-checkpoint",
+              timeline_kind: "create_checkpoint",
+              summary: "Manual checkpoint",
+              paths: ["versions/v001.md"],
+              status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Checkpoint · versions/v001.md")).toBeTruthy();
+    expect(screen.getByText("Manual checkpoint")).toBeTruthy();
+  });
+
+  it("renders manual checkpoint cards without leaking undefined when no path is available", () => {
+    render(
+      <AcpInteractionSurface
+        {...baseProps}
+        events={[
+          acp({
+            id: "projection-checkpoint",
+            sequence: 1,
+            event_type: "docagent/projection",
+            payload: { method: "docagent/projection", timeline_event_id: "timeline-checkpoint" },
+            projection: {
+              timeline_id: "timeline-checkpoint",
+              timeline_kind: "create_checkpoint",
+              summary: "Manual checkpoint",
+              paths: [],
+              status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Checkpoint · succeeded")).toBeTruthy();
+    expect(screen.queryByText(/undefined/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /open/i })).toBeNull();
+  });
+
   it("does not render non-card DocAgent projection mirrors in the center pane", () => {
     render(
       <AcpInteractionSurface

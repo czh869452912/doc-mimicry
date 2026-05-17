@@ -35,6 +35,20 @@ function renderManagementPage() {
   );
 }
 
+function renderManagementPageWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createAppRouter(createMemoryHistory({ initialEntries: ["/management/skill-packs"] }));
+
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
+  };
+}
+
 describe("ManagementPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -164,5 +178,65 @@ describe("ManagementPage", () => {
 
     await waitFor(() => expect(api.getSkillPackArtifact).toHaveBeenCalledTimes(2));
     expect(await screen.findByDisplayValue(/# Generated skill/)).toBeTruthy();
+  });
+
+  it("requires explicit warning acknowledgment before publishing", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+    vi.mocked(api.getSkillPackArtifact).mockResolvedValue({
+      pack_id: "memo",
+      path: "SKILL.md",
+      content: "# Memo\n",
+    });
+    vi.mocked(api.validateSkillPack).mockResolvedValue({
+      status: "passed",
+      errors: [],
+      warnings: ["SKILL.md shares 25+ consecutive words with example.txt"],
+    });
+    vi.mocked(api.publishSkillPack).mockResolvedValue({
+      id: "memo-v001",
+      pack_id: "memo",
+      version: "v001",
+      publish_note: "",
+      manifest: {},
+      validation: {},
+      created_at: "2026-05-17T00:00:00Z",
+    });
+
+    renderManagementPage();
+
+    await screen.findByText("Memo");
+    await user.click(screen.getByRole("button", { name: /validate/i }));
+    const publish = await screen.findByRole("button", { name: /publish/i });
+
+    expect((publish as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole("checkbox", { name: /shares 25\+ consecutive words/i }));
+    expect((publish as HTMLButtonElement).disabled).toBe(false);
+    await user.click(publish);
+
+    await waitFor(() => expect(api.publishSkillPack).toHaveBeenCalledWith(
+      "memo",
+      "",
+      ["SKILL.md shares 25+ consecutive words with example.txt"],
+    ));
+  });
+
+  it("clears the work surface when the selected skill pack disappears", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+      { id: "proposal", title: "Proposal", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+
+    const { queryClient } = renderManagementPageWithClient();
+
+    await user.click(await screen.findByText("Proposal"));
+    vi.mocked(api.listSkillPackResources).mockClear();
+    queryClient.setQueryData(["skillPacks"], []);
+
+    await waitFor(() => expect(screen.queryByText("Proposal")).toBeNull());
+    expect(api.listSkillPackResources).not.toHaveBeenCalledWith("proposal");
   });
 });

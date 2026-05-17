@@ -91,7 +91,16 @@ export function useActiveWorkspace() {
     onSuccess: ({ task, session }) => {
       window.localStorage.setItem(LAST_TASK_KEY, task.id);
       window.localStorage.setItem(LAST_SESSION_KEY, session.id);
-      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setPendingSessionId(session.id);
+      queryClient.setQueryData<TaskRecord[]>(["tasks"], (current = []) => [
+        task,
+        ...current.filter((existing) => existing.id !== task.id),
+      ]);
+      queryClient.setQueryData<SessionRecord[]>(["sessions", task.id], (current = []) => [
+        session,
+        ...current.filter((existing) => existing.id !== session.id),
+      ]);
+      void queryClient.invalidateQueries({ queryKey: ["tasks"], refetchType: "inactive" });
       void navigate({ search: { task: task.id, session: session.id }, replace: true });
     },
   });

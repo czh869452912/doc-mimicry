@@ -1,4 +1,4 @@
-import { MarkdownPreview } from "../MarkdownPreview";
+import { LazyMarkdownPreview } from "../LazyMarkdownPreview";
 
 interface ArtifactTabProps {
   content: string;
@@ -14,7 +14,7 @@ export function ArtifactTab({ content, path }: ArtifactTabProps) {
           Reveal in folder
         </button>
       </div>
-      <MarkdownPreview markdown={content} />
+      <LazyMarkdownPreview markdown={content} />
     </section>
   );
 }

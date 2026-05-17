@@ -1,21 +1,30 @@
 import { X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { ArtifactTab } from "../editor/tabs/ArtifactTab";
-import { DiffTab } from "../editor/tabs/DiffTab";
 import { DraftTab } from "../editor/tabs/DraftTab";
 import { FileTab } from "../editor/tabs/FileTab";
+import { LazyDiffTab } from "../editor/tabs/LazyDiffTab";
 import { VersionTab } from "../editor/tabs/VersionTab";
 import type { EditorTab } from "../editor/useTabs";
+import type { SaveState } from "../editor/useAutoSave";
 
 interface EditorPaneProps {
   activeSessionId: string | null;
   activeTabId: string;
   draft: string;
   draftAutoSaveEnabled?: boolean;
+  checkpointDisabled?: boolean;
+  checkpointPending?: boolean;
+  serverDraft?: string;
   tabs: EditorTab[];
   taskId: string | null;
   onCloseTab: (tabId: string) => void;
+  onCreateCheckpoint?: (
+    draft: string,
+    lastSavedMarkdown: string,
+  ) => Promise<boolean | string | void> | boolean | string | void;
   onDraftChange: (draft: string) => void;
+  onDraftSaveStateChange?: (saveState: SaveState) => void;
   onReviseSelection?: (selectedText: string) => void;
   onSendSelectionToChat?: (selectedText: string) => void;
   onTabChange: (tabId: string) => void;
@@ -24,12 +33,17 @@ interface EditorPaneProps {
 export function EditorPane({
   activeSessionId,
   activeTabId,
+  checkpointDisabled = false,
+  checkpointPending = false,
   draft,
   draftAutoSaveEnabled = true,
   onCloseTab,
+  onCreateCheckpoint,
   onDraftChange,
+  onDraftSaveStateChange,
   onReviseSelection,
   onSendSelectionToChat,
+  serverDraft,
   onTabChange,
   tabs,
   taskId,
@@ -60,11 +74,16 @@ export function EditorPane({
         <TabsContent className="editor-tab-content" key={tab.id} value={tab.id}>
           {renderTab(tab, {
             activeSessionId,
+            checkpointDisabled,
+            checkpointPending,
             draft,
             draftAutoSaveEnabled,
+            onCreateCheckpoint,
             onDraftChange,
+            onDraftSaveStateChange,
             onReviseSelection,
             onSendSelectionToChat,
+            serverDraft,
             taskId,
           })}
         </TabsContent>
@@ -78,11 +97,16 @@ function renderTab(
   props: Pick<
     EditorPaneProps,
     | "activeSessionId"
+    | "checkpointDisabled"
+    | "checkpointPending"
     | "draft"
     | "draftAutoSaveEnabled"
+    | "onCreateCheckpoint"
     | "onDraftChange"
+    | "onDraftSaveStateChange"
     | "onReviseSelection"
     | "onSendSelectionToChat"
+    | "serverDraft"
     | "taskId"
   >,
 ) {
@@ -91,16 +115,21 @@ function renderTab(
       <DraftTab
         activeSessionId={props.activeSessionId}
         autoSaveEnabled={props.draftAutoSaveEnabled}
+        checkpointDisabled={props.checkpointDisabled}
+        checkpointPending={props.checkpointPending}
         draft={props.draft}
         taskId={props.taskId}
+        onCreateCheckpoint={props.onCreateCheckpoint}
         onDraftChange={props.onDraftChange}
+        onSaveStateChange={props.onDraftSaveStateChange}
         onReviseSelection={props.onReviseSelection}
         onSendSelectionToChat={props.onSendSelectionToChat}
+        serverDraft={props.serverDraft}
       />
     );
   }
   if (tab.kind === "file") return <FileTab content={tab.content} path={tab.path} />;
   if (tab.kind === "version") return <VersionTab content={tab.content} />;
   if (tab.kind === "artifact") return <ArtifactTab content={tab.content} path={tab.path} />;
-  return <DiffTab left={tab.left} leftTitle={tab.leftTitle} right={tab.right} rightTitle={tab.rightTitle} />;
+  return <LazyDiffTab left={tab.left} leftTitle={tab.leftTitle} right={tab.right} rightTitle={tab.rightTitle} />;
 }

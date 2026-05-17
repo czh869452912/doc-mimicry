@@ -22,6 +22,37 @@ def test_build_prompt_bundle_reads_system_prompt_and_skill(tmp_path: Path) -> No
     assert bundle.metadata["task_id"] == "task-001"
 
 
+def test_build_prompt_bundle_includes_generic_doc_type_and_workspace_contract(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    workspace = tmp_path / "workspace"
+    (repo / "agent" / "system-prompts").mkdir(parents=True)
+    (repo / "doc-types" / "memo").mkdir(parents=True)
+    workspace.mkdir()
+    (repo / "agent" / "system-prompts" / "docagent-core.md").write_text("Core prompt", encoding="utf-8")
+    skill_path = repo / "snapshots" / "memo-v001" / "SKILL.md"
+    skill_path.parent.mkdir(parents=True)
+    skill_path.write_text("# Published Memo Skill\n", encoding="utf-8")
+
+    bundle = build_prompt_bundle(
+        repo,
+        workspace,
+        "task-001",
+        "session-001",
+        "memo",
+        pack_version_id="memo-v001",
+        skill_path=skill_path,
+    )
+
+    assert "Document type: memo" in bundle.task_instruction
+    assert "# Published Memo Skill" in bundle.task_instruction
+    assert "doc-types/prd" not in bundle.task_instruction
+    for path in ["context/", "draft/", "reviews/", "artifacts/"]:
+        assert path in bundle.task_instruction
+    assert bundle.doc_type_id == "memo"
+    assert bundle.metadata["pack_version_id"] == "memo-v001"
+    assert bundle.metadata["skill_path"] == str(skill_path)
+
+
 def test_build_prompt_bundle_rejects_doc_type_traversal(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     workspace = tmp_path / "workspace"

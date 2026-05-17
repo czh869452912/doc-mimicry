@@ -1,6 +1,7 @@
 import type { AcpEvent, TimelineEvent } from "../../types";
 import { ApprovalCard } from "../conversation/cards/ApprovalCard";
 import { ArtifactCard } from "../conversation/cards/ArtifactCard";
+import { CheckpointCard } from "../conversation/cards/CheckpointCard";
 import { ChecklistCard } from "../conversation/cards/ChecklistCard";
 import { OutlineCard } from "../conversation/cards/OutlineCard";
 import { pathsFromAcpEvent, textFromAcpEvent } from "./acpEvents";
@@ -13,7 +14,15 @@ interface AcpRenderSlotsProps {
   onOpenPath: (path: string) => Promise<void>;
 }
 
-const SLOT_KINDS = ["propose_outline", "run_checklist", "export_markdown", "export_docx", "export_pdf", "approval_requested"];
+const SLOT_KINDS = [
+  "propose_outline",
+  "create_checkpoint",
+  "run_checklist",
+  "export_markdown",
+  "export_docx",
+  "export_pdf",
+  "approval_requested",
+];
 
 export function AcpRenderSlot({
   event,
@@ -27,6 +36,9 @@ export function AcpRenderSlot({
 
   if (timelineKind === "propose_outline") {
     return <OutlineCard event={timelineEvent} sessionId={sessionId} taskId={taskId} onApproved={onApproved} onOpenPath={onOpenPath} />;
+  }
+  if (timelineKind === "create_checkpoint") {
+    return <CheckpointCard event={timelineEvent} onOpenPath={onOpenPath} />;
   }
   if (timelineKind === "run_checklist") {
     return <ChecklistCard event={timelineEvent} onOpenPath={onOpenPath} />;

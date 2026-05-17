@@ -45,6 +45,11 @@ Before writing `draft/draft.md`, the agent must create:
 ## Required During Revision
 
 Before meaningful revisions, the current draft should be checkpointed to `versions/`.
+User-created checkpoints use the same version sequence as agent-created checkpoints:
+`versions/v001.md`, `versions/v002.md`, and so on. The API creates these
+checkpoints from the server-authoritative `draft/draft.md`, records a
+`create_checkpoint` timeline/ACP projection when a session exists, and the
+workspace tree must expose the generated `versions/*.md` files.
 
 After user direction changes, update:
 
@@ -82,6 +87,7 @@ Agents should read converted Markdown resources, not original binary files. Orig
 
 - Current working draft is `draft/draft.md`.
 - Current outline is `draft/outline.md`.
+- Draft checkpoints go in `versions/`.
 - Checklist results go in `reviews/checklist_result.md`.
 - Exported files go in `artifacts/`.
 - Logs and agent notes go in `logs/`.

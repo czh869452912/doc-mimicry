@@ -1,15 +1,23 @@
 import { MessageSquare, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LazyDraftEditor } from "../LazyDraftEditor";
-import { MarkdownPreview } from "../MarkdownPreview";
-import { useAutoSave } from "../useAutoSave";
+import { LazyMarkdownPreview } from "../LazyMarkdownPreview";
+import { type SaveState, useAutoSave } from "../useAutoSave";
 
 interface DraftTabProps {
   activeSessionId: string | null;
   autoSaveEnabled?: boolean;
   draft: string;
+  checkpointDisabled?: boolean;
+  checkpointPending?: boolean;
   taskId: string | null;
+  serverDraft?: string;
+  onCreateCheckpoint?: (
+    draft: string,
+    lastSavedMarkdown: string,
+  ) => Promise<boolean | string | void> | boolean | string | void;
   onDraftChange: (draft: string) => void;
+  onSaveStateChange?: (saveState: SaveState) => void;
   onReviseSelection?: (selectedText: string) => void;
   onSendSelectionToChat?: (selectedText: string) => void;
 }
@@ -17,15 +25,30 @@ interface DraftTabProps {
 export function DraftTab({
   activeSessionId,
   autoSaveEnabled = true,
+  checkpointDisabled = false,
+  checkpointPending = false,
   draft,
+  onCreateCheckpoint,
   onDraftChange,
+  onSaveStateChange,
   onReviseSelection,
   onSendSelectionToChat,
+  serverDraft,
   taskId,
 }: DraftTabProps) {
   const [mode, setMode] = useState<"preview" | "source">("preview");
   const [selectedText, setSelectedText] = useState("");
-  const saveState = useAutoSave(taskId, draft, autoSaveEnabled);
+  const { lastSavedMarkdown, saveState } = useAutoSave(taskId, draft, autoSaveEnabled, serverDraft);
+  useEffect(() => {
+    onSaveStateChange?.(saveState);
+  }, [onSaveStateChange, saveState]);
+  const canCreateCheckpoint = Boolean(
+    taskId
+    && onCreateCheckpoint
+    && !checkpointDisabled
+    && !checkpointPending
+    && saveState !== "saving",
+  );
 
   return (
     <section className="draft-tab">
@@ -38,14 +61,20 @@ export function DraftTab({
             Source
           </button>
         </div>
-        <button className="primary-button" type="button" disabled title="Checkpoint endpoint is not available yet">
+        <button
+          className="primary-button"
+          type="button"
+          disabled={!canCreateCheckpoint}
+          title={checkpointTitle({ checkpointDisabled, checkpointPending, hasTask: Boolean(taskId), saveState })}
+          onClick={() => void onCreateCheckpoint?.(draft, lastSavedMarkdown)}
+        >
           + Checkpoint
         </button>
         <span className="muted body-sm">last save · {saveState}</span>
       </div>
       <div className="draft-tab__body">
         {mode === "preview" ? (
-          <MarkdownPreview markdown={draft} />
+          <LazyMarkdownPreview markdown={draft} />
         ) : (
           <LazyDraftEditor markdown={draft} onChange={onDraftChange} onSelection={setSelectedText} />
         )}
@@ -62,4 +91,22 @@ export function DraftTab({
       )}
     </section>
   );
+}
+
+function checkpointTitle({
+  checkpointDisabled,
+  checkpointPending,
+  hasTask,
+  saveState,
+}: {
+  checkpointDisabled: boolean;
+  checkpointPending: boolean;
+  hasTask: boolean;
+  saveState: string;
+}) {
+  if (!hasTask) return "Create a workspace first";
+  if (checkpointPending) return "Creating checkpoint";
+  if (checkpointDisabled) return "Checkpoint is unavailable while the agent is running";
+  if (saveState === "saving") return "Waiting for autosave to finish";
+  return "Create a draft checkpoint";
 }

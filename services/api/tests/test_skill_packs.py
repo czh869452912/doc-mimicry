@@ -4,6 +4,7 @@ import pytest
 
 from docagent_api.skill_packs import (
     bootstrap_seed_skill_packs,
+    draft_root,
     publish_skill_pack_snapshot,
     validate_skill_pack_draft,
     write_skill_pack_artifact,
@@ -30,6 +31,36 @@ def test_validate_skill_pack_blocks_missing_skill(tmp_path: Path) -> None:
 
     assert result["status"] == "failed"
     assert "SKILL.md is missing" in result["errors"]
+
+
+def test_validate_skill_pack_checks_warning_status_resources_for_source_copy(tmp_path: Path) -> None:
+    state = DocAgentState(tmp_path / "state")
+    state.save_skill_pack({"id": "memo", "title": "Memo", "description": "", "draft_status": "draft"})
+    root = draft_root(state, "memo")
+    markdown = root / "examples" / "markdown" / "source.md"
+    markdown.parent.mkdir(parents=True, exist_ok=True)
+    copied_sentence = (
+        "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike "
+        "november oscar papa quebec romeo sierra tango uniform victor whiskey xray yankee zulu"
+    )
+    markdown.write_text(copied_sentence, encoding="utf-8")
+    (root / "SKILL.md").write_text(f"# Memo\n\n{copied_sentence}\n", encoding="utf-8")
+    state.save_skill_pack_resource({
+        "id": "resource-1",
+        "pack_id": "memo",
+        "group": "examples",
+        "original_filename": "source.docx",
+        "source_path": "examples/original/source.docx",
+        "markdown_path": "examples/markdown/source.md",
+        "conversion_report_path": "examples/reports/source.conversion.json",
+        "status": "warning",
+        "summary": "",
+        "warnings": [{"type": "format_loss", "message": "DOCX formatting was simplified.", "location": None}],
+    })
+
+    result = validate_skill_pack_draft(state, "memo")
+
+    assert any("shares 25+ consecutive words" in warning for warning in result["warnings"])
 
 
 def test_publish_snapshot_is_immutable_after_draft_edit(tmp_path: Path) -> None:

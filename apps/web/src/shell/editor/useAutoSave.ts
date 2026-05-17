@@ -3,15 +3,27 @@ import { api } from "../../api";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function useAutoSave(taskId: string | null | undefined, markdown: string, enabled = true) {
+export interface AutoSaveSnapshot {
+  lastSavedMarkdown: string;
+  saveState: SaveState;
+}
+
+export function useAutoSave(
+  taskId: string | null | undefined,
+  markdown: string,
+  enabled = true,
+  serverMarkdown?: string,
+): AutoSaveSnapshot {
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [lastSavedMarkdown, setLastSavedMarkdown] = useState(markdown);
   const lastSaved = useRef(markdown);
 
   useEffect(() => {
-    if (!enabled) return;
-    lastSaved.current = markdown;
+    const snapshot = serverMarkdown ?? markdown;
+    lastSaved.current = snapshot;
+    setLastSavedMarkdown(snapshot);
     setSaveState("idle");
-  }, [enabled, taskId]);
+  }, [serverMarkdown, taskId]);
 
   useEffect(() => {
     if (!enabled || !taskId || markdown === lastSaved.current) return;
@@ -21,6 +33,7 @@ export function useAutoSave(taskId: string | null | undefined, markdown: string,
         .updateDraft(taskId, markdown)
         .then((response) => {
           lastSaved.current = response.markdown;
+          setLastSavedMarkdown(response.markdown);
           setSaveState("saved");
         })
         .catch(() => {
@@ -31,5 +44,5 @@ export function useAutoSave(taskId: string | null | undefined, markdown: string,
     return () => window.clearTimeout(timer);
   }, [enabled, markdown, taskId]);
 
-  return saveState;
+  return { lastSavedMarkdown, saveState };
 }
