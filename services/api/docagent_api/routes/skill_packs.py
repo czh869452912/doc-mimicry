@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from docagent_api.request_models import (
     AddSkillPackTextResourceRequest,
@@ -25,6 +25,8 @@ from docagent_api.response_models import (
 )
 from docagent_api.prompts import build_skill_creator_prompt_bundle
 from docagent_api.skill_packs import (
+    PACK_GROUPS,
+    add_file_resource,
     add_text_resource,
     draft_root,
     is_valid_pack_id,
@@ -69,6 +71,27 @@ def create_skill_packs_router(state: DocAgentState, adapter: Any | None = None) 
             resource = add_text_resource(state, pack_id, request.group, request.name, request.content)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        state.save_skill_pack_resource(resource)
+        return resource
+
+    @router.post("/skill-packs/{pack_id}/resources/files", response_model=SkillPackResourceResponse)
+    async def add_pack_file_resource(
+        pack_id: str,
+        group: str = Form(...),
+        file: UploadFile = File(...),
+    ) -> dict[str, Any]:
+        _require_pack(state, pack_id)
+        if group not in PACK_GROUPS:
+            raise HTTPException(status_code=400, detail="Invalid resource group")
+        content = await file.read()
+        resource = add_file_resource(
+            state,
+            pack_id,
+            group,
+            file.filename or "upload.bin",
+            content,
+            file.content_type or "application/octet-stream",
+        )
         state.save_skill_pack_resource(resource)
         return resource
 

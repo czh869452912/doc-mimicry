@@ -94,6 +94,43 @@ def add_text_resource(
     }
 
 
+def add_file_resource(
+    state: DocAgentState,
+    pack_id: str,
+    group: str,
+    name: str,
+    content: bytes,
+    mime_type: str,
+) -> dict[str, Any]:
+    if group not in PACK_GROUPS:
+        raise ValueError("Invalid resource group")
+    root = draft_root(state, pack_id)
+    result = convert_resource_bytes(
+        ConversionLayout(
+            root=root,
+            original_dir=f"resources/original/{group}",
+            markdown_dir=f"resources/markdown/{group}",
+            assets_dir=f"resources/assets/{group}",
+            reports_dir=f"resources/reports/{group}",
+        ),
+        original_filename=name,
+        content=content,
+        mime_type=mime_type,
+        created_at=utc_now(),
+    )
+    return {
+        "id": f"resource-{uuid4().hex[:12]}",
+        "pack_id": pack_id,
+        "group": group,
+        "original_filename": name,
+        "source_path": result["source_path"],
+        "markdown_path": result["markdown_path"],
+        "conversion_report_path": result["conversion_report_path"],
+        "status": _resource_status(result),
+        "summary": "",
+    }
+
+
 def validate_skill_pack_draft(state: DocAgentState, pack_id: str) -> dict[str, Any]:
     root = draft_root(state, pack_id)
     errors: list[str] = []

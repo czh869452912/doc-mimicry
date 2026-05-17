@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
+from docagent_conversion import ConversionLayout, convert_resource_bytes
 from docagent_api.doctypes import get_doc_type, is_valid_doc_type_id
 from docagent_api.drafts import read_draft, write_draft
 from docagent_api.imports import import_text_input
@@ -186,7 +187,40 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
                 TimelineActor.SYSTEM,
                 SemanticEventKind.CONVERT_INPUT,
                 "Convert input to Markdown",
-                [result["markdown_path"], result["conversion_report_path"]],
+                [path for path in [result.get("markdown_path"), result["conversion_report_path"]] if path],
+            )
+            state.append_timeline_event(latest["id"], asdict(event))
+            result["event"] = asdict(event)
+        return result
+
+    @router.post("/tasks/{task_id}/inputs/files", response_model=ImportedInputResponse)
+    async def add_file_input(task_id: str, file: UploadFile = File(...)) -> dict[str, Any]:
+        task = require_task(state, task_id)
+        content = await file.read()
+        result = convert_resource_bytes(
+            ConversionLayout(
+                root=Path(task["workspace_root"]),
+                original_dir="inputs/original",
+                markdown_dir="inputs/markdown",
+                assets_dir="inputs/assets",
+                reports_dir="inputs/reports",
+            ),
+            original_filename=file.filename or "upload.bin",
+            content=content,
+            mime_type=file.content_type or "application/octet-stream",
+            created_at=utc_now(),
+        )
+        sessions = state.list_sessions_by_task(task_id)
+        if sessions:
+            latest = max(sessions, key=lambda s: s.get("updated_at", ""))
+            event = manual_event(
+                task_id,
+                latest["id"],
+                f"convert-input-{result['id']}",
+                TimelineActor.SYSTEM,
+                SemanticEventKind.CONVERT_INPUT,
+                "Convert input to Markdown",
+                [path for path in [result.get("markdown_path"), result["conversion_report_path"]] if path],
             )
             state.append_timeline_event(latest["id"], asdict(event))
             result["event"] = asdict(event)

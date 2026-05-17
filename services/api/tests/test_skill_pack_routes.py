@@ -1,8 +1,29 @@
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
+
+
+def _docx_bytes(text: str) -> bytes:
+    document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>{text}</w:t></w:r></w:p>
+  </w:body>
+</w:document>"""
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("word/document.xml", document_xml)
+    return buffer.getvalue()
 
 
 def test_create_pack_add_resource_validate_and_publish(tmp_path: Path) -> None:
@@ -68,3 +89,26 @@ def test_create_pack_add_text_resource_uses_conversion_report_contract(tmp_path:
     assert body["status"] == "ready"
     assert body["markdown_path"] == "resources/markdown/examples/example.md"
     assert body["conversion_report_path"] == "resources/reports/examples/example.conversion.json"
+
+
+def test_upload_skill_pack_resource_file_converts_docx(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
+
+    response = client.post(
+        "/skill-packs/memo/resources/files",
+        data={"group": "examples"},
+        files={
+            "file": (
+                "memo.docx",
+                _docx_bytes("Memo example"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] in {"ready", "warning"}
+    assert body["source_path"] == "resources/original/examples/memo.docx"
+    assert body["markdown_path"] == "resources/markdown/examples/memo.md"
