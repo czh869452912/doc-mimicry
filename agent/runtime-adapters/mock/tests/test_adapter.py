@@ -119,6 +119,34 @@ def test_mock_runtime_skill_creator_revision_reads_existing_skill(tmp_path: Path
     assert event_types.index("file/read") < event_types.index("file/write")
 
 
+def test_mock_skill_creator_resource_notes_include_prompt_manifest(tmp_path: Path) -> None:
+    adapter = MockRuntimeAdapter()
+    bundle = PromptBundle(
+        system_prompt="system",
+        task_instruction=(
+            "Resource manifest:\n"
+            "{\n"
+            '  "resources": [\n'
+            '    {"original_filename": "board-memo.txt", "markdown_excerpt": "Executive summary first. Élan 中文."}\n'
+            "  ]\n"
+            "}\n\n"
+            "Current artifacts:\n"
+            "{}\n"
+        ),
+        workspace_root=tmp_path,
+        doc_type_id="",
+        pack_id="memo",
+        metadata={"session_scope": "pack-management", "pack_id": "memo"},
+    )
+    adapter.create_session("creator-1", bundle)
+
+    adapter.send_prompt("creator-1", "Generate the memo skill", {"action": "skill_creator_generate"})
+
+    notes = (tmp_path / "notes" / "resources.md").read_text(encoding="utf-8")
+    assert "Executive summary first" in notes
+    assert "Élan 中文" in notes
+
+
 def _prompt_bundle(workspace: Path) -> PromptBundle:
     return PromptBundle(
         system_prompt="system",

@@ -85,6 +85,26 @@ def test_upload_docx_input_converts_to_markdown_and_records_event(tmp_path: Path
     assert any(event["kind"] == "convert_input" for event in events)
 
 
+def test_file_input_conversion_is_mirrored_to_acp_events(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Use the uploaded notes"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(
+        f"/tasks/{task['id']}/inputs/files",
+        files={"file": ("notes.txt", b"Converted material", "text/plain")},
+    )
+
+    assert response.status_code == 200
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/projection"
+        and event["projection"]["timeline_kind"] == "convert_input"
+        and "inputs/markdown/notes.md" in event["projection"]["paths"]
+        for event in acp_events
+    )
+
+
 def test_upload_unsupported_input_returns_report_without_markdown_attachment(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Use uploaded material"}).json()

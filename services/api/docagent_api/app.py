@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from dataclasses import asdict
 from typing import Any
 from uuid import uuid4
 
@@ -19,7 +18,7 @@ from docagent_api.routes.tasks import create_tasks_router
 from docagent_api.runtime_factory import create_runtime_adapter
 from docagent_api.skill_packs import bootstrap_seed_skill_packs
 from docagent_api.state import DocAgentState
-from docagent_api.routes._shared import manual_event
+from docagent_api.routes._shared import append_semantic_event, manual_event
 from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor, TimelineStatus
 
 
@@ -95,7 +94,7 @@ def _recover_interrupted_sessions(state: DocAgentState) -> None:
                 [],
                 status=TimelineStatus.FAILED,
             )
-            state.append_timeline_event(session["id"], asdict(failure))
+            append_semantic_event(state, session["id"], failure)
         ids = ", ".join(s["id"] for s in interrupted)
         logger.warning("Marked interrupted running sessions failed during startup recovery: %s", ids)
 

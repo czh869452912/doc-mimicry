@@ -9,6 +9,7 @@ import type {
   SkillCreatorSession,
   SkillPackArtifact,
   SkillPackResource,
+  SkillPackResourceDetail,
   SkillPackSummary,
   SkillPackValidation,
   SkillPackVersion,
@@ -139,6 +140,10 @@ export const api = {
     formData.append("file", file);
     return upload<SkillPackResource>(`/skill-packs/${packId}/resources/files`, formData);
   },
+  listSkillPackResources: (packId: string) =>
+    request<SkillPackResource[]>(`/skill-packs/${packId}/resources`),
+  getSkillPackResource: (packId: string, resourceId: string) =>
+    request<SkillPackResourceDetail>(`/skill-packs/${packId}/resources/${resourceId}`),
   updateSkillPackArtifact: (packId: string, path: string, content: string, summary: string) =>
     request<SkillPackArtifact>(`/skill-packs/${packId}/artifacts`, {
       method: "PUT",

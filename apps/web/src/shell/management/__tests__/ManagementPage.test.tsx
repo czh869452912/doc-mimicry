@@ -10,7 +10,9 @@ vi.mock("../../../api", () => ({
   api: {
     addSkillPackFileResource: vi.fn(),
     getSkillPackArtifact: vi.fn(),
+    getSkillPackResource: vi.fn(),
     listSkillPacks: vi.fn(),
+    listSkillPackResources: vi.fn(),
   },
 }));
 
@@ -30,6 +32,8 @@ describe("ManagementPage", () => {
     vi.clearAllMocks();
     vi.mocked(api.listSkillPacks).mockResolvedValue([]);
     vi.mocked(api.getSkillPackArtifact).mockRejectedValue(new Error("404"));
+    vi.mocked(api.listSkillPackResources).mockResolvedValue([]);
+    vi.mocked(api.getSkillPackResource).mockRejectedValue(new Error("404"));
   });
 
   it("renders the dedicated skill pack management route", async () => {
@@ -81,5 +85,48 @@ describe("ManagementPage", () => {
     );
 
     expect(await screen.findByText(/413 Payload Too Large/i)).toBeTruthy();
+  });
+
+  it("shows resource conversion warnings and converted markdown", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+    vi.mocked(api.listSkillPackResources).mockResolvedValue([
+      {
+        id: "resource-1",
+        pack_id: "memo",
+        group: "examples",
+        original_filename: "memo.docx",
+        source_path: "resources/original/examples/memo.docx",
+        markdown_path: "resources/markdown/examples/memo.md",
+        conversion_report_path: "resources/reports/examples/memo.conversion.json",
+        status: "warning",
+        summary: "",
+        warnings: [{ type: "docx_format_loss", message: "DOCX layout was reduced.", location: null }],
+      },
+    ]);
+    vi.mocked(api.getSkillPackResource).mockResolvedValue({
+      id: "resource-1",
+      pack_id: "memo",
+      group: "examples",
+      original_filename: "memo.docx",
+      source_path: "resources/original/examples/memo.docx",
+      markdown_path: "resources/markdown/examples/memo.md",
+      conversion_report_path: "resources/reports/examples/memo.conversion.json",
+      status: "warning",
+      summary: "",
+      warnings: [{ type: "docx_format_loss", message: "DOCX layout was reduced.", location: null }],
+      markdown: "# Converted memo",
+      conversion_report: { status: "succeeded_with_warnings" },
+    });
+
+    renderManagementPage();
+    await screen.findByText("memo.docx");
+    expect(screen.getByText("DOCX layout was reduced.")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /view converted memo.docx/i }));
+
+    expect(await screen.findByText("# Converted memo")).toBeTruthy();
   });
 });

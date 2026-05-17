@@ -54,6 +54,28 @@ def test_cancel_running_session_releases_operation_lease(tmp_path: Path) -> None
     assert "celery_task_id" not in DocAgentState(state_root).get_session(session["id"])
 
 
+def test_startup_recovery_error_is_mirrored_to_acp_events(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "Recover me"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    state = DocAgentState(state_root)
+    row = state.get_session(session["id"])
+    row["status"] = "running_chat"
+    state.save_session(row)
+
+    recovered = TestClient(create_app(state_root=state_root, repo_root=Path("."), runtime_name="mock"))
+
+    assert recovered.get(f"/sessions/{session['id']}").json()["status"] == "failed"
+    acp_events = recovered.get(f"/sessions/{session['id']}/events").json()
+    assert any(
+        event["event_type"] == "docagent/projection"
+        and event["projection"]["timeline_kind"] == "error"
+        and "interrupted" in event["projection"]["summary"].lower()
+        for event in acp_events
+    )
+
+
 class FailingSendAdapter:
     def create_session(self, session_id: str, prompt_bundle: PromptBundle) -> RuntimeOperationResult:
         return RuntimeOperationResult(session_id=session_id, next_state=RuntimeSessionState.IDLE)
@@ -836,6 +858,29 @@ def test_export_docx_route_creates_artifact_without_runtime_prompt(tmp_path: Pat
         if event["event_type"] == "docagent/prompt"
     ]
     assert after_prompts == before_prompts
+
+
+def test_repeated_docx_exports_create_distinct_artifacts(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+    client.put(f"/tasks/{task['id']}/draft", json={"markdown": "# Draft\n\nBody\n"})
+
+    first = client.post(f"/sessions/{session['id']}/artifacts/export-docx").json()
+    second = client.post(f"/sessions/{session['id']}/artifacts/export-docx").json()
+
+    assert first["artifact_path"] != second["artifact_path"]
+    assert (Path(task["workspace_root"]) / first["artifact_path"]).is_file()
+    assert (Path(task["workspace_root"]) / second["artifact_path"]).is_file()
+    timeline = client.get(f"/sessions/{session['id']}/timeline").json()
+    export_paths = [
+        path
+        for event in timeline
+        if event["kind"] == "export_docx"
+        for path in event["paths"]
+    ]
+    assert first["artifact_path"] in export_paths
+    assert second["artifact_path"] in export_paths
 
 
 def test_export_pdf_route_creates_artifact_without_runtime_prompt(tmp_path: Path) -> None:

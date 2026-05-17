@@ -115,6 +115,12 @@ export interface SkillPackResource {
   conversion_report_path: string;
   status: "ready" | "warning" | "failed" | "unsupported";
   summary: string;
+  warnings?: Array<{ type: string; message: string; location: string | null }>;
+}
+
+export interface SkillPackResourceDetail extends SkillPackResource {
+  markdown: string;
+  conversion_report: Record<string, unknown>;
 }
 
 export interface SkillPackArtifact {

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -31,6 +32,7 @@ class MockRuntimeAdapter:
             "workspace_root": prompt_bundle.workspace_root,
             "state": RuntimeSessionState.IDLE,
             "session_scope": session_scope,
+            "task_instruction": prompt_bundle.task_instruction,
         }
         if session_scope == "pack-management":
             pack_id = prompt_bundle.pack_id or prompt_bundle.metadata.get("pack_id")
@@ -178,7 +180,8 @@ class MockRuntimeAdapter:
         existing_skill = _read_text(skill_path)
         skill_markdown = _skill_creator_skill_markdown(pack_id, prompt, existing_skill)
         checklist_yaml = _skill_creator_checklist_yaml(pack_id)
-        resource_notes = _skill_creator_resource_notes(pack_id, prompt)
+        task_instruction = str(session.get("task_instruction") or "")
+        resource_notes = _skill_creator_resource_notes(pack_id, prompt, task_instruction)
 
         updates = [
             AcpRuntimeUpdate(
@@ -600,12 +603,39 @@ def _skill_creator_checklist_yaml(pack_id: str) -> str:
     )
 
 
-def _skill_creator_resource_notes(pack_id: str, prompt: str) -> str:
+def _skill_creator_resource_notes(pack_id: str, prompt: str, task_instruction: str) -> str:
+    excerpt = _extract_first_markdown_excerpt(task_instruction)
+    observed = f"\n\n## Observed Resource Signals\n\n{excerpt}\n" if excerpt else ""
     return (
         f"# Resource Notes for {pack_id}\n\n"
         "Skill Creator should summarize converted resources before using them as guidance.\n\n"
         f"Latest instruction: {prompt}\n"
+        f"{observed}"
     )
+
+
+def _extract_first_markdown_excerpt(task_instruction: str) -> str:
+    marker = "Resource manifest:\n"
+    start = task_instruction.find(marker)
+    if start == -1:
+        return ""
+    start += len(marker)
+    end = task_instruction.find("\n\nCurrent artifacts:", start)
+    manifest_text = task_instruction[start:end if end != -1 else len(task_instruction)]
+    try:
+        manifest = json.loads(manifest_text)
+    except json.JSONDecodeError:
+        return ""
+    resources = manifest.get("resources", [])
+    if not isinstance(resources, list):
+        return ""
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+        excerpt = resource.get("markdown_excerpt")
+        if isinstance(excerpt, str):
+            return excerpt
+    return ""
 
 
 def _event_paths(events: list[SemanticTimelineEvent]) -> list[str]:

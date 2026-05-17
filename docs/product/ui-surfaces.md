@@ -144,6 +144,7 @@ Phase 0 should prefer a source-oriented Markdown editor plus preview over heavy 
 - Keep the management interface operational and dense.
 - Keep the authoring interface focused on the agent loop.
 - Keep management and authoring as separate surfaces; the settings drawer may link to management, but the dedicated route is the durable home.
+- The settings drawer may summarize runtime and repository document-type details, but the full Skill Pack Management workflow belongs only on `/management/skill-packs`.
 - Do not hide workspace files; they are part of user trust and audit.
 - Do not force users into a wizard or fixed workflow.
 - Let users interrupt from the timeline at any time.
