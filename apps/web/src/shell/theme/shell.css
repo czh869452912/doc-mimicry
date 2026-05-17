@@ -846,6 +846,11 @@
   min-width: 0;
 }
 
+.skill-pack-resource-row.active {
+  border-color: var(--color-hairline-strong);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
 .skill-pack-resource-row p {
   margin: 2px 0 0;
 }

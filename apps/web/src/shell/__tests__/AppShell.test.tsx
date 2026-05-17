@@ -493,6 +493,8 @@ describe("AppShell", () => {
 
     const link = await screen.findByRole("link", { name: /open skill pack management/i });
     expect(link.getAttribute("href")).toBe("/management/skill-packs");
+    expect(screen.queryByRole("button", { name: /new skill pack/i })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Skill Pack Management" })).toBeNull();
 
     await userEvent.click(link);
     await waitFor(() => expect(router.state.location.pathname).toBe("/management/skill-packs"));

@@ -267,26 +267,26 @@ Rollback:
 
 ### Phase 4: Split And Simplify Skill Pack Management
 
-- [ ] Add focused management component tests before splitting:
+- [x] Add focused management component tests before splitting:
   - `ManagementPage` still renders the dedicated route.
   - Resource conversion warnings remain visible.
   - Converted Markdown preview still opens from resource rows.
   - Publish remains disabled until validation passes and all warnings are acknowledged.
   - Settings drawer only links to management and does not embed the full manager.
-- [ ] Split `SkillPackManager.tsx` into smaller components only after Phase 3 has removed management from the authoring first-load path:
+- [x] Split `SkillPackManager.tsx` into smaller components only after Phase 3 has removed management from the authoring first-load path:
   - `SkillPackList` owns selection and published/draft badges.
   - `CreatePackForm` owns new pack creation.
   - `ResourcePanel` owns material text/file upload, resource list, warning display, and converted Markdown preview.
   - `SkillCreatorPanel` owns Skill Creator message submission and generated artifact refresh.
   - `SkillArtifactEditor` owns `SKILL.md` editing and saving.
   - `ValidationPublishPanel` owns validate, warning acknowledgment, publish note, and publish action.
-- [ ] Keep all API calls in existing hooks from `useSkillPacks.ts`; do not introduce a new client abstraction unless duplicated mutation/query logic appears after the split.
-- [ ] Add dense operational layout refinements only where they clarify repeated work:
+- [x] Keep all API calls in existing hooks from `useSkillPacks.ts`; do not introduce a new client abstraction unless duplicated mutation/query logic appears after the split.
+- [x] Add dense operational layout refinements only where they clarify repeated work:
   - stable resource row sizing;
   - clear selected resource state;
   - validation warnings grouped with their acknowledgment controls;
   - no marketing copy or tutorial text in the app surface.
-- [ ] Update `docs/product/ui-surfaces.md` only if the management surface contract changes.
+- [x] Update `docs/product/ui-surfaces.md` only if the management surface contract changes. No update was needed because the dedicated management route contract did not change.
 
 Focused verification:
 
@@ -294,6 +294,13 @@ Focused verification:
 npm run test:unit -- --run src/shell/management/__tests__/ManagementPage.test.tsx src/shell/__tests__/AppShell.test.tsx
 npm run test
 ```
+
+Completed verification:
+
+- `npm run test:unit -- --run src/shell/management/__tests__/ManagementPage.test.tsx src/shell/__tests__/AppShell.test.tsx` -> 27 passed; jsdom prints existing `scrollTo` warnings.
+- `npm run test` -> passed.
+- `npm run build` -> passed; management remains a lazy route chunk at 10.69 kB and the initial authoring chunk remains within the bundle budget.
+- `python tools/quality/check_web_bundle.py apps/web/dist` -> passed.
 
 Acceptance:
 
