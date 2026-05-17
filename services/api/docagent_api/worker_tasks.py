@@ -67,8 +67,6 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
 
 
 def _create_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
-    if session.get("session_scope") == "pack-management":
-        raise RuntimeError("Pack-management sessions are not handled by authoring worker")
     repo_root = Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
     task = state.get_task(session["task_id"])
     if task is None:

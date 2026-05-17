@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from docagent_api.skill_packs import (
     bootstrap_seed_skill_packs,
     publish_skill_pack_snapshot,
@@ -52,3 +54,28 @@ def test_publish_snapshot_is_immutable_after_draft_edit(tmp_path: Path) -> None:
     )
 
     assert "Use for memos." in (Path(version["snapshot_path"]) / "SKILL.md").read_text(encoding="utf-8")
+
+
+class FailingVersionSaveState(DocAgentState):
+    def save_skill_pack_version(self, version: dict) -> None:
+        raise RuntimeError("database unavailable")
+
+
+def test_publish_snapshot_cleans_partial_directory_when_db_save_fails(tmp_path: Path) -> None:
+    state = FailingVersionSaveState(tmp_path / "state")
+    state.save_skill_pack({"id": "memo", "title": "Memo", "description": "", "draft_status": "draft"})
+    write_skill_pack_artifact(
+        state,
+        "memo",
+        "SKILL.md",
+        "---\nname: memo\ndescription: Use for memos.\n---\n\n# Memo\n",
+        "user",
+        "Initial skill",
+    )
+
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        publish_skill_pack_snapshot(state, "memo", "First version")
+
+    published_dir = state.skill_pack_root("memo") / "published"
+    assert not (published_dir / "v001").exists()
+    assert not published_dir.exists() or list(published_dir.iterdir()) == []

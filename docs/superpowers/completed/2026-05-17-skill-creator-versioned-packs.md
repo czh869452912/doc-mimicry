@@ -1760,3 +1760,24 @@ git commit -m "docs: complete skill creator versioned packs plan"
 - Do not add binary import support beyond unsupported conversion reports in this plan.
 - Prefer synchronous Skill Creator operations in the first pass; background execution can reuse the same route shape after the MVP is stable.
 - If a route or UI test requires a large fixture, reduce the fixture to one short text resource and one generated `SKILL.md`.
+
+## Review Fixes - 2026-05-17
+
+Claude review identified release-hardening gaps after the MVP implementation. The follow-up fix added regression coverage and addressed:
+
+- publish rollback when DB version save fails;
+- idempotent version replay without regressing `latest_version_id`;
+- database uniqueness for `(pack_id, version)` via ORM metadata and Alembic `0005`;
+- Skill Creator session rollback when runtime session creation fails;
+- reuse of publish validation from the route to avoid a double-read race;
+- seed bootstrap traceback logging;
+- removal of the dead pack-management guard in the authoring worker.
+
+Verification:
+
+```powershell
+python -m pytest services/api/tests/test_skill_packs.py::test_publish_snapshot_cleans_partial_directory_when_db_save_fails services/api/tests/test_skill_pack_state.py::test_replaying_existing_skill_pack_version_does_not_regress_latest services/api/tests/test_skill_pack_state.py::test_skill_pack_versions_are_unique_per_pack_and_version services/api/tests/test_skill_creator_sessions.py::test_skill_creator_session_create_failure_removes_session -q
+python -m pytest services/api/tests/test_skill_packs.py services/api/tests/test_skill_pack_state.py services/api/tests/test_skill_creator_sessions.py services/api/tests/test_worker_tasks.py services/api/tests/test_phase3_api.py -q
+python -m pytest packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests -q
+git diff --check -- . ':!.claude/settings.local.json'
+```

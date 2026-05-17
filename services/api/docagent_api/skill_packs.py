@@ -137,26 +137,44 @@ def validate_skill_pack_draft(state: DocAgentState, pack_id: str) -> dict[str, A
     return {"status": "failed" if errors else "passed", "errors": errors, "warnings": warnings}
 
 
-def publish_skill_pack_snapshot(state: DocAgentState, pack_id: str, publish_note: str) -> dict[str, Any]:
-    validation = validate_skill_pack_draft(state, pack_id)
+def publish_skill_pack_snapshot(
+    state: DocAgentState,
+    pack_id: str,
+    publish_note: str,
+    validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    validation = validation or validate_skill_pack_draft(state, pack_id)
     if validation["status"] != "passed":
         raise ValueError("; ".join(validation["errors"]))
     version = _next_version(state, pack_id)
     target = published_root(state, pack_id, version)
     if target.exists():
         raise FileExistsError(target)
-    shutil.copytree(draft_root(state, pack_id), target)
-    manifest = _snapshot_manifest(target)
-    record = {
-        "id": f"{pack_id}-{version}",
-        "pack_id": pack_id,
-        "version": version,
-        "snapshot_path": str(target),
-        "manifest": manifest,
-        "validation": validation,
-        "publish_note": publish_note,
-    }
-    state.save_skill_pack_version(record)
+    temp_target = target.with_name(f".{version}-{uuid4().hex}.tmp")
+    renamed = False
+    try:
+        shutil.copytree(draft_root(state, pack_id), temp_target)
+        manifest = _snapshot_manifest(temp_target)
+        if target.exists():
+            raise FileExistsError(target)
+        temp_target.rename(target)
+        renamed = True
+        record = {
+            "id": f"{pack_id}-{version}",
+            "pack_id": pack_id,
+            "version": version,
+            "snapshot_path": str(target),
+            "manifest": manifest,
+            "validation": validation,
+            "publish_note": publish_note,
+        }
+        state.save_skill_pack_version(record)
+    except Exception:
+        if temp_target.exists():
+            shutil.rmtree(temp_target, ignore_errors=True)
+        if renamed and target.exists():
+            shutil.rmtree(target, ignore_errors=True)
+        raise
     return state.get_latest_skill_pack_version(pack_id)
 
 
@@ -179,7 +197,7 @@ def bootstrap_seed_skill_packs(state: DocAgentState, seed_root: Path) -> None:
             if latest is None:
                 publish_skill_pack_snapshot(state, pack_id, "Seed version")
         except Exception as exc:
-            logger.warning("Failed to bootstrap seed skill pack %s: %s", pack_id, exc)
+            logger.warning("Failed to bootstrap seed skill pack %s: %s", pack_id, exc, exc_info=True)
 
 
 def _resolve_artifact_path(root: Path, relative_path: str) -> Path:

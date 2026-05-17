@@ -3,6 +3,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from docagent_api.app import create_app
+from docagent_api.db import SkillCreatorSessionRow
+from docagent_api.state import DocAgentState
 
 
 def _pack_with_resource(client: TestClient) -> None:
@@ -57,3 +59,26 @@ def test_skill_creator_revision_reads_manual_edit(tmp_path: Path) -> None:
     event_types = [event["event_type"] for event in events]
     assert "file/read" in event_types
     assert event_types.index("file/read") < event_types.index("file/write")
+
+
+class FailingCreateAdapter:
+    def create_session(self, session_id, prompt_bundle):
+        raise RuntimeError("runtime unavailable")
+
+
+def test_skill_creator_session_create_failure_removes_session(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    client = TestClient(create_app(
+        state_root=state_root,
+        repo_root=Path("."),
+        runtime_adapter=FailingCreateAdapter(),
+    ))
+    _pack_with_resource(client)
+
+    response = client.post("/skill-packs/memo/skill-creator/sessions", json={"message": "Start"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Skill Creator runtime session creation failed: runtime unavailable"
+    state = DocAgentState(state_root)
+    with state._Session() as db:
+        assert db.query(SkillCreatorSessionRow).count() == 0

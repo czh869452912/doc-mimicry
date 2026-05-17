@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -147,6 +148,7 @@ class SkillPackVersionRow(Base):
 
     __table_args__ = (
         Index("idx_skill_pack_versions_pack", "pack_id", "version"),
+        UniqueConstraint("pack_id", "version", name="uq_skill_pack_versions_pack_version"),
         CheckConstraint("version <> ''", name="ck_skill_pack_versions_nonempty"),
     )
 

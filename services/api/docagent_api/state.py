@@ -366,10 +366,10 @@ class DocAgentState:
                     validation=version.get("validation", {}),
                     publish_note=version.get("publish_note", ""),
                 ))
-            parent = db.get(SkillPackRow, version["pack_id"])
-            if parent is not None:
-                parent.latest_version_id = version["id"]
-                parent.updated_at = datetime.now(timezone.utc)
+                parent = db.get(SkillPackRow, version["pack_id"])
+                if parent is not None:
+                    parent.latest_version_id = version["id"]
+                    parent.updated_at = datetime.now(timezone.utc)
             db.commit()
 
     def get_skill_pack_version(self, version_id: str | None) -> dict[str, Any] | None:
@@ -435,6 +435,13 @@ class DocAgentState:
         with self._Session() as db:
             row = db.get(SkillCreatorSessionRow, session_id)
             return _skill_creator_session_row_to_dict(row) if row is not None else None
+
+    def delete_skill_creator_session(self, session_id: str) -> None:
+        with self._Session() as db:
+            row = db.get(SkillCreatorSessionRow, session_id)
+            if row is not None:
+                db.delete(row)
+                db.commit()
 
     def append_skill_creator_event(
         self,

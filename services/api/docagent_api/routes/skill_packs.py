@@ -110,7 +110,7 @@ def create_skill_packs_router(state: DocAgentState, adapter: Any | None = None) 
         if unacknowledged:
             raise HTTPException(status_code=422, detail={"warnings": unacknowledged})
         try:
-            version = publish_skill_pack_snapshot(state, pack_id, request.publish_note)
+            version = publish_skill_pack_snapshot(state, pack_id, request.publish_note, validation)
         except (FileExistsError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _version_response(version)
@@ -137,7 +137,14 @@ def create_skill_packs_router(state: DocAgentState, adapter: Any | None = None) 
         )
         state.save_skill_creator_session(session)
         if adapter is not None:
-            result = adapter.create_session(session_id, prompt_bundle)
+            try:
+                result = adapter.create_session(session_id, prompt_bundle)
+            except Exception as exc:
+                state.delete_skill_creator_session(session_id)
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Skill Creator runtime session creation failed: {exc}",
+                ) from exc
             _append_skill_creator_updates(state, session_id, result.acp_updates)
         return state.get_skill_creator_session(session_id) or session
 
