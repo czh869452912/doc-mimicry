@@ -65,4 +65,21 @@ describe("ManagementPage", () => {
 
     await waitFor(() => expect(api.addSkillPackFileResource).toHaveBeenCalledWith("memo", "examples", expect.any(File)));
   });
+
+  it("shows an error when material file upload fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+    vi.mocked(api.addSkillPackFileResource).mockRejectedValue(new Error("413 Payload Too Large"));
+
+    renderManagementPage();
+    await screen.findByText("Memo");
+    await user.upload(
+      screen.getByLabelText(/upload material file/i),
+      new File(["too large"], "memo.pdf", { type: "application/pdf" }),
+    );
+
+    expect(await screen.findByText(/413 Payload Too Large/i)).toBeTruthy();
+  });
 });

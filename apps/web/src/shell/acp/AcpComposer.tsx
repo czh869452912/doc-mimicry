@@ -53,7 +53,13 @@ export function AcpComposer({
     const input = text.trimEnd();
     if (!input || disabled || isRunning) return;
     setAttachmentError(null);
-    const nextAttachments = await importAttachments();
+    let nextAttachments: MessageAttachment[];
+    try {
+      nextAttachments = await importAttachments();
+    } catch (caught) {
+      setAttachmentError(caught instanceof Error ? caught.message : "Attachment import failed.");
+      return;
+    }
     if (nextAttachments.length > 0) {
       await onAttachContext?.(nextAttachments);
     }

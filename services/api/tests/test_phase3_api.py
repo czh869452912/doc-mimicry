@@ -855,6 +855,17 @@ def test_export_pdf_route_creates_artifact_without_runtime_prompt(tmp_path: Path
     assert any(event["kind"] == "export_pdf" and body["artifact_path"] in event["paths"] for event in timeline)
 
 
+def test_export_docx_route_requires_existing_draft(tmp_path: Path) -> None:
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
+    task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    response = client.post(f"/sessions/{session['id']}/artifacts/export-docx")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Draft does not exist."
+
+
 def test_session_state_changes_emit_status_events(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path("."), runtime_name="mock"))
     task = client.post("/tasks", json={"doc_type_id": "prd", "brief": "test"}).json()

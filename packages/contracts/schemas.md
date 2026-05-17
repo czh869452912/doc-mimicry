@@ -68,6 +68,7 @@ Rules:
 - `source_path` points to the original upload.
 - `markdown_path` points to converted Markdown when conversion succeeds.
 - Agent-facing examples/specs/inputs should use `markdown_path`, not `source_path`.
+- Resource paths are relative to the task workspace root or Skill Pack draft root.
 
 ## ConversionReport
 
@@ -89,6 +90,8 @@ features_detected:
   pages: number | null
 created_at: IsoDateTime
 ```
+
+Report paths are relative to the conversion layout root.
 
 ## AcpEventEnvelope
 

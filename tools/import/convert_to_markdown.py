@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import mimetypes
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,7 +28,7 @@ def convert_file(source: Path, output_root: Path) -> Path:
         layout,
         original_filename=source.name,
         content=source.read_bytes(),
-        mime_type="application/octet-stream",
+        mime_type=mimetypes.guess_type(source.name)[0] or "application/octet-stream",
         created_at=_now(),
     )
     return output_root / result["conversion_report_path"]

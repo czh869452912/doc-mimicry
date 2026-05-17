@@ -148,4 +148,21 @@ describe("AcpComposer", () => {
     expect(await screen.findByText(/could not be converted/i)).toBeTruthy();
     expect(onSend).toHaveBeenCalledWith("Use deck", []);
   });
+
+  it("shows upload errors when attachment import fails", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.importFileInput).mockRejectedValue(new Error("503 Service Unavailable"));
+    render(<AcpComposer disabled={false} isRunning={false} taskId="task-1" onCancel={vi.fn()} onSend={onSend} />);
+
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["context"], "context.pdf", { type: "application/pdf" }),
+    );
+    await user.type(screen.getByLabelText("Message"), "Use context");
+    await user.click(screen.getByRole("button", { name: /send message/i }));
+
+    expect(await screen.findByText(/503 Service Unavailable/i)).toBeTruthy();
+    expect(onSend).not.toHaveBeenCalled();
+  });
 });

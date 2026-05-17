@@ -69,7 +69,8 @@ def _rels_xml() -> str:
 
 
 def _simple_pdf_bytes(lines: list[str]) -> bytes:
-    rendered = []
+    page_streams: list[bytes] = []
+    rendered: list[str] = []
     y = 760
     for line in lines:
         for wrapped in textwrap.wrap(line, width=88) or [""]:
@@ -77,15 +78,33 @@ def _simple_pdf_bytes(lines: list[str]) -> bytes:
             rendered.append(f"BT /F1 11 Tf 50 {y} Td ({safe}) Tj ET")
             y -= 16
             if y < 60:
+                page_streams.append("\n".join(rendered).encode("latin-1", errors="replace"))
+                rendered = []
                 y = 760
-    stream = "\n".join(rendered).encode("latin-1", errors="replace")
+    if rendered or not page_streams:
+        page_streams.append("\n".join(rendered).encode("latin-1", errors="replace"))
+
+    page_count = len(page_streams)
+    font_object_number = 3 + page_count * 2
+    page_object_numbers = [3 + index * 2 for index in range(page_count)]
+    content_object_numbers = [4 + index * 2 for index in range(page_count)]
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
-        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream",
+        (
+            b"<< /Type /Pages /Kids "
+            + b"[" + b" ".join(f"{number} 0 R".encode("ascii") for number in page_object_numbers) + b"]"
+            + f" /Count {page_count} >>".encode("ascii")
+        ),
     ]
+    for page_number, content_number in zip(page_object_numbers, content_object_numbers):
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {font_object_number} 0 R >> >> /Contents {content_number} 0 R >>".encode("ascii")
+        )
+        stream = page_streams[(page_number - 3) // 2]
+        objects.append(b"<< /Length " + str(len(stream)).encode("ascii") + b" >>\nstream\n" + stream + b"\nendstream")
+    objects.append(
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    )
     chunks = [b"%PDF-1.4\n"]
     offsets = [0]
     for index, obj in enumerate(objects, start=1):

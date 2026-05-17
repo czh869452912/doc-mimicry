@@ -245,25 +245,6 @@ def _next_version(state: DocAgentState, pack_id: str) -> str:
     return f"v{len(versions) + 1:03d}"
 
 
-def _safe_stem(name: str) -> str:
-    raw_stem = Path(name).stem or "resource"
-    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", raw_stem).strip("-").lower()
-    return stem or "resource"
-
-
-def _unique_resource_stem(root: Path, group: str, base_stem: str) -> str:
-    stem = base_stem
-    suffix = 2
-    while (
-        (root / "resources" / "original" / group / f"{stem}.txt").exists()
-        or (root / "resources" / "markdown" / group / f"{stem}.md").exists()
-        or (root / "resources" / "reports" / group / f"{stem}.json").exists()
-    ):
-        stem = f"{base_stem}-{suffix}"
-        suffix += 1
-    return stem
-
-
 def _resource_status(result: dict[str, Any]) -> str:
     if result["status"] == "converted" and result.get("warnings"):
         return "warning"

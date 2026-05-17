@@ -67,11 +67,6 @@ export const api = {
   getWorkspace: (taskId: string) => request<WorkspaceTree>(`/tasks/${taskId}/workspace`),
   getWorkspaceFile: (taskId: string, path: string) =>
     request<WorkspaceFileContent>(`/tasks/${taskId}/workspace/files?path=${encodeURIComponent(path)}`),
-  importTextInput: (taskId: string, name: string, content: string) =>
-    request<ImportedInput>(`/tasks/${taskId}/inputs/text`, {
-      method: "POST",
-      body: JSON.stringify({ name, content }),
-    }),
   importFileInput: (taskId: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);

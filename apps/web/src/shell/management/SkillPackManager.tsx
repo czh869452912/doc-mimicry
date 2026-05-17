@@ -118,6 +118,7 @@ function PackWorkSurface({ packId }: { packId: string }) {
   const [creatorMessage, setCreatorMessage] = useState("Generate a skill from these materials.");
   const [skillDraft, setSkillDraft] = useState("");
   const [publishNote, setPublishNote] = useState("");
+  const [resourceError, setResourceError] = useState<string | null>(null);
   const validationWarnings = validatePack.data?.warnings ?? [];
 
   useEffect(() => {
@@ -149,10 +150,21 @@ function PackWorkSurface({ packId }: { packId: string }) {
           type="file"
           onChange={(event) => {
             const file = event.target.files?.[0];
-            if (file) addFileResource.mutate({ group: resourceGroup, file });
+            if (file) {
+              setResourceError(null);
+              addFileResource.mutate(
+                { group: resourceGroup, file },
+                {
+                  onError: (caught) => {
+                    setResourceError(caught instanceof Error ? caught.message : "Material upload failed.");
+                  },
+                },
+              );
+            }
             event.target.value = "";
           }}
         />
+        {resourceError ? <p className="status-error">{resourceError}</p> : null}
         <Button
           size="sm"
           variant="outline"
