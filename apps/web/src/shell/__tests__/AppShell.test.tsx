@@ -10,6 +10,7 @@ import { AppShell } from "../AppShell";
 vi.mock("../../api", () => ({
   api: {
     approveOutline: vi.fn(),
+    createDraftCheckpoint: vi.fn(),
     createSession: vi.fn(),
     createSkillCreatorSession: vi.fn(),
     createSkillPack: vi.fn(),
@@ -44,8 +45,20 @@ vi.mock("../../api", () => ({
 }));
 
 vi.mock("../editor/LazyDraftEditor", () => ({
-  LazyDraftEditor: ({ onSelection }: { onSelection: (selectedText: string) => void }) => (
-    <div data-testid="draft-source-editor" onClick={() => onSelection("selected paragraph")} />
+  LazyDraftEditor: ({
+    onChange,
+    onSelection,
+  }: {
+    onChange?: (markdown: string) => void;
+    onSelection: (selectedText: string) => void;
+  }) => (
+    <textarea
+      aria-label="Draft source"
+      data-testid="draft-source-editor"
+      defaultValue="# Restored draft"
+      onClick={() => onSelection("selected paragraph")}
+      onChange={(event) => onChange?.(event.target.value)}
+    />
   ),
 }));
 
@@ -122,6 +135,16 @@ describe("AppShell", () => {
       created_at: "2026-05-08T00:00:00Z",
     });
     vi.mocked(api.updateDraft).mockResolvedValue({ markdown: "# Restored draft" });
+    vi.mocked(api.createDraftCheckpoint).mockResolvedValue({
+      id: "v001",
+      task_id: "task-1",
+      version: "v001",
+      source_path: "draft/draft.md",
+      version_path: "versions/v001.md",
+      summary: "Manual checkpoint",
+      created_by: "user",
+      created_at: "2026-05-17T00:00:00Z",
+    });
     vi.mocked(api.sendMessage).mockResolvedValue({ session_id: "session-1", accepted: true, status: "running_revision" });
     vi.mocked(api.reviseSelection).mockResolvedValue({ session_id: "session-1", next_state: "RUNNING_REVISION" });
   });
@@ -481,7 +504,7 @@ describe("AppShell", () => {
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
 
-    expect(await screen.findByRole("textbox")).toBeTruthy();
+    expect(await screen.findByLabelText("Draft source")).toBeTruthy();
   });
 
   it("queues selected draft text into the assistant composer", async () => {
@@ -512,6 +535,53 @@ describe("AppShell", () => {
     );
     expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
     expect(api.getWorkspace).toHaveBeenCalledWith("task-1");
+  });
+
+  it("saves local draft edits before creating a manual checkpoint", async () => {
+    vi.mocked(api.updateDraft).mockImplementation((_taskId, markdown) => Promise.resolve({ markdown }));
+    vi.mocked(api.getWorkspace).mockResolvedValueOnce({ task_id: "task-1", root: "workspace/task-1", files: [] })
+      .mockResolvedValue({
+        task_id: "task-1",
+        root: "workspace/task-1",
+        files: [{ path: "versions/v001.md", group: "versions", kind: "markdown" }],
+      });
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Source" }));
+    const source = await screen.findByLabelText("Draft source");
+    await userEvent.clear(source);
+    await userEvent.type(source, "# Restored draft\n\nManual edit");
+    vi.mocked(api.updateDraft).mockClear();
+    vi.mocked(api.getWorkspace).mockClear();
+    vi.mocked(api.getAcpEvents).mockClear();
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /\+ checkpoint/i }));
+
+    await waitFor(() => expect(api.createDraftCheckpoint).toHaveBeenCalledWith("task-1", "Manual checkpoint"));
+    await waitFor(() => expect(api.getWorkspace).toHaveBeenCalledWith("task-1"));
+    expect(api.getAcpEvents).toHaveBeenCalledWith("session-1");
+  });
+
+  it("keeps manual checkpoint disabled while the active session is running", async () => {
+    vi.mocked(api.listTaskSessions).mockResolvedValue([
+      {
+        id: "session-1",
+        task_id: "task-1",
+        status: "running_chat",
+        created_at: "2026-05-06T08:00:00Z",
+        updated_at: "2026-05-06T09:00:00Z",
+      },
+    ]);
+
+    renderAppShell("/?task=task-1&session=session-1");
+
+    await screen.findByRole("heading", { name: "Restored draft" });
+    expect((screen.getByRole("button", { name: /\+ checkpoint/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("sends chat messages in background mode and refreshes timeline and workspace", async () => {
@@ -638,7 +708,7 @@ describe("AppShell", () => {
 
     await screen.findByRole("heading", { name: "Restored draft" });
     await userEvent.click(screen.getByRole("button", { name: "Source" }));
-    await userEvent.type(screen.getByRole("textbox"), "\nNew edit");
+    await userEvent.type(screen.getByLabelText("Draft source"), "\nNew edit");
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 900));
     });

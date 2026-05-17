@@ -24,6 +24,7 @@ export function AppShell() {
   const [queuedComposerDraft, setQueuedComposerDraft] = useState<string | null>(null);
   const [queuedCommand, setQueuedCommand] = useState<string | null>(null);
   const [localDraft, setLocalDraft] = useState<string | null>(null);
+  const [checkpointPending, setCheckpointPending] = useState(false);
   const queryClient = useQueryClient();
 
   const workspaces = useActiveWorkspace();
@@ -118,6 +119,7 @@ export function AppShell() {
               <ConversationPane
                 activeSession={workspaces.activeSession}
                 activeTask={workspaces.activeTask}
+                createCheckpoint={() => createManualCheckpoint(draft, null)}
                 createSession={workspaces.createSessionForActiveTask}
                 ensureSession={workspaces.ensureSession}
                 events={timeline.events}
@@ -147,11 +149,15 @@ export function AppShell() {
               <EditorPane
                 activeSessionId={workspaces.activeSession?.id ?? null}
                 activeTabId={editorTabs.activeTabId}
+                checkpointDisabled={activeSessionIsRunning}
+                checkpointPending={checkpointPending}
                 draft={draft}
                 draftAutoSaveEnabled={draftTaskId === (workspaces.activeTask?.id ?? null) && !activeSessionIsRunning}
+                serverDraft={draftQueryTaskId === activeTaskId ? draftQuery.data?.markdown : undefined}
                 tabs={editorTabs.tabs}
                 taskId={workspaces.activeTask?.id ?? null}
                 onCloseTab={editorTabs.removeTab}
+                onCreateCheckpoint={createManualCheckpoint}
                 onDraftChange={setLocalDraft}
                 onReviseSelection={reviseSelectedText}
                 onSendSelectionToChat={(selectedText) => {
@@ -194,6 +200,24 @@ export function AppShell() {
       "Please revise the selected passage while preserving its meaning.",
     );
     // SSE will push workspace/draft invalidation when the worker completes
+  }
+
+  async function createManualCheckpoint(draftMarkdown: string, lastSavedMarkdown: string | null) {
+    if (!activeTaskId || activeSessionIsRunning || checkpointPending) return;
+    setCheckpointPending(true);
+    try {
+      if (lastSavedMarkdown === null || draftMarkdown !== lastSavedMarkdown) {
+        const response = await api.updateDraft(activeTaskId, draftMarkdown);
+        setLocalDraft(response.markdown);
+      }
+      await api.createDraftCheckpoint(activeTaskId, "Manual checkpoint");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["workspace", activeTaskId] }),
+        workspaces.activeSession?.id ? timeline.refreshTimeline() : Promise.resolve(),
+      ]);
+    } finally {
+      setCheckpointPending(false);
+    }
   }
 }
 

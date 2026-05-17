@@ -67,6 +67,17 @@ export interface WorkspaceFileContent {
   content: string;
 }
 
+export interface DraftCheckpoint {
+  id: string;
+  task_id: string;
+  version: string;
+  source_path: string;
+  version_path: string;
+  summary: string;
+  created_by: string;
+  created_at: string;
+}
+
 export interface ImportedInput {
   id: string;
   status: string;

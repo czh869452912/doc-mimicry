@@ -5,6 +5,7 @@ import { executeSlashCommand, SLASH_COMMANDS, type SlashCommandContext } from ".
 
 vi.mock("../../api", () => ({
   api: {
+    createDraftCheckpoint: vi.fn(),
     exportDocx: vi.fn(),
     exportPdf: vi.fn(),
   },
@@ -83,6 +84,19 @@ describe("slash commands", () => {
     expect(api.exportPdf).toHaveBeenCalledWith("session-1");
     expect(context.refreshTimeline).toHaveBeenCalledOnce();
     expect(context.refreshWorkspace).toHaveBeenCalledOnce();
+  });
+
+  it("runs checkpoint command through the provided authoring checkpoint action", async () => {
+    const createCheckpoint = vi.fn().mockResolvedValue(undefined);
+    const context = commandContext({ createCheckpoint });
+
+    const result = await executeSlashCommand("/checkpoint", context);
+
+    expect(result).toEqual({
+      handled: true,
+      message: "Checkpoint created.",
+    });
+    expect(createCheckpoint).toHaveBeenCalledOnce();
   });
 
   it("lists DOCX and PDF export commands", () => {

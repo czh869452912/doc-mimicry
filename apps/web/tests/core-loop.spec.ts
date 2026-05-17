@@ -101,6 +101,22 @@ test("selected source text can trigger revise selection", async ({ page }) => {
   await expect(page.locator(".acp-event").filter({ hasText: "Revise selected passage" }).first()).toBeVisible({ timeout: 8_000 });
 });
 
+test("manual checkpoint creates a version in the workspace tree", async ({ page }) => {
+  await reachDraftReady(page);
+
+  await page.getByRole("button", { name: "Source" }).click();
+  const editor = page.locator(".cm-content");
+  await editor.click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+End" : "Control+End");
+  await page.keyboard.type("\n\nManual checkpoint note.");
+
+  await expect(page.getByText(/last save · saved/i)).toBeVisible({ timeout: 8_000 });
+  await page.getByRole("button", { name: /\+ checkpoint/i }).click();
+
+  await expect(page.getByTestId("left").getByText("v001.md")).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator(".acp-event").filter({ hasText: "Manual checkpoint" }).first()).toBeVisible({ timeout: 8_000 });
+});
+
 function messageBox(page: Page) {
   return page.getByRole("textbox", { name: "Message" });
 }

@@ -7,6 +7,7 @@ export interface SlashCommandContext {
   createSession: () => Promise<SessionRecord | null>;
   ensureSession: () => Promise<SessionRecord | null>;
   openArtifact: (path: string) => Promise<void>;
+  createCheckpoint?: () => Promise<unknown>;
   openHelp: () => void;
   refreshTimeline: () => Promise<unknown>;
   refreshWorkspace: () => Promise<unknown>;
@@ -27,7 +28,9 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
     return { handled: true, message: "Opened help" };
   }
   if (command === "/checkpoint") {
-    return { handled: true, message: "Checkpoint endpoint is not available yet." };
+    if (!context.createCheckpoint) return { handled: true, message: "Use the Checkpoint button in the draft toolbar." };
+    await context.createCheckpoint();
+    return { handled: true, message: "Checkpoint created." };
   }
   if (command === "/files" || command === "/versions") {
     return { handled: true, message: `${command.slice(1)} view is available from the workspace tree.` };
@@ -79,7 +82,7 @@ export const SLASH_COMMANDS = [
   { command: "/export", description: "Export Markdown artifact" },
   { command: "/export-docx", description: "Export DOCX artifact" },
   { command: "/export-pdf", description: "Export PDF artifact" },
-  { command: "/checkpoint", description: "Show checkpoint endpoint status" },
+  { command: "/checkpoint", description: "Create draft checkpoint" },
   { command: "/files", description: "Use the workspace tree to open files" },
   { command: "/versions", description: "Use the workspace tree to open versions" },
   { command: "/diff", description: "Open a diff after selecting versions" },

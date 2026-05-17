@@ -12,9 +12,13 @@ interface EditorPaneProps {
   activeTabId: string;
   draft: string;
   draftAutoSaveEnabled?: boolean;
+  checkpointDisabled?: boolean;
+  checkpointPending?: boolean;
+  serverDraft?: string;
   tabs: EditorTab[];
   taskId: string | null;
   onCloseTab: (tabId: string) => void;
+  onCreateCheckpoint?: (draft: string, lastSavedMarkdown: string) => Promise<void> | void;
   onDraftChange: (draft: string) => void;
   onReviseSelection?: (selectedText: string) => void;
   onSendSelectionToChat?: (selectedText: string) => void;
@@ -24,12 +28,16 @@ interface EditorPaneProps {
 export function EditorPane({
   activeSessionId,
   activeTabId,
+  checkpointDisabled = false,
+  checkpointPending = false,
   draft,
   draftAutoSaveEnabled = true,
   onCloseTab,
+  onCreateCheckpoint,
   onDraftChange,
   onReviseSelection,
   onSendSelectionToChat,
+  serverDraft,
   onTabChange,
   tabs,
   taskId,
@@ -60,11 +68,15 @@ export function EditorPane({
         <TabsContent className="editor-tab-content" key={tab.id} value={tab.id}>
           {renderTab(tab, {
             activeSessionId,
+            checkpointDisabled,
+            checkpointPending,
             draft,
             draftAutoSaveEnabled,
+            onCreateCheckpoint,
             onDraftChange,
             onReviseSelection,
             onSendSelectionToChat,
+            serverDraft,
             taskId,
           })}
         </TabsContent>
@@ -78,11 +90,15 @@ function renderTab(
   props: Pick<
     EditorPaneProps,
     | "activeSessionId"
+    | "checkpointDisabled"
+    | "checkpointPending"
     | "draft"
     | "draftAutoSaveEnabled"
+    | "onCreateCheckpoint"
     | "onDraftChange"
     | "onReviseSelection"
     | "onSendSelectionToChat"
+    | "serverDraft"
     | "taskId"
   >,
 ) {
@@ -91,11 +107,15 @@ function renderTab(
       <DraftTab
         activeSessionId={props.activeSessionId}
         autoSaveEnabled={props.draftAutoSaveEnabled}
+        checkpointDisabled={props.checkpointDisabled}
+        checkpointPending={props.checkpointPending}
         draft={props.draft}
         taskId={props.taskId}
+        onCreateCheckpoint={props.onCreateCheckpoint}
         onDraftChange={props.onDraftChange}
         onReviseSelection={props.onReviseSelection}
         onSendSelectionToChat={props.onSendSelectionToChat}
+        serverDraft={props.serverDraft}
       />
     );
   }

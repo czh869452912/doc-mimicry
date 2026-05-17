@@ -3,6 +3,7 @@ import type {
   ImportedInput,
   LoopActionResult,
   AcpEvent,
+  DraftCheckpoint,
   MessageAttachment,
   SessionRecord,
   SkillCreatorRunResult,
@@ -117,6 +118,11 @@ export const api = {
     request<{ markdown: string }>(`/tasks/${taskId}/draft`, {
       method: "PUT",
       body: JSON.stringify({ markdown }),
+    }),
+  createDraftCheckpoint: (taskId: string, note: string) =>
+    request<DraftCheckpoint>(`/tasks/${taskId}/draft/checkpoints`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
     }),
   listSkillPacks: () => request<SkillPackSummary[]>("/skill-packs"),
   createSkillPack: (id: string, title: string, description: string) =>

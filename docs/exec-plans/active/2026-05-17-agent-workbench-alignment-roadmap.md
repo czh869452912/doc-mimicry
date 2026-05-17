@@ -105,8 +105,8 @@ This plan covers four product/engineering phases plus a baseline closure phase:
 
 ### Phase 0: Close Current Alignment Patch
 
-- [ ] Move the completed task-sized plan from `docs/superpowers/plans/2026-05-17-generic-authoring-alignment.md` to `docs/superpowers/completed/2026-05-17-generic-authoring-alignment.md`.
-- [ ] Re-run the verification suite used by the patch:
+- [x] Move the completed task-sized plan from `docs/superpowers/plans/2026-05-17-generic-authoring-alignment.md` to `docs/superpowers/completed/2026-05-17-generic-authoring-alignment.md`.
+- [x] Re-run the verification suite used by the patch:
 
 ```powershell
 python -m pytest packages/conversion/tests tools/import/tests packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests -q
@@ -117,8 +117,8 @@ npm run test:e2e -- tests/core-loop.spec.ts tests/workbench-shell.spec.ts
 git diff --check -- . ':!.claude/settings.local.json'
 ```
 
-- [ ] Commit the generic authoring alignment patch before starting new behavior changes.
-- [ ] Record the completed verification summary in the commit message or a short completion note.
+- [x] Commit the generic authoring alignment patch before starting new behavior changes.
+- [x] Record the completed verification summary in the commit message or a short completion note.
 
 Acceptance:
 
@@ -128,23 +128,23 @@ Acceptance:
 
 ### Phase 1: Harden Generic Contracts For OpenHands/ACP
 
-- [ ] Add prompt contract tests in `services/api/tests/test_prompts.py`:
+- [x] Add prompt contract tests in `services/api/tests/test_prompts.py`:
   - `services/api/docagent_api/prompts.py` already exists and owns `build_prompt_bundle`; keep these as direct prompt-bundle tests rather than extracting prompt constants from route modules.
   - A memo task prompt includes `Document type: memo`.
   - A task bound to a published pack version uses the published snapshot `SKILL.md`.
   - The prompt does not mention `doc-types/prd` unless `doc_type_id == "prd"`.
   - The prompt repeats the workspace contract paths for `context/`, `draft/`, `reviews/`, and `artifacts/`.
-- [ ] Add OpenHands adapter tests in `agent/runtime-adapters/openhands/tests/test_openhands_adapter.py`:
+- [x] Add OpenHands adapter tests in `agent/runtime-adapters/openhands/tests/test_openhands_adapter.py`:
   - `FakeOpenHandsClient.create_session` captures the `PromptBundle`.
   - A non-PRD prompt bundle is forwarded unchanged to `client.create_session`.
   - The `session_created` raw event includes the dynamic `doc_type_id`.
   - File write ACP projections remain generic and do not infer PRD-specific timeline labels.
-- [ ] Add API-level non-PRD runtime prompt tests in `services/api/tests/test_phase3_api.py` using a fake prompt-only adapter:
+- [x] Add API-level non-PRD runtime prompt tests in `services/api/tests/test_phase3_api.py` using a fake prompt-only adapter:
   - `loop/start` sends the generic start prompt and metadata `{"action": "start_loop"}`.
   - `artifacts/export-markdown` sends `Export the current draft to artifacts/memo-draft.md.` for a memo task.
   - Responses and ACP prompt events report the same dynamic artifact path.
-- [ ] Extend `tools/runtime/openhands_smoke.py` with an optional `--doc-type` argument if it does not already support one.
-- [ ] Document in `docs/architecture/agent-runtime.md` that CI covers OpenHands with fake-client contract tests, while live provider smoke remains opt-in.
+- [x] Extend `tools/runtime/openhands_smoke.py` with an optional `--doc-type` argument if it does not already support one.
+- [x] Document in `docs/architecture/agent-runtime.md` that CI covers OpenHands with fake-client contract tests, while live provider smoke remains opt-in.
 
 Focused verification:
 
@@ -165,29 +165,29 @@ Rollback:
 
 ### Phase 2: Add Manual Checkpoint Support To Authoring
 
-- [ ] Add backend checkpoint tests in a new `services/api/tests/test_task_checkpoints.py`:
+- [x] Add backend checkpoint tests in a new `services/api/tests/test_task_checkpoints.py`:
   - `POST /tasks/{task_id}/draft/checkpoints` calls the existing `docagent_workspace.checkpoint_draft(workspace_root, summary=note)` helper instead of implementing new version naming logic.
   - The response includes the helper's `version_path`, `summary`, `version`, `created_by`, and `created_at` fields.
   - If no draft exists, the endpoint returns `400`.
   - If the latest session exists, the checkpoint appears in ACP events as a semantic checkpoint event.
-- [ ] Implement the endpoint in `services/api/docagent_api/routes/tasks.py`.
-- [ ] Add response/request models in `response_models.py` and `request_models.py` if a note/summary field is accepted.
-- [ ] Update the workspace contract in `docs/architecture/workspace-contract.md` to state that user-created checkpoints live in `versions/` and should be visible in the workspace tree.
-- [ ] Add `api.createDraftCheckpoint(taskId, note)` in `apps/web/src/api.ts` and the corresponding type in `apps/web/src/types.ts`.
-- [ ] Enable the disabled `+ Checkpoint` button in `DraftTab.tsx`.
-- [ ] Define auto-save interaction explicitly:
+- [x] Implement the endpoint in `services/api/docagent_api/routes/tasks.py`.
+- [x] Add response/request models in `response_models.py` and `request_models.py` if a note/summary field is accepted.
+- [x] Update the workspace contract in `docs/architecture/workspace-contract.md` to state that user-created checkpoints live in `versions/` and should be visible in the workspace tree.
+- [x] Add `api.createDraftCheckpoint(taskId, note)` in `apps/web/src/api.ts` and the corresponding type in `apps/web/src/types.ts`.
+- [x] Enable the disabled `+ Checkpoint` button in `DraftTab.tsx`.
+- [x] Define auto-save interaction explicitly:
   - backend checkpoint reads the server-authoritative `draft/draft.md`;
   - frontend disables the checkpoint button while `useAutoSave` reports `saving`;
   - frontend sends a final `api.updateDraft(taskId, draft)` before checkpointing when local draft text differs from the last server-saved draft.
-- [ ] Wire `AppShell.tsx` so checkpoint creation invalidates:
+- [x] Wire `AppShell.tsx` so checkpoint creation invalidates:
   - `["workspace", taskId]`;
   - `["draft", taskId]` only if the backend returns changed draft content;
   - `["acp-events", sessionId]` or the existing timeline refresh path.
-- [ ] Add UI tests:
+- [x] Add UI tests:
   - `DraftTab` calls `onCreateCheckpoint` when clicked.
   - `AppShell` calls `api.createDraftCheckpoint` and refreshes the workspace tree.
   - The button is disabled while the active runtime session is running.
-- [ ] Add one Playwright assertion to `apps/web/tests/core-loop.spec.ts`:
+- [x] Add one Playwright assertion to `apps/web/tests/core-loop.spec.ts`:
   - create or reach a draft;
   - click Checkpoint;
   - confirm a `versions/` file appears in the workspace tree.
@@ -199,6 +199,14 @@ python -m pytest services/api/tests/test_task_checkpoints.py packages/workspace/
 npm run test:unit -- --run src/shell/editor/tabs/__tests__/DraftTab.test.tsx src/shell/__tests__/AppShell.test.tsx
 npm run test:e2e -- tests/core-loop.spec.ts --grep "checkpoint"
 ```
+
+Completed verification:
+
+- `python -m pytest services/api/tests/test_task_checkpoints.py packages/workspace/tests/test_checkpoint.py -q` -> 7 passed.
+- `python -m pytest services/api/tests/test_task_checkpoints.py services/api/tests/test_api.py services/api/tests/test_phase3_api.py packages/workspace/tests/test_checkpoint.py -q` -> 68 passed.
+- `npm run test:unit -- --run src/shell/acp/__tests__/AcpInteractionSurface.test.tsx src/shell/editor/tabs/__tests__/DraftTab.test.tsx src/shell/__tests__/AppShell.test.tsx src/shell/conversation/slashCommands.test.ts` -> 43 passed; jsdom prints existing `scrollTo` warnings.
+- `npm run test:e2e -- tests/core-loop.spec.ts --grep "checkpoint"` -> 1 passed.
+- `git diff --check -- . ':!.claude/settings.local.json'` -> no whitespace errors; Windows CRLF warnings only.
 
 Acceptance:
 
@@ -334,10 +342,10 @@ Get-ChildItem -Recurse -File | Select-Object FullName
 ## Rollback Or Recovery Notes
 
 - Keep each phase as a separate commit or PR-ready slice.
-- If Phase 1 component splitting causes UI regressions, revert the split but preserve behavior tests.
-- If Phase 2 exposes real OpenHands prompt assumptions, land fake-client contract tests first and defer live smoke changes.
-- If Phase 3 checkpoint semantics conflict with runtime edits, disable the UI button while preserving the backend endpoint and tests for idle sessions.
-- If Phase 4 chunking breaks lazy routes, revert manual chunk configuration before reverting route-level lazy loading.
+- If Phase 1 exposes real OpenHands prompt assumptions, land fake-client contract tests first and defer live smoke changes.
+- If Phase 2 checkpoint semantics conflict with runtime edits, disable the UI button while preserving the backend endpoint and tests for idle sessions.
+- If Phase 3 chunking breaks lazy routes, revert manual chunk configuration before reverting route-level lazy loading.
+- If Phase 4 management splitting causes UI regressions, revert the split but preserve behavior tests.
 - Do not revert unrelated local files such as `.claude/settings.local.json`.
 
 ## Open Questions

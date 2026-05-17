@@ -53,6 +53,10 @@ class UpdateDraftRequest(BaseModel):
     force: bool = False
 
 
+class CreateDraftCheckpointRequest(BaseModel):
+    note: str = "Manual checkpoint"
+
+
 class CreateSkillPackRequest(BaseModel):
     id: str
     title: str

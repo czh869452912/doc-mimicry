@@ -11,6 +11,7 @@ interface ConversationPaneProps {
   activeSession: SessionRecord | null;
   activeTask: TaskRecord | null;
   createSession: () => Promise<SessionRecord | null>;
+  createCheckpoint?: () => Promise<unknown>;
   ensureSession: () => Promise<SessionRecord | null>;
   events: AcpEvent[];
   error: string | null;
@@ -28,6 +29,7 @@ interface ConversationPaneProps {
 export function ConversationPane({
   activeSession,
   activeTask,
+  createCheckpoint,
   createSession,
   ensureSession,
   events,
@@ -85,6 +87,7 @@ export function ConversationPane({
         const commandResult = await executeSlashCommand(input, {
           activeSession,
           activeTask,
+          createCheckpoint,
           createSession,
           ensureSession,
           openArtifact: onOpenPath,
@@ -120,6 +123,7 @@ export function ConversationPane({
       activeSession,
       cancelActiveSession,
       activeTask,
+      createCheckpoint,
       createSession,
       ensureSession,
       onOpenPath,
