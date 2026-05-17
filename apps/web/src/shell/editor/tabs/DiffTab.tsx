@@ -1,6 +1,6 @@
 import { DiffViewer } from "../DiffViewer";
 
-interface DiffTabProps {
+export interface DiffTabProps {
   left: string;
   leftTitle: string;
   right: string;

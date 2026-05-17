@@ -1,7 +1,11 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 import { AppShell } from "./shell/AppShell";
-import { ManagementPage } from "./shell/management/ManagementPage";
+
+const ManagementPage = lazy(() =>
+  import("./shell/management/ManagementPage").then((module) => ({ default: module.ManagementPage })),
+);
 
 export type AppSearch = {
   task?: string;
@@ -25,7 +29,7 @@ export const indexRoute = createRoute({
 export const managementRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/management/skill-packs",
-  component: ManagementPage,
+  component: ManagementRoute,
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, managementRoute]);
@@ -38,4 +42,12 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof createAppRouter>;
   }
+}
+
+function ManagementRoute() {
+  return (
+    <Suspense fallback={<main className="management-page" aria-label="Loading management" />}>
+      <ManagementPage />
+    </Suspense>
+  );
 }

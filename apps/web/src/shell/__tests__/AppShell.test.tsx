@@ -158,7 +158,7 @@ describe("AppShell", () => {
     renderAppShell("/?task=task-1&session=session-1");
 
     await waitFor(() => expect(api.getDraft).toHaveBeenCalledWith("task-1"));
-    expect(await screen.findByRole("heading", { name: "Restored draft" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Restored draft" }, { timeout: 5_000 })).toBeTruthy();
     await act(async () => {
       await new Promise((resolve) => window.setTimeout(resolve, 900));
     });

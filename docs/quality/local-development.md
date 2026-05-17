@@ -106,6 +106,22 @@ docker compose logs -f openhands api worker web
 
 ## Local Smoke Checks
 
+After frontend changes that affect routes, editor tabs, Markdown preview,
+management screens, or other heavy dependencies, run a production build and the
+bundle budget check:
+
+```powershell
+cd apps/web
+npm run build
+cd ../..
+python tools/quality/check_web_bundle.py apps/web/dist
+```
+
+The check treats the `index.html` script as the initial authoring route budget
+and tracks the lazy `DraftEditor` chunk separately. Management, Markdown
+preview, diff viewing, and CodeMirror should remain lazy-loaded unless a later
+plan deliberately changes the bundle budget.
+
 After changing compose, Dockerfiles, nginx proxying, or runtime environment
 plumbing, run the mock compose smoke:
 

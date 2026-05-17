@@ -1,9 +1,9 @@
 import { X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { ArtifactTab } from "../editor/tabs/ArtifactTab";
-import { DiffTab } from "../editor/tabs/DiffTab";
 import { DraftTab } from "../editor/tabs/DraftTab";
 import { FileTab } from "../editor/tabs/FileTab";
+import { LazyDiffTab } from "../editor/tabs/LazyDiffTab";
 import { VersionTab } from "../editor/tabs/VersionTab";
 import type { EditorTab } from "../editor/useTabs";
 
@@ -122,5 +122,5 @@ function renderTab(
   if (tab.kind === "file") return <FileTab content={tab.content} path={tab.path} />;
   if (tab.kind === "version") return <VersionTab content={tab.content} />;
   if (tab.kind === "artifact") return <ArtifactTab content={tab.content} path={tab.path} />;
-  return <DiffTab left={tab.left} leftTitle={tab.leftTitle} right={tab.right} rightTitle={tab.rightTitle} />;
+  return <LazyDiffTab left={tab.left} leftTitle={tab.leftTitle} right={tab.right} rightTitle={tab.rightTitle} />;
 }

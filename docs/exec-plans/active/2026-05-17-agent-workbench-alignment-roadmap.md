@@ -220,22 +220,22 @@ Rollback:
 
 ### Phase 3: Reduce Bundle And Route Coupling
 
-- [ ] Measure the current bundle before setting a hard threshold:
+- [x] Measure the current bundle before setting a hard threshold:
   - run `npm run build`;
   - record the largest JS chunks and whether `ManagementPage` is inside the authoring initial chunk;
   - set the first hard threshold as a ratchet from the measured baseline, not as an arbitrary target.
-- [ ] Add a baseline bundle contract test or script:
+- [x] Add a baseline bundle contract test or script:
   - `tools/quality/check_web_bundle.py` reads `apps/web/dist/assets/*.js`.
   - It reports the largest chunks and fails if the initial route chunk exceeds the selected threshold.
   - Initial suggested ratchet: after route lazy loading, main authoring chunk must be at least 20% smaller than the measured pre-split main chunk; editor chunk is tracked separately until CodeMirror strategy is revisited.
-- [ ] Lazy-load the management route in `apps/web/src/App.tsx` so Skill Pack Management is not imported by the authoring first load.
-- [ ] Keep `DraftEditor` lazy-loaded and verify the CodeMirror chunk remains separate.
-- [ ] Consider lazy-loading heavy tab content:
+- [x] Lazy-load the management route in `apps/web/src/App.tsx` so Skill Pack Management is not imported by the authoring first load.
+- [x] Keep `DraftEditor` lazy-loaded and verify the CodeMirror chunk remains separate.
+- [x] Consider lazy-loading heavy tab content:
   - `DiffTab` and `react-diff-viewer-continued`;
   - Markdown preview dependencies if they are part of the initial chunk;
   - management-only panels after route-level lazy loading.
-- [ ] Add Vite manual chunking only after route lazy loading if the bundle still exceeds threshold.
-- [ ] Document the bundle check in `docs/quality/local-development.md`.
+- [x] Skip Vite manual chunking because route/content lazy loading brought the initial chunk under threshold; remaining warning is isolated to the lazy editor chunk.
+- [x] Document the bundle check in `docs/quality/local-development.md`.
 
 Focused verification:
 
@@ -244,6 +244,16 @@ npm run build
 python tools/quality/check_web_bundle.py apps/web/dist
 npm run test:unit -- --run src/shell/__tests__/AppShell.test.tsx src/shell/management/__tests__/ManagementPage.test.tsx
 ```
+
+Completed measurement and verification:
+
+- Pre-split `npm run build`: `index-CtNa2sSL.js` 1005.57 kB, `DraftEditor-DsUv258z.js` 616.11 kB; management was statically imported by `App.tsx`.
+- Post-split `npm run build`: initial `index-DmVMpaBW.js` 718.36 kB, `DraftEditor-6aNODRg4.js` 616.11 kB lazy, `MarkdownPreview-DUyty5t1.js` 162.15 kB lazy, `DiffTab-DhhlAaFW.js` 114.34 kB lazy, `ManagementPage-Dv_MQH_J.js` 10.18 kB lazy.
+- `python tools/quality/check_web_bundle.py apps/web/dist` -> passed with initial budget 760 kB and editor budget 650 kB.
+- `npm run test:unit -- --run src/shell/__tests__/AppShell.test.tsx src/shell/management/__tests__/ManagementPage.test.tsx src/shell/editor/tabs/__tests__/DraftTab.test.tsx src/shell/editor/__tests__/DiffViewer.test.tsx` -> 33 passed; jsdom prints existing `scrollTo` warnings.
+- `npm run test` -> passed.
+- `python -m pytest tests/test_web_bundle_contract.py tests/test_dev_entrypoint.py::test_playwright_e2e_uses_project_managed_api_runner -q` -> 2 passed.
+- `git diff --check -- . ':!.claude/settings.local.json'` -> no whitespace errors; Windows CRLF warnings only.
 
 Acceptance:
 
