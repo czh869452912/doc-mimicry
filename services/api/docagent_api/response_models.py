@@ -102,3 +102,54 @@ class AcpEventResponse(BaseModel):
     payload: dict[str, Any]
     projection: dict[str, Any] = Field(default_factory=dict)
     created_at: str
+
+
+class SkillPackSummaryResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    draft_status: str
+    latest_version_id: str | None = None
+
+
+class SkillPackResourceResponse(BaseModel):
+    id: str
+    pack_id: str
+    group: str
+    original_filename: str
+    source_path: str
+    markdown_path: str | None = None
+    conversion_report_path: str
+    status: str
+    summary: str = ""
+
+
+class SkillPackArtifactResponse(BaseModel):
+    pack_id: str
+    path: str
+    content: str
+
+
+class SkillPackValidationResponse(BaseModel):
+    status: str
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class SkillPackVersionResponse(BaseModel):
+    id: str
+    pack_id: str
+    version: str
+    manifest: dict[str, Any]
+    validation: dict[str, Any]
+    publish_note: str
+    created_at: str | None = None
+
+
+class SkillCreatorEventResponse(BaseModel):
+    id: int
+    session_id: str
+    event_type: str
+    payload: dict[str, Any]
+    projection: dict[str, Any] = Field(default_factory=dict)
+    created_at: str

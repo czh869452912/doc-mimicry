@@ -14,6 +14,7 @@ from docagent_api.background import BackgroundRuntimeRunner
 from docagent_api.response_models import HealthResponse
 from docagent_api.routes.doctypes import create_doctypes_router
 from docagent_api.routes.sessions import create_sessions_router
+from docagent_api.routes.skill_packs import create_skill_packs_router
 from docagent_api.routes.tasks import create_tasks_router
 from docagent_api.runtime_factory import create_runtime_adapter
 from docagent_api.skill_packs import bootstrap_seed_skill_packs
@@ -62,6 +63,7 @@ def create_app(
         return {"status": "ok", "runtime": runtime_name or os.environ.get("DOCAGENT_RUNTIME", "mock-acp")}
 
     app.include_router(create_doctypes_router(root))
+    app.include_router(create_skill_packs_router(state))
     app.include_router(create_tasks_router(state, adapter, root))
     app.include_router(create_sessions_router(state, adapter, runner))
 

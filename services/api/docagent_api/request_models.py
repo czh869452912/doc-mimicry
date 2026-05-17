@@ -50,3 +50,26 @@ class ReviseSelectionRequest(BaseModel):
 class UpdateDraftRequest(BaseModel):
     markdown: str
     force: bool = False
+
+
+class CreateSkillPackRequest(BaseModel):
+    id: str
+    title: str
+    description: str = ""
+
+
+class AddSkillPackTextResourceRequest(BaseModel):
+    group: Literal["examples", "specs", "checklists", "export-references"]
+    name: str
+    content: str
+
+
+class UpdateSkillPackArtifactRequest(BaseModel):
+    path: str
+    content: str
+    summary: str
+
+
+class PublishSkillPackRequest(BaseModel):
+    publish_note: str = ""
+    acknowledged_warnings: list[str] = Field(default_factory=list)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import shutil
@@ -11,6 +12,7 @@ from uuid import uuid4
 import yaml
 
 from docagent_api.state import DocAgentState
+from docagent_api.time import utc_now
 
 PACK_GROUPS = ("examples", "specs", "checklists", "export-references")
 ARTIFACT_TEXT_SUFFIXES = {".md", ".yaml", ".yml", ".json"}
@@ -52,6 +54,55 @@ def write_skill_pack_artifact(
     }
     state.save_skill_pack_artifact_revision(revision)
     return revision
+
+
+def add_text_resource(
+    state: DocAgentState,
+    pack_id: str,
+    group: str,
+    name: str,
+    content: str,
+) -> dict[str, Any]:
+    if group not in PACK_GROUPS:
+        raise ValueError("Invalid resource group")
+    root = draft_root(state, pack_id)
+    stem = _unique_resource_stem(root, group, _safe_stem(name))
+    original_path = root / "resources" / "original" / group / f"{stem}.txt"
+    markdown_path = root / "resources" / "markdown" / group / f"{stem}.md"
+    report_path = root / "resources" / "reports" / group / f"{stem}.json"
+    for path in [original_path.parent, markdown_path.parent, report_path.parent]:
+        path.mkdir(parents=True, exist_ok=True)
+    text = content if content.endswith("\n") else f"{content}\n"
+    original_path.write_text(text, encoding="utf-8")
+    markdown_path.write_text(text, encoding="utf-8")
+    report = {
+        "source_path": original_path.relative_to(root).as_posix(),
+        "markdown_path": markdown_path.relative_to(root).as_posix(),
+        "asset_dir": None,
+        "engine": "manual",
+        "status": "succeeded",
+        "warnings": [],
+        "features_detected": {
+            "tables": 0,
+            "images": 0,
+            "formulas": 0,
+            "footnotes": 0,
+            "pages": None,
+        },
+        "created_at": utc_now(),
+    }
+    report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return {
+        "id": f"resource-{uuid4().hex[:12]}",
+        "pack_id": pack_id,
+        "group": group,
+        "original_filename": name,
+        "source_path": report["source_path"],
+        "markdown_path": report["markdown_path"],
+        "conversion_report_path": report_path.relative_to(root).as_posix(),
+        "status": "ready",
+        "summary": "",
+    }
 
 
 def validate_skill_pack_draft(state: DocAgentState, pack_id: str) -> dict[str, Any]:
@@ -141,9 +192,32 @@ def _resolve_artifact_path(root: Path, relative_path: str) -> Path:
     return target
 
 
+def resolve_artifact_path(root: Path, relative_path: str) -> Path:
+    return _resolve_artifact_path(root, relative_path)
+
+
 def _next_version(state: DocAgentState, pack_id: str) -> str:
     versions = state.list_skill_pack_versions(pack_id)
     return f"v{len(versions) + 1:03d}"
+
+
+def _safe_stem(name: str) -> str:
+    raw_stem = Path(name).stem or "resource"
+    stem = re.sub(r"[^A-Za-z0-9_-]+", "-", raw_stem).strip("-").lower()
+    return stem or "resource"
+
+
+def _unique_resource_stem(root: Path, group: str, base_stem: str) -> str:
+    stem = base_stem
+    suffix = 2
+    while (
+        (root / "resources" / "original" / group / f"{stem}.txt").exists()
+        or (root / "resources" / "markdown" / group / f"{stem}.md").exists()
+        or (root / "resources" / "reports" / group / f"{stem}.json").exists()
+    ):
+        stem = f"{base_stem}-{suffix}"
+        suffix += 1
+    return stem
 
 
 def _snapshot_manifest(root: Path) -> dict[str, Any]:
