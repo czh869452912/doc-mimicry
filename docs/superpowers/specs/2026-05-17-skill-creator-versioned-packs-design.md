@@ -104,7 +104,8 @@ resource metadata that authoring tasks should use.
 
 Version names should be monotonically increasing within a pack, such as
 `v001`, `v002`, and `v003`. The product may display a combined label such as
-`prd@v003`.
+`prd@v003`. For MVP, use three-digit zero padding as a display and sorting
+convention; it is not a semantic maximum version count.
 
 Published versions should record:
 
@@ -113,6 +114,14 @@ Published versions should record:
 - validation results;
 - created timestamp;
 - human publish note.
+
+For MVP, published versions should be represented by relational metadata plus
+an immutable filesystem snapshot under product state storage. The database owns
+ids, statuses, timestamps, validation results, and authoring bindings. The
+snapshot owns the exact published files: `SKILL.md`, checklist files, resource
+notes, resource manifest, and conversion reports used for generation. This keeps
+published versions path-friendly for runtime prompts while keeping version
+lookup and audit queryable.
 
 ### Pack Resources
 
@@ -136,6 +145,10 @@ Each resource should retain:
 
 Skill Creator reads converted Markdown and conversion reports. It should not
 read original binary files as normal context.
+
+Resource summaries are generated lazily. Upload or paste stores the original
+resource and runs conversion; Skill Creator creates or revises the summary when
+it first processes the resource or when the user asks for a refresh.
 
 ### Skill Artifacts
 
@@ -168,6 +181,13 @@ The user can:
 - directly edit generated artifacts when needed;
 - run validation;
 - publish a new version.
+
+Direct edits become the current artifact state. Before Skill Creator proposes a
+revision, it must read the current artifact state and treat manual edits as
+intentional user input. Agent revisions should update from that state rather
+than blindly regenerating from earlier material. If the agent wants to replace a
+large manually edited section, it should surface the replacement as a proposed
+diff or explicit change summary before saving.
 
 The agent should:
 
@@ -246,9 +266,23 @@ Expected backend capabilities:
 - publish a draft as an immutable version;
 - resolve published pack versions for authoring task creation.
 
+### Conversion Pipeline
+
+The first implementation should reuse the existing import helpers for plain
+text, Markdown, and text-like files. Unsupported binary formats should be stored
+as originals with failed or unsupported conversion reports; Skill Creator may
+summarize that the material is unavailable, but it must not read the original
+binary as normal context.
+
+Later binary import work can replace the converter behind the same resource
+status and conversion report contract. The Skill Creator plan should not block
+on full DOCX/PDF/PPTX/image conversion.
+
 Skill Creator can reuse the ACP interaction plane, but it should have a
 management-scoped session type or metadata so authoring timeline events and
-management generation events do not blur together.
+management generation events do not blur together. The shared session/event
+contract should include a field equivalent to `session_scope`, with values such
+as `pack-management` and `authoring`.
 
 ## Runtime Boundary
 
@@ -266,22 +300,30 @@ The runtime prompt should include:
   reads;
 - expected outputs for `SKILL.md`, checklist files, and notes.
 
+Skill Creator must budget context. The runtime should use a configurable input
+budget for converted resources, prefer resource summaries and representative
+excerpts when packs are large, and warn the user when resources are omitted,
+truncated, or summarized because of budget pressure.
+
 The runtime should write through product-controlled tools or constrained file
 paths. The backend should validate generated artifacts before allowing publish.
 
 ## Storage Shape
 
-The implementation can choose database tables, filesystem layout, or a hybrid,
-but it should preserve these invariants:
+The MVP storage shape should be hybrid:
+
+- database rows for pack ids, draft status, resource records, session metadata,
+  published version ids, validation results, and authoring task bindings;
+- mutable draft pack workspaces under product state storage;
+- immutable published version snapshots under product state storage.
+
+This shape should preserve these invariants:
 
 - draft pack mutable state is separate from published version immutable state;
 - resource originals, converted Markdown, and reports are traceable;
 - generated artifact revisions are auditable;
 - published authoring inputs are reproducible;
 - repository seed packs can still exist as bootstrapping fixtures.
-
-A practical first version may store pack workspaces under product state storage
-and keep relational rows for ids, statuses, versions, and bindings.
 
 ## Validation
 
@@ -291,8 +333,11 @@ Minimum validation checks:
 
 - pack id is valid and path-safe;
 - `SKILL.md` exists and has valid skill frontmatter;
-- skill body is non-empty and concise enough for runtime context;
-- skill text does not contain obvious source-copy markers from examples;
+- skill body is non-empty and under the configured MVP size limit, initially
+  2,000 words;
+- skill text is scanned for likely source copying, initially as a warning when
+  it shares a verbatim run of 25 or more words with any ready example or spec
+  resource;
 - required resource groups are either populated or explicitly acknowledged as
   absent;
 - conversion failures are visible and not treated as ready materials;
@@ -341,6 +386,9 @@ The safest rollout is staged:
    validation, and publish.
 5. Bind authoring tasks to published versions and keep legacy doc-type id
    creation as a compatibility path until migrated.
+6. Promote the management surface from the settings drawer to a dedicated route
+   once the core pack workflow is usable, reusing the pack/resource/artifact
+   components from the drawer implementation.
 
 Each stage should preserve the current authoring loop.
 
@@ -351,7 +399,5 @@ Each stage should preserve the current authoring loop.
   stable?
 - Should direct artifact edits create explicit revision records in the first
   version, or is updated timestamp plus publish snapshot enough for MVP?
-- Should published versions be stored as copied files in state storage, database
-  rows with JSON payloads, or both?
 - Should the first UI live inside the existing settings drawer or introduce a
   dedicated management route immediately?
