@@ -48,8 +48,11 @@ export function AppShell() {
     right: collapse.rightPanelSize,
   };
 
+  const workspaceTreeTasks = workspaces.activeTask
+    ? [workspaces.activeTask, ...workspaces.tasks.filter((task) => task.id !== workspaces.activeTask?.id)]
+    : workspaces.tasks;
   const treeData = buildWorkspaceTreeData(
-    workspaces.tasks,
+    workspaceTreeTasks,
     workspaces.activeTask ? { [workspaces.activeTask.id]: workspaces.sessions } : {},
     workspaces.activeTask && workspaceTreeQuery.data
       ? { [workspaces.activeTask.id]: workspaceTreeQuery.data }

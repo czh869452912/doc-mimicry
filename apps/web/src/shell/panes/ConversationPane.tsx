@@ -208,6 +208,7 @@ export function ConversationPane({
           onApproved={async () => {
             await refreshWorkspace();
             await refreshTimeline();
+            await refreshSessions?.();
           }}
           onAnswerPermission={answerPermission}
           onAttachContext={attachContext}

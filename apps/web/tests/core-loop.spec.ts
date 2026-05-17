@@ -27,9 +27,9 @@ async function reachDraftReady(page: Page) {
   await createWorkspace(page);
   await sendComposer(page, "/start");
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
-  await outlineCard(page).getByRole("button", { name: /approve/i }).click();
-  await expect(draftBody(page)).toContainText(/Draft|Problem|Goals/i, { timeout: 8_000 });
+  await approveOutline(page);
   await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
+  await expect(draftBody(page)).toContainText(/Draft|Problem|Goals/i, { timeout: 8_000 });
 }
 
 test("start loop produces outline card", async ({ page }) => {
@@ -51,8 +51,9 @@ test("approve outline makes draft content visible", async ({ page }) => {
   await sendComposer(page, "/start");
 
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
-  await outlineCard(page).getByRole("button", { name: /approve/i }).click();
+  await approveOutline(page);
 
+  await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
   await expect(draftBody(page)).toContainText(/Draft|Problem|Goals/i, { timeout: 8_000 });
 });
 
@@ -113,8 +114,8 @@ test("manual checkpoint creates a version in the workspace tree", async ({ page 
   await expect(page.getByText(/last save · saved/i)).toBeVisible({ timeout: 8_000 });
   await page.getByRole("button", { name: /\+ checkpoint/i }).click();
 
-  await expect(page.getByTestId("left").getByText("v001.md")).toBeVisible({ timeout: 8_000 });
   await expect(page.locator(".acp-event").filter({ hasText: "Manual checkpoint" }).first()).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByTestId("left").getByText("v001.md")).toBeVisible({ timeout: 8_000 });
 });
 
 function messageBox(page: Page) {
@@ -130,6 +131,16 @@ function outlineCard(page: Page) {
   return page.locator(".acp-event--card").filter({ hasText: "Outline · waiting for review" }).first();
 }
 
+async function approveOutline(page: Page) {
+  const approveButton = outlineCard(page).getByRole("button", { name: /approve/i });
+  await expect(approveButton).toBeVisible({ timeout: 8_000 });
+  const approveResponse = page.waitForResponse((response) =>
+    response.url().includes("/outline/approve") && response.request().method() === "POST",
+  );
+  await approveButton.click({ force: true });
+  expect((await approveResponse).ok()).toBe(true);
+}
+
 function checklistCard(page: Page) {
   return page.locator(".acp-event--card").filter({ hasText: "Checklist · succeeded" }).first();
 }
@@ -139,5 +150,5 @@ function draftBody(page: Page) {
 }
 
 function activeSession(page: Page) {
-  return page.getByRole("button", { name: /session-[a-f0-9]+/i }).first();
+  return page.getByRole("button", { name: /session-[a-f0-9]+.*draft_ready/i }).first();
 }

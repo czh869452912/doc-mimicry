@@ -314,7 +314,7 @@ Rollback:
 
 ### Phase 5: Review, Docs, And Release Gate
 
-- [ ] Run the full verification suite:
+- [x] Run the full verification suite:
 
 ```powershell
 python -m pytest packages/conversion/tests tools/import/tests packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests -q
@@ -325,11 +325,27 @@ npm run test:e2e -- tests/core-loop.spec.ts tests/workbench-shell.spec.ts
 git diff --check -- . ':!.claude/settings.local.json'
 ```
 
-- [ ] Update `README.md` only if startup, smoke, or verification commands changed.
-- [ ] Update `docs/product/ui-surfaces.md` if management/authoring responsibilities changed.
-- [ ] Update `docs/architecture/agent-runtime.md` if OpenHands smoke or contract behavior changed.
-- [ ] Update `docs/architecture/workspace-contract.md` if checkpoint semantics changed.
+- [x] Update `README.md` only if startup, smoke, or verification commands changed. No update was needed.
+- [x] Update `docs/product/ui-surfaces.md` if management/authoring responsibilities changed. No update was needed.
+- [x] Update `docs/architecture/agent-runtime.md` if OpenHands smoke or contract behavior changed. Covered in Phase 1.
+- [x] Update `docs/architecture/workspace-contract.md` if checkpoint semantics changed. Covered in Phase 2.
 - [ ] Move this plan from `docs/exec-plans/active/` to `docs/exec-plans/completed/` after implementation and verification.
+
+Completed verification:
+
+- `python -m pytest packages/conversion/tests tools/import/tests packages/contracts/tests services/api/tests agent/runtime-adapters/mock/tests agent/runtime-adapters/openhands/tests tests -q` -> 264 passed.
+- `npm run test:unit -- --run` -> 138 passed; jsdom prints existing `scrollTo` warnings.
+- `npm run test` -> passed.
+- `npm run build` -> passed; initial authoring chunk `index-DlZy07gi.js` is 718.60 kB and within the 760 kB budget.
+- `python tools/quality/check_web_bundle.py apps/web/dist` -> passed.
+- `npm run test:e2e -- tests/core-loop.spec.ts tests/workbench-shell.spec.ts` -> 14 passed.
+- `git diff --check -- . ':!.claude/settings.local.json'` -> no whitespace errors; Windows CRLF warnings only.
+
+Release-gate fixes made during verification:
+
+- Kept a newly created workspace's auto-created session in React Query cache before task/session refetches, preventing `/start` from creating an extra idle session under e2e timing.
+- Ordered the active workspace first in the tree data so current workspace files stay visible in the virtualized left pane.
+- Refreshed sessions after outline approval and made e2e approval helpers wait for the actual `/outline/approve` response.
 
 Acceptance:
 

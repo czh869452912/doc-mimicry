@@ -24,6 +24,7 @@ vi.mock("../../../api", () => ({
     ]),
     getWorkspace: vi.fn().mockResolvedValue({ task_id: "t1", root: "w/t1", files: [] }),
     getDraft: vi.fn().mockResolvedValue({ task_id: "t1", markdown: "" }),
+    createTask: vi.fn(),
     createSession: vi.fn(),
   },
 }));
@@ -93,6 +94,42 @@ describe("useActiveWorkspace", () => {
     await waitFor(() => expect(latestWorkspace?.activeSession?.id).toBe("s2"));
     await waitFor(() => {
       expect((router.state.location.search as { session?: string }).session).toBe("s2");
+    });
+  });
+
+  it("keeps an auto-created workspace session active before task and session queries refetch", async () => {
+    vi.mocked(api.createTask).mockResolvedValue({
+      id: "t2",
+      doc_type_id: "prd",
+      brief: "Task 2",
+      title: "Task 2",
+      description: "Task 2 description",
+      workspace_root: "w/t2",
+      created_at: "2026-01-01T00:02:00Z",
+      updated_at: "2026-01-01T00:02:00Z",
+    });
+    vi.mocked(api.createSession).mockResolvedValue({
+      id: "s2",
+      task_id: "t2",
+      status: "idle",
+      created_at: "2026-01-01T00:02:00Z",
+      updated_at: "2026-01-01T00:02:00Z",
+    });
+
+    const { router } = renderWithRouter("/?task=t1&session=s1");
+
+    await waitFor(() => expect(latestWorkspace?.activeTask?.id).toBe("t1"));
+    await act(async () => {
+      await latestWorkspace?.createWorkspace("prd", { title: "Task 2", description: "Task 2 description" });
+    });
+
+    await waitFor(() => expect(latestWorkspace?.activeTask?.id).toBe("t2"));
+    await waitFor(() => expect(latestWorkspace?.activeSession?.id).toBe("s2"));
+    await waitFor(() => {
+      expect((router.state.location.search as { task?: string; session?: string })).toMatchObject({
+        task: "t2",
+        session: "s2",
+      });
     });
   });
 });

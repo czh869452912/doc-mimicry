@@ -133,7 +133,11 @@ async function createDraftReadyWorkspace(page: import("@playwright/test").Page, 
   await expect(outlineCard(page)).toBeVisible({ timeout: 8_000 });
   const approveButton = outlineCard(page).getByRole("button", { name: /approve/i });
   await expect(approveButton).toBeVisible({ timeout: 8_000 });
-  await approveButton.evaluate((button) => (button as HTMLButtonElement).click());
+  const approveResponse = page.waitForResponse((response) =>
+    response.url().includes("/outline/approve") && response.request().method() === "POST",
+  );
+  await approveButton.click({ force: true });
+  expect((await approveResponse).ok()).toBe(true);
   await expect(messageBox(page)).toBeEnabled({ timeout: 8_000 });
   await expect(activeSession(page).filter({ hasText: "draft_ready" })).toBeVisible({ timeout: 8_000 });
 }
@@ -168,5 +172,5 @@ function outlineCard(page: import("@playwright/test").Page) {
 }
 
 function activeSession(page: import("@playwright/test").Page) {
-  return page.getByRole("button", { name: /session-[a-f0-9]+/i }).first();
+  return page.getByRole("button", { name: /session-[a-f0-9]+.*draft_ready/i }).first();
 }
