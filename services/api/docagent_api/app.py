@@ -16,6 +16,7 @@ from docagent_api.routes.doctypes import create_doctypes_router
 from docagent_api.routes.sessions import create_sessions_router
 from docagent_api.routes.tasks import create_tasks_router
 from docagent_api.runtime_factory import create_runtime_adapter
+from docagent_api.skill_packs import bootstrap_seed_skill_packs
 from docagent_api.state import DocAgentState
 from docagent_api.routes._shared import manual_event
 from docagent_contracts import RuntimeSessionState, SemanticEventKind, TimelineActor, TimelineStatus
@@ -52,6 +53,7 @@ def create_app(
         state_root or state_root_from_env() or root / ".local" / "docagent",
         database_url=os.environ.get("DATABASE_URL"),
     )
+    bootstrap_seed_skill_packs(state, root / "doc-types")
     _recover_interrupted_sessions(state)
     adapter = runtime_adapter or create_runtime_adapter(runtime_name)
 
