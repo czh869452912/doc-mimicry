@@ -1,18 +1,24 @@
 # Import Tools
 
-Planned scripts:
+Fixed import tools convert external resources into the Markdown-only internal
+workspace boundary. They keep originals, write converted Markdown when
+conversion succeeds, and always write a conversion report.
 
-- `convert_to_markdown.py`: convert DOCX/PDF/PPTX/images/HTML/text resources into Markdown plus assets and conversion reports.
-- `inspect_conversion.py`: summarize warnings and detected document features.
+Supported MVP inputs:
 
-The import path should keep originals, converted Markdown, assets, and reports.
+- `.md` and `.markdown`
+- `.txt`
+- `.html` and `.htm`
+- `.docx`
+- digital-text `.pdf`
 
-## Phase 0 Support
-
-The first converter only normalizes `.md`, `.markdown`, and `.txt` files. Unsupported files produce a failed conversion report instead of silently pretending conversion worked.
+Unsupported or failed conversions keep the original and produce a failed report
+with no usable `markdown_path`.
 
 ```powershell
 python tools/import/convert_to_markdown.py --source path/to/input.md --output-root path/to/workspace/inputs
+python tools/import/convert_to_markdown.py --source path/to/input.docx --output-root path/to/workspace/inputs
+python tools/import/convert_to_markdown.py --source path/to/input.pdf --output-root path/to/workspace/inputs
 python tools/import/inspect_conversion.py --report path/to/workspace/inputs/reports/input.conversion.json
 ```
 

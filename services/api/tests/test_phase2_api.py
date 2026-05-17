@@ -31,7 +31,7 @@ def test_phase2_prd_authoring_loop(tmp_path: Path) -> None:
     assert import_response.status_code == 200
     imported = import_response.json()
     assert imported["markdown_path"] == "inputs/markdown/research.md"
-    assert imported["conversion_report_path"] == "inputs/reports/research.json"
+    assert imported["conversion_report_path"] == "inputs/reports/research.conversion.json"
 
     start_response = client.post(f"/sessions/{session['id']}/loop/start")
     assert start_response.status_code == 200
@@ -39,7 +39,7 @@ def test_phase2_prd_authoring_loop(tmp_path: Path) -> None:
 
     workspace = client.get(f"/tasks/{task['id']}/workspace").json()
     assert "draft/outline.md" in [file["path"] for file in workspace["files"]]
-    assert {"path": "inputs/reports/research.json", "group": "inputs", "kind": "text"} in workspace["files"]
+    assert {"path": "inputs/reports/research.conversion.json", "group": "inputs", "kind": "text"} in workspace["files"]
 
     outline = client.get(f"/tasks/{task['id']}/workspace/files", params={"path": "draft/outline.md"}).json()
     assert "# Outline" in outline["content"]

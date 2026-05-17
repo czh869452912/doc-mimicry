@@ -45,6 +45,8 @@ Examples:
 | run `checkpoint.py` | Create checkpoint |
 | write `reviews/checklist_result.md` | Run checklist |
 | run `export_docx.py` | Export DOCX |
+| backend export route writes `artifacts/*.docx` | Export DOCX |
+| backend export route writes `artifacts/*.pdf` | Export PDF |
 
 ## Storage
 

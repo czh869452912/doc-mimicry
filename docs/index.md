@@ -27,8 +27,8 @@ This directory is the current project truth. The `reference/` directory contains
 - `exec-plans/active/`: current durable execution plans, if any.
 - `exec-plans/completed/`: archived completed plans.
 - `superpowers/plans/`: active task-sized implementation plans, if any.
-  - `superpowers/plans/2026-05-17-markdown-import-export-pipeline.md`: active implementation plan for Word/PDF boundary import/export while keeping Markdown internal.
 - `superpowers/completed/`: archived task-sized implementation plans.
+  - `superpowers/completed/2026-05-17-markdown-import-export-pipeline.md`: completed implementation plan for Word/PDF boundary import/export while keeping Markdown internal.
 - `superpowers/specs/`: design references that inform plans but are not active checklists.
   - `superpowers/specs/2026-05-17-markdown-import-export-pipeline-design.md`: accepted design for Word/PDF boundary import/export while keeping Markdown internal.
   - `superpowers/specs/2026-05-17-skill-creator-versioned-packs-design.md`: material-driven Skill Creator and versioned skill-pack design.

@@ -114,7 +114,8 @@ implementation gaps:
 - keep management and authoring as separate product surfaces;
 - keep Markdown as the only internal document format;
 - keep document type packs as skill guidance, not workflows or templates;
-- make import, conversion reports, export, and skill-pack versioning durable;
+- use shared import/export boundaries for authoring materials and Skill Pack materials;
+- keep originals, converted Markdown, conversion reports, and exported DOCX/PDF artifacts durable;
 - keep active plans and reviews synchronized with live code.
 
 ## Current Design Sources

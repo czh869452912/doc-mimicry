@@ -19,6 +19,14 @@ Export boundary:
     -> DOCX / PDF
 ```
 
+Current implementation supports Markdown, text, HTML, DOCX, and digital-text
+PDF at the import boundary. Unsupported formats keep the original file and
+write a failed conversion report instead of becoming agent context.
+
+Current export support creates DOCX and PDF artifacts from `draft/draft.md`
+through fixed backend/CLI tools. The editor still treats Markdown as the only
+editable draft state.
+
 ## Why Markdown
 
 - Agents can read and edit it reliably.
@@ -97,11 +105,22 @@ The UI should show warnings before a converted resource is used in Skill Creator
 
 ## Conversion Engine Strategy
 
-Use a multi-engine pipeline rather than betting on one converter.
+Use a multi-engine pipeline rather than betting on one converter. The current
+MVP uses a lightweight local converter so the product boundary is represented
+in API, UI, reports, and tests before heavier conversion services are added.
 
-### Default Engine: Docling
+### Current MVP Engines
 
-Docling is the default candidate for import because it targets local document conversion and supports formats such as PDF, DOCX, PPTX, images, HTML, and Markdown. It can produce structured document output and Markdown, making it suitable for offline enterprise use.
+- Markdown and text: manual normalization.
+- HTML: local text extraction with a format-loss warning.
+- DOCX: built-in ZIP/XML paragraph extraction with a format-loss warning.
+- PDF: `pypdf` digital text extraction with a format-loss warning.
+- DOCX export: built-in minimal WordprocessingML package writer.
+- PDF export: built-in text PDF writer.
+
+### Future Default Engine: Docling
+
+Docling is the default candidate for broader import coverage because it targets local document conversion and supports formats such as PDF, DOCX, PPTX, images, HTML, and Markdown. It can produce structured document output and Markdown, making it suitable for offline enterprise use.
 
 ### Lightweight Office Fallback: MarkItDown Or Pandoc
 
@@ -111,7 +130,7 @@ Use MarkItDown or Pandoc as fallback for simple Office, HTML, and text resources
 
 Use MinerU or Marker for complex PDFs, especially when formula, table, OCR, and academic-style layout fidelity matter.
 
-### Export: Pandoc And LibreOffice
+### Future Export: Pandoc And LibreOffice
 
 Use Pandoc as the primary Markdown-to-DOCX exporter, with optional DOCX reference documents for styling. Use LibreOffice headless when PDF export or format normalization requires it.
 
