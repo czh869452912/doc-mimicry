@@ -11,8 +11,13 @@ vi.mock("../../api", () => ({
   api: {
     approveOutline: vi.fn(),
     createSession: vi.fn(),
+    createSkillCreatorSession: vi.fn(),
+    createSkillPack: vi.fn(),
     createTask: vi.fn(),
     exportMarkdown: vi.fn(),
+    addSkillPackTextResource: vi.fn(),
+    generateSkillPack: vi.fn(),
+    getSkillPackArtifact: vi.fn(),
     getAcpEvents: vi.fn(),
     getDraft: vi.fn(),
     getWorkspace: vi.fn(),
@@ -24,9 +29,14 @@ vi.mock("../../api", () => ({
     runChecklist: vi.fn(),
     reviseSelection: vi.fn(),
     sendMessage: vi.fn(),
+    sendSkillCreatorMessage: vi.fn(),
     startLoop: vi.fn(),
     cancelSession: vi.fn(),
     updateDraft: vi.fn(),
+    updateSkillPackArtifact: vi.fn(),
+    listSkillPacks: vi.fn(),
+    publishSkillPack: vi.fn(),
+    validateSkillPack: vi.fn(),
   },
   streamAcpEventsUrl: (sessionId: string) => `/sessions/${sessionId}/events/stream`,
 }));
@@ -75,6 +85,7 @@ describe("AppShell", () => {
     vi.mocked(api.listDocTypes).mockResolvedValue([
       { id: "prd", title: "PRD", has_skill: true, resource_groups: {} },
     ]);
+    vi.mocked(api.listSkillPacks).mockResolvedValue([]);
     vi.mocked(api.listTasks).mockResolvedValue([
       {
         id: "task-1",
@@ -449,6 +460,37 @@ describe("AppShell", () => {
 
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeTruthy();
     expect(await screen.findByText("examples/enterprise-prd.md")).toBeTruthy();
+  });
+
+  it("creates a material-driven skill pack from the settings drawer", async () => {
+    vi.mocked(api.listSkillPacks).mockResolvedValue([]);
+    vi.mocked(api.createSkillPack).mockResolvedValue({
+      id: "memo",
+      title: "Memo",
+      description: "Executive memo pack",
+      draft_status: "draft",
+      latest_version_id: null,
+    });
+    vi.mocked(api.addSkillPackTextResource).mockResolvedValue({
+      id: "resource-1",
+      pack_id: "memo",
+      group: "examples",
+      original_filename: "memo.txt",
+      markdown_path: "resources/markdown/examples/memo.md",
+      conversion_report_path: "resources/reports/examples/memo.json",
+      status: "ready",
+      summary: "",
+    });
+
+    renderAppShell("/?task=task-1&session=session-1");
+    await userEvent.click(await screen.findByRole("button", { name: /open settings/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /new skill pack/i }));
+    await userEvent.type(screen.getByLabelText("Pack id"), "memo");
+    await userEvent.type(screen.getByLabelText("Pack title"), "Memo");
+    await userEvent.type(screen.getByLabelText("Pack description"), "Executive memo pack");
+    await userEvent.click(screen.getByRole("button", { name: "Create pack" }));
+
+    await waitFor(() => expect(api.createSkillPack).toHaveBeenCalledWith("memo", "Memo", "Executive memo pack"));
   });
 
   it("loads the source editor only when source mode is selected", async () => {

@@ -36,4 +36,24 @@ describe("api request helper", () => {
     expect(init.method).toBe("POST");
     expect(init.body).toBe(JSON.stringify({ decision: "deny" }));
   });
+
+  it("creates skill packs through the management API", async () => {
+    const { api } = await import("../../api");
+    await api.createSkillPack("memo", "Memo", "Executive memo pack");
+
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/skill-packs");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ id: "memo", title: "Memo", description: "Executive memo pack" }));
+  });
+
+  it("sends Skill Creator generate messages", async () => {
+    const { api } = await import("../../api");
+    await api.generateSkillPack("memo", "creator-session-1", "Generate the pack");
+
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/skill-packs/memo/skill-creator/sessions/creator-session-1/generate");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(JSON.stringify({ message: "Generate the pack" }));
+  });
 });

@@ -3,9 +3,11 @@ import type { DocTypeSummary } from "../types";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { SkillPackManager } from "./management/SkillPackManager";
 
 interface SettingsDrawerProps {
   docTypes: DocTypeSummary[];
@@ -23,6 +25,9 @@ export function SettingsDrawer({ docTypes, onOpenChange, open, runtimeLabel }: S
       <SheetContent className="settings-drawer" side="right">
         <SheetHeader className="drawer-header">
           <SheetTitle>Settings</SheetTitle>
+          <SheetDescription className="sr-only">
+            Repository document type details, skill pack management, and runtime status.
+          </SheetDescription>
         </SheetHeader>
           <section className="drawer-section">
             <h2>Document Types</h2>
@@ -60,8 +65,7 @@ export function SettingsDrawer({ docTypes, onOpenChange, open, runtimeLabel }: S
             )}
           </section>
           <section className="drawer-section">
-            <h2>Skill Creator</h2>
-            <p className="muted">Phase 2 placeholder retained for this redesign.</p>
+            <SkillPackManager />
           </section>
           <section className="drawer-section">
             <h2>Runtime</h2>

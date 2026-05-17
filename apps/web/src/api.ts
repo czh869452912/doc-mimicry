@@ -5,6 +5,13 @@ import type {
   AcpEvent,
   MessageAttachment,
   SessionRecord,
+  SkillCreatorRunResult,
+  SkillCreatorSession,
+  SkillPackArtifact,
+  SkillPackResource,
+  SkillPackSummary,
+  SkillPackValidation,
+  SkillPackVersion,
   TaskRecord,
   WorkspaceFileContent,
   WorkspaceTree,
@@ -100,5 +107,50 @@ export const api = {
     request<{ markdown: string }>(`/tasks/${taskId}/draft`, {
       method: "PUT",
       body: JSON.stringify({ markdown }),
+    }),
+  listSkillPacks: () => request<SkillPackSummary[]>("/skill-packs"),
+  createSkillPack: (id: string, title: string, description: string) =>
+    request<SkillPackSummary>("/skill-packs", {
+      method: "POST",
+      body: JSON.stringify({ id, title, description }),
+    }),
+  addSkillPackTextResource: (
+    packId: string,
+    group: SkillPackResource["group"],
+    name: string,
+    content: string,
+  ) =>
+    request<SkillPackResource>(`/skill-packs/${packId}/resources/text`, {
+      method: "POST",
+      body: JSON.stringify({ group, name, content }),
+    }),
+  updateSkillPackArtifact: (packId: string, path: string, content: string, summary: string) =>
+    request<SkillPackArtifact>(`/skill-packs/${packId}/artifacts`, {
+      method: "PUT",
+      body: JSON.stringify({ path, content, summary }),
+    }),
+  getSkillPackArtifact: (packId: string, path: string) =>
+    request<SkillPackArtifact>(`/skill-packs/${packId}/artifacts?path=${encodeURIComponent(path)}`),
+  createSkillCreatorSession: (packId: string, message: string) =>
+    request<SkillCreatorSession>(`/skill-packs/${packId}/skill-creator/sessions`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  generateSkillPack: (packId: string, sessionId: string, message: string) =>
+    request<SkillCreatorRunResult>(`/skill-packs/${packId}/skill-creator/sessions/${sessionId}/generate`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  sendSkillCreatorMessage: (packId: string, sessionId: string, message: string) =>
+    request<SkillCreatorRunResult>(`/skill-packs/${packId}/skill-creator/sessions/${sessionId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  validateSkillPack: (packId: string) =>
+    request<SkillPackValidation>(`/skill-packs/${packId}/validate`, { method: "POST" }),
+  publishSkillPack: (packId: string, publish_note: string, acknowledged_warnings: string[] = []) =>
+    request<SkillPackVersion>(`/skill-packs/${packId}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ publish_note, acknowledged_warnings }),
     }),
 };

@@ -95,3 +95,57 @@ export interface LoopActionResult {
   accepted?: boolean | null;
   status?: string | null;
 }
+
+export interface SkillPackSummary {
+  id: string;
+  title: string;
+  description: string;
+  draft_status: string;
+  latest_version_id?: string | null;
+}
+
+export interface SkillPackResource {
+  id: string;
+  pack_id: string;
+  group: "examples" | "specs" | "checklists" | "export-references";
+  original_filename: string;
+  markdown_path?: string | null;
+  conversion_report_path: string;
+  status: "ready" | "warning" | "failed" | "unsupported";
+  summary: string;
+}
+
+export interface SkillPackArtifact {
+  pack_id: string;
+  path: string;
+  content: string;
+}
+
+export interface SkillPackVersion {
+  id: string;
+  pack_id: string;
+  version: string;
+  publish_note: string;
+  manifest: Record<string, unknown>;
+  validation: Record<string, unknown>;
+  created_at?: string | null;
+}
+
+export interface SkillCreatorSession {
+  id: string;
+  pack_id: string;
+  session_scope: "pack-management";
+  status: string;
+  runtime?: string | null;
+  runtime_session_id?: string | null;
+}
+
+export interface SkillCreatorRunResult {
+  paths: string[];
+}
+
+export interface SkillPackValidation {
+  status: "passed" | "failed";
+  errors: string[];
+  warnings: string[];
+}
