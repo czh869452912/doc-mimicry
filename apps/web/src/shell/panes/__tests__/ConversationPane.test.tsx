@@ -10,7 +10,7 @@ vi.mock("../../../api", () => ({
   api: {
     answerPermission: vi.fn(),
     cancelSession: vi.fn(),
-    importTextInput: vi.fn(),
+    importFileInput: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),
   },
@@ -132,7 +132,7 @@ describe("ConversationPane", () => {
   it("refreshes workspace when the ACP surface imports composer attachments", async () => {
     const user = userEvent.setup();
     const refreshWorkspace = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.importTextInput).mockResolvedValue({
+    vi.mocked(api.importFileInput).mockResolvedValue({
       id: "input-1",
       status: "converted",
       source_path: "inputs/original/context.txt",

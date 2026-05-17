@@ -23,7 +23,8 @@ export const streamAcpEventsUrl = (sessionId: string): string =>
   `${API_BASE}/sessions/${sessionId}/events/stream`;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const contentTypeHeader: Record<string, string> = init?.body !== undefined
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const contentTypeHeader: Record<string, string> = init?.body !== undefined && !isFormData
     ? { "Content-Type": "application/json" }
     : {};
   const response = await fetch(`${API_BASE}${path}`, {
@@ -41,6 +42,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`${response.status} ${response.statusText}${detail}`);
   }
   return response.json() as Promise<T>;
+}
+
+function upload<T>(path: string, body: FormData): Promise<T> {
+  return request<T>(path, { method: "POST", body });
 }
 
 export const api = {
@@ -67,6 +72,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name, content }),
     }),
+  importFileInput: (taskId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return upload<ImportedInput>(`/tasks/${taskId}/inputs/files`, formData);
+  },
   startLoop: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/loop/start?background=true`, { method: "POST" }),
   approveOutline: (sessionId: string, outline_markdown: string) =>

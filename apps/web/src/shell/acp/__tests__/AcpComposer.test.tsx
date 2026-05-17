@@ -6,7 +6,7 @@ import { AcpComposer } from "../AcpComposer";
 
 vi.mock("../../../api", () => ({
   api: {
-    importTextInput: vi.fn(),
+    importFileInput: vi.fn(),
   },
 }));
 
@@ -48,10 +48,10 @@ describe("AcpComposer", () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it("imports text attachments before sending", async () => {
+  it("uploads file attachments before sending", async () => {
     const user = userEvent.setup();
     const onSend = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.importTextInput).mockResolvedValue({
+    vi.mocked(api.importFileInput).mockResolvedValue({
       id: "input-1",
       status: "converted",
       source_path: "inputs/original/scope-notes.txt",
@@ -71,7 +71,7 @@ describe("AcpComposer", () => {
     await user.type(screen.getByLabelText("Message"), "Use notes");
     await user.click(screen.getByRole("button", { name: /send message/i }));
 
-    await waitFor(() => expect(api.importTextInput).toHaveBeenCalledWith("task-1", "scope-notes.md", "Attachment context"));
+    await waitFor(() => expect(api.importFileInput).toHaveBeenCalledWith("task-1", expect.any(File)));
     expect(onSend).toHaveBeenCalledWith("Use notes", [
       {
         name: "scope-notes.md",
@@ -85,7 +85,7 @@ describe("AcpComposer", () => {
   it("notifies the ACP surface attachment port after importing context files", async () => {
     const user = userEvent.setup();
     const onAttachContext = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.importTextInput).mockResolvedValue({
+    vi.mocked(api.importFileInput).mockResolvedValue({
       id: "input-1",
       status: "converted",
       source_path: "inputs/original/context.txt",
@@ -120,5 +120,32 @@ describe("AcpComposer", () => {
         conversion_report_path: "inputs/reports/context.json",
       },
     ]));
+  });
+
+  it("does not send failed binary conversions as message attachments", async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(api.importFileInput).mockResolvedValue({
+      id: "input-deck",
+      status: "failed",
+      source_path: "inputs/original/deck.pptx",
+      markdown_path: null,
+      conversion_report_path: "inputs/reports/deck.conversion.json",
+      original_filename: "deck.pptx",
+      created_at: "2026-05-17T00:00:00Z",
+      warnings: [{ type: "unsupported_format", message: "Unsupported import format: .pptx.", location: null }],
+    });
+    render(<AcpComposer disabled={false} isRunning={false} taskId="task-1" onCancel={vi.fn()} onSend={onSend} />);
+
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["not a deck"], "deck.pptx", { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" }),
+    );
+    await user.type(screen.getByLabelText("Message"), "Use deck");
+    await user.click(screen.getByRole("button", { name: /send message/i }));
+
+    await waitFor(() => expect(api.importFileInput).toHaveBeenCalledWith("task-1", expect.any(File)));
+    expect(await screen.findByText(/could not be converted/i)).toBeTruthy();
+    expect(onSend).toHaveBeenCalledWith("Use deck", []);
   });
 });

@@ -7,7 +7,7 @@ import { AcpInteractionSurface } from "../AcpInteractionSurface";
 
 vi.mock("../../../api", () => ({
   api: {
-    importTextInput: vi.fn(),
+    importFileInput: vi.fn(),
   },
 }));
 
@@ -333,7 +333,7 @@ describe("AcpInteractionSurface", () => {
   it("forwards imported attachments through the stable surface callback", async () => {
     const user = userEvent.setup();
     const onAttachContext = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(api.importTextInput).mockResolvedValue({
+    vi.mocked(api.importFileInput).mockResolvedValue({
       id: "input-1",
       status: "converted",
       source_path: "inputs/original/context.txt",

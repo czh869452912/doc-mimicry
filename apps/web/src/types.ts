@@ -71,10 +71,11 @@ export interface ImportedInput {
   id: string;
   status: string;
   source_path: string;
-  markdown_path: string;
+  markdown_path: string | null;
   conversion_report_path: string;
   original_filename: string;
   created_at: string;
+  warnings?: Array<{ type: string; message: string; location: string | null }>;
   event?: TimelineEvent;
 }
 

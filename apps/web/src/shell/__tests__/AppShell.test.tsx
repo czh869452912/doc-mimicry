@@ -22,7 +22,7 @@ vi.mock("../../api", () => ({
     getDraft: vi.fn(),
     getWorkspace: vi.fn(),
     getWorkspaceFile: vi.fn(),
-    importTextInput: vi.fn(),
+    importFileInput: vi.fn(),
     listDocTypes: vi.fn(),
     listTaskSessions: vi.fn(),
     listTasks: vi.fn(),
@@ -110,7 +110,7 @@ describe("AppShell", () => {
     vi.mocked(api.getWorkspace).mockResolvedValue({ task_id: "task-1", root: "workspace/task-1", files: [] });
     vi.mocked(api.getAcpEvents).mockResolvedValue([]);
     vi.mocked(api.getDraft).mockResolvedValue({ markdown: "# Restored draft" });
-    vi.mocked(api.importTextInput).mockResolvedValue({
+    vi.mocked(api.importFileInput).mockResolvedValue({
       id: "input-scope-notes",
       status: "converted",
       source_path: "inputs/original/scope-notes.txt",
@@ -664,7 +664,7 @@ describe("AppShell", () => {
     expect(api.updateDraft).not.toHaveBeenCalled();
   }, 10_000);
 
-  it("imports composer text attachments before sending the message", async () => {
+  it("uploads composer attachments before sending the message", async () => {
     renderAppShell("/?task=task-1&session=session-1");
 
     await screen.findByText("Restored workspace");
@@ -677,9 +677,7 @@ describe("AppShell", () => {
     await userEvent.type(screen.getByLabelText("Message"), "Use the attached notes");
     await userEvent.keyboard("{Enter}");
 
-    await waitFor(() =>
-      expect(api.importTextInput).toHaveBeenCalledWith("task-1", "scope-notes.md", "Attachment context"),
-    );
+    await waitFor(() => expect(api.importFileInput).toHaveBeenCalledWith("task-1", expect.any(File)));
     await waitFor(() =>
       expect(api.sendMessage).toHaveBeenCalledWith(
         "session-1",
