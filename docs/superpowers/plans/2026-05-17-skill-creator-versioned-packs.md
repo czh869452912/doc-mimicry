@@ -42,7 +42,10 @@
 
 **Files:**
 - Modify: `packages/contracts/docagent_contracts/models.py`
+- Modify: `packages/contracts/docagent_contracts/runtime.py`
+- Modify: `packages/contracts/docagent_contracts/__init__.py`
 - Modify: `packages/contracts/tests/test_models.py`
+- Modify: `packages/contracts/tests/test_runtime_contracts.py`
 - Modify: `services/api/docagent_api/db.py`
 - Modify: `services/api/docagent_api/state.py`
 - Modify: `services/api/tests/conftest.py`
@@ -54,7 +57,7 @@
 Add these tests to `packages/contracts/tests/test_models.py`:
 
 ```python
-from docagent_contracts import PackResourceGroup, RuntimeSessionScope
+from docagent_contracts import PackResourceGroup, RuntimeSessionScope, SkillPackResourceStatus
 
 
 def test_pack_resource_group_values_match_product_groups() -> None:
@@ -69,6 +72,27 @@ def test_pack_resource_group_values_match_product_groups() -> None:
 def test_runtime_session_scope_distinguishes_management_from_authoring() -> None:
     assert RuntimeSessionScope.AUTHORING.value == "authoring"
     assert RuntimeSessionScope.PACK_MANAGEMENT.value == "pack-management"
+
+
+def test_skill_pack_resource_status_values_match_api_contract() -> None:
+    assert [status.value for status in SkillPackResourceStatus] == ["ready", "warning", "failed", "unsupported"]
+```
+
+Add to `packages/contracts/tests/test_runtime_contracts.py`:
+
+```python
+def test_prompt_bundle_can_identify_pack_management_owner(tmp_path: Path) -> None:
+    bundle = PromptBundle(
+        system_prompt="system",
+        task_instruction="task",
+        workspace_root=tmp_path,
+        doc_type_id="",
+        pack_id="memo",
+        metadata={"session_scope": "pack-management"},
+    )
+
+    assert bundle.pack_id == "memo"
+    assert bundle.doc_type_id == ""
 ```
 
 - [ ] **Step 2: Run contract tests and verify the expected failure**
@@ -79,7 +103,7 @@ Run:
 python -m pytest packages/contracts/tests/test_models.py -q
 ```
 
-Expected: FAIL with import errors for `PackResourceGroup` and `RuntimeSessionScope`.
+Expected: FAIL with import errors for `PackResourceGroup`, `SkillPackResourceStatus`, and `RuntimeSessionScope`, or a `PromptBundle` constructor error for `pack_id`.
 
 - [ ] **Step 3: Add shared enum contracts**
 
@@ -108,7 +132,20 @@ class RuntimeSessionScope(str, Enum):
     PACK_MANAGEMENT = "pack-management"
 ```
 
-Export the new names from `packages/contracts/docagent_contracts/__init__.py`.
+In `PromptBundle`, add an optional management owner field without changing existing positional callers:
+
+```python
+@dataclass(frozen=True)
+class PromptBundle:
+    system_prompt: str
+    task_instruction: str
+    workspace_root: Path
+    doc_type_id: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    pack_id: str | None = None
+```
+
+Export `PackResourceGroup`, `SkillPackResourceStatus`, and `RuntimeSessionScope` from `packages/contracts/docagent_contracts/__init__.py`.
 
 - [ ] **Step 4: Write failing state tests**
 
@@ -231,6 +268,7 @@ class SkillCreatorSessionRow(Base):
     __tablename__ = "skill_creator_sessions"
     id = Column(String, primary_key=True)
     pack_id = Column(String, ForeignKey("skill_packs.id"), nullable=False)
+    session_scope = Column(String, nullable=False, default="pack-management")
     status = Column(String, nullable=False)
     runtime = Column(String)
     runtime_session_id = Column(String)
@@ -276,7 +314,19 @@ In `services/api/docagent_api/state.py`, add concrete persistence methods with t
 
 Keep row-to-dict helpers next to existing `_task_row_to_dict` helpers.
 
-Update `services/api/tests/conftest.py` so the PostgreSQL fixture truncates `skill_creator_events`, `skill_creator_sessions`, `skill_pack_artifact_revisions`, `skill_pack_resources`, `skill_pack_versions`, and `skill_packs` alongside the existing authoring tables. Put child tables before parent tables in the truncate statement and keep `CASCADE`.
+Update `services/api/tests/conftest.py` so the PostgreSQL fixture truncates all authoring and pack-management tables:
+
+```python
+conn.execute(text(
+    "TRUNCATE skill_creator_events, skill_creator_sessions, "
+    "skill_pack_artifact_revisions, skill_pack_resources, "
+    "acp_events, raw_runtime_events, timeline_events, sessions, tasks, "
+    "skill_pack_versions, skill_packs "
+    "RESTART IDENTITY CASCADE"
+))
+```
+
+The explicit child-before-parent order keeps the statement readable; `CASCADE` handles the `tasks.pack_version_id` relationship once Task 5 adds it.
 
 - [ ] **Step 8: Run Task 1 verification**
 
@@ -537,6 +587,8 @@ def _source_copy_warnings(root: Path, skill_content: str, resources: list[dict[s
 
 In `bootstrap_seed_skill_packs(state, seed_root)`, scan `doc-types/*`, create pack rows, copy the seed pack into `state.skill_pack_root(pack_id)/draft`, and publish `v001` when no version exists. Use the seed `SKILL.md` as-is. Use title `path.name.upper()` for current seed packs.
 
+Do not let one malformed seed pack prevent API startup. Wrap each pack bootstrap in a `try/except Exception`, log `logger.warning("Failed to bootstrap seed skill pack %s: %s", pack_id, exc)`, and continue scanning the remaining seed packs. The direct `test_bootstrap_seed_prd_pack_creates_published_snapshot` still asserts the normal PRD path succeeds.
+
 In `services/api/docagent_api/app.py`, after the `DocAgentState` constructor call, call:
 
 ```python
@@ -709,7 +761,6 @@ class SkillPackVersionResponse(BaseModel):
     id: str
     pack_id: str
     version: str
-    snapshot_path: str
     manifest: dict[str, Any]
     validation: dict[str, Any]
     publish_note: str
@@ -725,6 +776,8 @@ class SkillCreatorEventResponse(BaseModel):
     created_at: str
 ```
 
+Do not expose `snapshot_path` through the API response; it stays in backend state for prompt resolution.
+
 - [ ] **Step 4: Add resource conversion helper**
 
 In `services/api/docagent_api/skill_packs.py`, add `add_text_resource` that mirrors `import_text_input` but writes under the pack draft root:
@@ -735,7 +788,7 @@ resources/markdown/{group}/{stem}.md
 resources/reports/{group}/{stem}.json
 ```
 
-Return status `ready` when conversion succeeds. Defer binary upload routes; when they are introduced, they should return status `unsupported` with a conversion report that has `status: failed`.
+Store `source_path`, `markdown_path`, and `conversion_report_path` as paths relative to the draft root. Return status `ready` when conversion succeeds. Defer binary upload routes; when they are introduced, they should return status `unsupported` with a conversion report that has `status: failed`.
 
 - [ ] **Step 5: Add routes and include them**
 
@@ -798,6 +851,7 @@ git commit -m "feat: expose skill pack management routes"
 - Modify: `services/api/docagent_api/routes/skill_packs.py`
 - Modify: `services/api/docagent_api/skill_packs.py`
 - Modify: `agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py`
+- Modify: `services/api/tests/test_prompts.py`
 - Create: `services/api/tests/test_skill_creator_sessions.py`
 - Modify: `agent/runtime-adapters/mock/tests/test_adapter.py`
 
@@ -861,6 +915,10 @@ def test_skill_creator_revision_reads_manual_edit(tmp_path: Path) -> None:
     assert response.status_code == 200
     skill = client.get("/skill-packs/memo/artifacts", params={"path": "SKILL.md"}).json()
     assert "Preserve this line." in skill["content"]
+    events = client.get(f"/skill-packs/memo/skill-creator/sessions/{session['id']}/events").json()
+    event_types = [event["event_type"] for event in events]
+    assert "file/read" in event_types
+    assert event_types.index("file/read") < event_types.index("file/write")
 ```
 
 - [ ] **Step 2: Run session tests and verify expected failure**
@@ -908,12 +966,46 @@ def build_skill_creator_prompt_bundle(
         system_prompt=SKILL_CREATOR_SYSTEM_PROMPT,
         task_instruction=instruction,
         workspace_root=pack_workspace_root,
-        doc_type_id=pack_id,
+        doc_type_id="",
+        pack_id=pack_id,
         metadata={"session_scope": "pack-management", "pack_id": pack_id, "session_id": session_id},
     )
 ```
 
-Add `_budget_skill_creator_resources` in `prompts.py`. It should keep resource ids, statuses, conversion reports, summaries, and representative Markdown excerpts within `resource_budget_words`, and add a `budget_warnings` list to the manifest whenever resource content is omitted, truncated, or summarized.
+Add `_budget_skill_creator_resources` in `prompts.py` with this minimum algorithm:
+
+```python
+GROUP_PRIORITY = {"specs": 0, "checklists": 1, "examples": 2, "export-references": 3}
+
+
+def _budget_skill_creator_resources(resource_manifest: dict[str, object], budget_words: int) -> dict[str, object]:
+    resources = list(resource_manifest.get("resources", []))
+    budgeted: list[dict[str, object]] = []
+    warnings: list[str] = []
+    remaining = budget_words
+    for resource in sorted(resources, key=lambda item: GROUP_PRIORITY.get(str(item.get("group")), 99)):
+        copied = dict(resource)
+        content = str(copied.get("markdown_excerpt") or copied.get("markdown") or "")
+        words = content.split()
+        if content and remaining <= 0:
+            copied.pop("markdown", None)
+            copied.pop("markdown_excerpt", None)
+            warnings.append(f"Omitted {copied.get('id')} because Skill Creator context budget was exhausted")
+        elif len(words) > remaining:
+            copied.pop("markdown", None)
+            copied["markdown_excerpt"] = " ".join(words[:remaining])
+            warnings.append(f"Truncated {copied.get('id')} to fit Skill Creator context budget")
+            remaining = 0
+        else:
+            if content:
+                copied["markdown_excerpt"] = content
+                copied.pop("markdown", None)
+                remaining -= len(words)
+        budgeted.append(copied)
+    return {**resource_manifest, "resources": budgeted, "budget_warnings": warnings}
+```
+
+Add `services/api/tests/test_prompts.py` coverage that passes one spec resource and one long example resource, sets `budget_words=20`, and asserts `budget_warnings` contains a truncation warning and the returned manifest does not include full `markdown` bodies.
 
 - [ ] **Step 4: Add Skill Creator routes**
 
@@ -966,14 +1058,14 @@ Add `_run_skill_creator_action` that writes:
 - `checklists/quality.yaml`
 - `notes/resources.md`
 
-It must read existing `SKILL.md` and append revision notes without deleting existing manual lines. Return `RuntimeOperationResult` with `changed_paths` and `acp_updates` containing `message_delta`, `file/write`, and `message_completed`.
+It must read existing `SKILL.md` and append revision notes without deleting existing manual lines. Return `RuntimeOperationResult` with `changed_paths` and `acp_updates` containing `message_delta`, `file/read`, `file/write`, and `message_completed`; the `file/read` update for `SKILL.md` must appear before the `file/write` update when revising existing artifacts.
 
 - [ ] **Step 6: Run Task 4 verification**
 
 Run:
 
 ```powershell
-python -m pytest services/api/tests/test_skill_creator_sessions.py agent/runtime-adapters/mock/tests/test_adapter.py -q
+python -m pytest services/api/tests/test_prompts.py services/api/tests/test_skill_creator_sessions.py agent/runtime-adapters/mock/tests/test_adapter.py -q
 ```
 
 Expected: PASS.
@@ -981,7 +1073,7 @@ Expected: PASS.
 - [ ] **Step 7: Commit Task 4**
 
 ```powershell
-git add services/api/docagent_api/app.py services/api/docagent_api/prompts.py services/api/docagent_api/request_models.py services/api/docagent_api/response_models.py services/api/docagent_api/routes/skill_packs.py services/api/docagent_api/skill_packs.py agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py services/api/tests/test_skill_creator_sessions.py agent/runtime-adapters/mock/tests/test_adapter.py
+git add services/api/docagent_api/app.py services/api/docagent_api/prompts.py services/api/docagent_api/request_models.py services/api/docagent_api/response_models.py services/api/docagent_api/routes/skill_packs.py services/api/docagent_api/skill_packs.py agent/runtime-adapters/mock/docagent_mock_runtime/adapter.py services/api/tests/test_prompts.py services/api/tests/test_skill_creator_sessions.py agent/runtime-adapters/mock/tests/test_adapter.py
 git commit -m "feat: add skill creator management sessions"
 ```
 
@@ -1035,6 +1127,23 @@ def test_task_creation_accepts_explicit_pack_version(tmp_path: Path) -> None:
     }).json()
 
     assert task["pack_version_id"] == version["id"]
+
+
+def test_task_creation_keeps_legacy_doc_type_fallback(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / "doc-types" / "legacy").mkdir(parents=True)
+    (repo / "doc-types" / "legacy" / "SKILL.md").write_text(
+        "---\nname: legacy\ndescription: Legacy skill.\n---\n\n# Legacy\n",
+        encoding="utf-8",
+    )
+    (repo / "agent" / "system-prompts").mkdir(parents=True)
+    (repo / "agent" / "system-prompts" / "docagent-core.md").write_text("Core prompt\n", encoding="utf-8")
+    client = TestClient(create_app(state_root=tmp_path / "state", repo_root=repo))
+
+    response = client.post("/tasks", json={"doc_type_id": "legacy", "brief": "Use legacy pack"})
+
+    assert response.status_code == 200
+    assert response.json()["pack_version_id"] is None
 ```
 
 - [ ] **Step 2: Run binding tests and verify expected failure**
@@ -1069,15 +1178,16 @@ pack_version_id?: string | null;
 
 - [ ] **Step 4: Resolve pack version during task creation**
 
-In `routes/tasks.py`, replace the current `get_doc_type` validation with:
+In `routes/tasks.py`, replace the current `get_doc_type` validation with a published-pack-first lookup that keeps the legacy repo `doc-types` fallback:
 
 ```python
 pack_version = state.get_skill_pack_version(request.pack_version_id) if request.pack_version_id else state.get_latest_skill_pack_version(request.doc_type_id)
-if pack_version is None:
+legacy_doc_type = get_doc_type(root / "doc-types", request.doc_type_id) if pack_version is None else None
+if pack_version is None and legacy_doc_type is None:
     raise HTTPException(status_code=404, detail="Published skill pack version not found")
 ```
 
-Save `pack_version_id` on the task row.
+Save `pack_version_id` on the task row when `pack_version` exists; save `None` when using the legacy fallback. This keeps repository `doc-types/*/SKILL.md` task creation working until all doc types are migrated into published pack versions.
 
 Update `_task_row_to_dict` in `state.py` and every task response construction path so `pack_version_id` is returned for both newly-created tasks and fetched tasks.
 
@@ -1103,6 +1213,8 @@ def build_prompt_bundle(
 
 Read `SKILL.md` from `resolved_skill_path`. Include `pack_version_id`, `session_scope: "authoring"`, and `skill_path: str(resolved_skill_path)` in metadata.
 
+For authoring sessions, set `doc_type_id` to the task document type, set `pack_id` to `None`, and keep metadata scoped to authoring fields: `task_id`, `session_id`, `system_prompt_path`, `skill_path`, `pack_version_id`, and `session_scope`. Only Skill Creator management bundles set `pack_id`.
+
 Update `routes/tasks.py` session creation:
 
 ```python
@@ -1119,7 +1231,7 @@ prompt_bundle = build_prompt_bundle(
 )
 ```
 
-Update `worker_tasks.py` `_create_runtime_session` with the same lookup so background workers rehydrate sessions from the immutable published snapshot.
+Update `worker_tasks.py` `_create_runtime_session` with the same lookup so background workers rehydrate sessions from the immutable published snapshot. Keep `worker_tasks.py` authoring-only: if a loaded session dict ever has `session_scope == "pack-management"`, raise `RuntimeError("Pack-management sessions are not handled by authoring worker")` before reading `task_id`.
 
 - [ ] **Step 6: Run Task 5 verification**
 
@@ -1222,6 +1334,9 @@ export interface SkillPackVersion {
   pack_id: string;
   version: string;
   publish_note: string;
+  manifest: Record<string, unknown>;
+  validation: Record<string, unknown>;
+  created_at?: string | null;
 }
 
 export interface SkillCreatorSession {
@@ -1299,8 +1414,10 @@ publishSkillPack: (packId: string, publish_note: string, acknowledged_warnings: 
 Create `apps/web/src/shell/state/useSkillPacks.ts` with:
 
 ```ts
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
+import type { SkillPackResource } from "../../types";
 
 export function useSkillPacks() {
   return useQuery({ queryKey: ["skillPacks"], queryFn: () => api.listSkillPacks() });
@@ -1347,10 +1464,19 @@ export function useUpdateSkillPackArtifact(packId: string | null) {
 }
 
 export function useSkillCreatorGeneration(packId: string | null) {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  useEffect(() => {
+    setSessionId(null);
+  }, [packId]);
+
   return useMutation({
     mutationFn: async (message: string) => {
       if (!packId) throw new Error("Select a pack before running Skill Creator");
+      if (sessionId) {
+        return api.sendSkillCreatorMessage(packId, sessionId, message);
+      }
       const session = await api.createSkillCreatorSession(packId, message);
+      setSessionId(session.id);
       return api.generateSkillPack(packId, session.id, message);
     },
   });
@@ -1376,6 +1502,8 @@ export function usePublishSkillPack(packId: string | null) {
   });
 }
 ```
+
+This keeps the MVP drawer as a continuing management conversation for the selected pack instead of creating an orphaned Skill Creator session on every Generate click.
 
 - [ ] **Step 5: Write failing management UI test**
 
