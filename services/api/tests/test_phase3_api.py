@@ -453,6 +453,59 @@ def test_product_action_endpoint_prefers_acp_prompt_runtime_method(tmp_path: Pat
     ]
 
 
+def test_non_prd_export_markdown_prompt_and_response_use_doc_type_path(tmp_path: Path) -> None:
+    adapter = PromptOnlyAdapter()
+    client = TestClient(create_app(
+        state_root=tmp_path / "state",
+        repo_root=Path("."),
+        runtime_adapter=adapter,
+    ))
+    client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
+    client.put("/skill-packs/memo/artifacts", json={
+        "path": "SKILL.md",
+        "content": "---\nname: memo\ndescription: Use for memos.\n---\n\n# Memo\n",
+        "summary": "Initial memo skill",
+    })
+    version = client.post("/skill-packs/memo/publish", json={"publish_note": "Memo v1"}).json()
+    task = client.post("/tasks", json={
+        "doc_type_id": "memo",
+        "pack_version_id": version["id"],
+        "brief": "Write a board memo",
+    }).json()
+    session = client.post(f"/tasks/{task['id']}/sessions").json()
+
+    start = client.post(f"/sessions/{session['id']}/loop/start")
+    state = DocAgentState(tmp_path / "state")
+    session_row = state.get_session(session["id"])
+    session_row["status"] = "draft_ready"
+    state.save_session(session_row)
+    draft_path = Path(task["workspace_root"]) / "draft" / "draft.md"
+    draft_path.parent.mkdir(parents=True, exist_ok=True)
+    draft_path.write_text("# Memo Draft\n", encoding="utf-8")
+    export = client.post(f"/sessions/{session['id']}/artifacts/export-markdown")
+
+    assert start.status_code == 200
+    assert adapter.calls == [
+        (
+            "Build context files and propose an outline. Stop when outline approval is required.",
+            {"action": "start_loop"},
+        ),
+        (
+            "Export the current draft to artifacts/memo-draft.md.",
+            {"action": "export_markdown"},
+        ),
+    ]
+    assert export.status_code == 200
+    assert export.json()["artifact_path"] == "artifacts/memo-draft.md"
+    acp_events = client.get(f"/sessions/{session['id']}/events").json()
+    export_prompts = [
+        event for event in acp_events
+        if event["event_type"] == "docagent/prompt"
+        and event["payload"]["metadata"]["action"] == "export_markdown"
+    ]
+    assert export_prompts[-1]["payload"]["prompt"] == "Export the current draft to artifacts/memo-draft.md."
+
+
 def test_product_action_endpoint_rejects_adapter_without_acp_prompt_method(tmp_path: Path) -> None:
     client = TestClient(create_app(
         state_root=tmp_path / "state",

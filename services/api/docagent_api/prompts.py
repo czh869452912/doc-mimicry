@@ -36,6 +36,11 @@ def build_prompt_bundle(
         f"Session ID: {session_id}\n"
         f"Document type: {doc_type_id}\n"
         f"Workspace root: {workspace_root}\n\n"
+        "Workspace contract:\n"
+        "- Build context files under context/ before drafting.\n"
+        "- Keep the current outline and draft under draft/.\n"
+        "- Write checklist and review outputs under reviews/.\n"
+        "- Write exported files under artifacts/.\n\n"
         "Use the document type skill below as active writing guidance.\n\n"
         f"{skill_markdown}"
     )
