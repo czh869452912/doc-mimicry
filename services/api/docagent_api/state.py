@@ -12,6 +12,12 @@ from docagent_api.db import (
     AcpEventRow,
     RawRuntimeEventRow,
     SessionRow,
+    SkillCreatorEventRow,
+    SkillCreatorSessionRow,
+    SkillPackArtifactRevisionRow,
+    SkillPackResourceRow,
+    SkillPackRow,
+    SkillPackVersionRow,
     TaskRow,
     TimelineEventRow,
     create_db_engine,
@@ -65,6 +71,7 @@ class DocAgentState:
                 db.add(TaskRow(
                     id=task["id"],
                     doc_type_id=task["doc_type_id"],
+                    pack_version_id=task.get("pack_version_id"),
                     brief=task.get("brief", ""),
                     title=task.get("title"),
                     description=task.get("description"),
@@ -73,6 +80,8 @@ class DocAgentState:
                 ))
             else:
                 existing.doc_type_id = task["doc_type_id"]
+                if "pack_version_id" in task:
+                    existing.pack_version_id = task.get("pack_version_id")
                 existing.brief = task.get("brief", "")
                 existing.title = task.get("title")
                 existing.description = task.get("description")
@@ -281,6 +290,183 @@ class DocAgentState:
             )
             return [r.payload for r in rows]
 
+    # ── skill packs ──────────────────────────────────────────────────────────
+
+    def save_skill_pack(self, pack: dict[str, Any]) -> None:
+        with self._Session() as db:
+            existing = db.get(SkillPackRow, pack["id"])
+            if existing is None:
+                db.add(SkillPackRow(
+                    id=pack["id"],
+                    title=pack["title"],
+                    description=pack.get("description", ""),
+                    draft_status=pack.get("draft_status", "draft"),
+                    latest_version_id=pack.get("latest_version_id"),
+                ))
+            else:
+                existing.title = pack["title"]
+                existing.description = pack.get("description", "")
+                existing.draft_status = pack.get("draft_status", "draft")
+                if "latest_version_id" in pack:
+                    existing.latest_version_id = pack.get("latest_version_id")
+                existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def get_skill_pack(self, pack_id: str) -> dict[str, Any] | None:
+        with self._Session() as db:
+            row = db.get(SkillPackRow, pack_id)
+            return _skill_pack_row_to_dict(row) if row is not None else None
+
+    def list_skill_packs(self) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = db.query(SkillPackRow).order_by(SkillPackRow.id).all()
+            return [_skill_pack_row_to_dict(row) for row in rows]
+
+    def save_skill_pack_resource(self, resource: dict[str, Any]) -> None:
+        with self._Session() as db:
+            existing = db.get(SkillPackResourceRow, resource["id"])
+            values = {
+                "pack_id": resource["pack_id"],
+                "group": resource["group"],
+                "original_filename": resource["original_filename"],
+                "source_path": resource["source_path"],
+                "markdown_path": resource.get("markdown_path"),
+                "conversion_report_path": resource["conversion_report_path"],
+                "status": resource["status"],
+                "summary": resource.get("summary", ""),
+            }
+            if existing is None:
+                db.add(SkillPackResourceRow(id=resource["id"], **values))
+            else:
+                for key, value in values.items():
+                    setattr(existing, key, value)
+                existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def list_skill_pack_resources(self, pack_id: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = (
+                db.query(SkillPackResourceRow)
+                .filter(SkillPackResourceRow.pack_id == pack_id)
+                .order_by(SkillPackResourceRow.created_at, SkillPackResourceRow.id)
+                .all()
+            )
+            return [_skill_pack_resource_row_to_dict(row) for row in rows]
+
+    def save_skill_pack_version(self, version: dict[str, Any]) -> None:
+        with self._Session() as db:
+            existing = db.get(SkillPackVersionRow, version["id"])
+            if existing is None:
+                db.add(SkillPackVersionRow(
+                    id=version["id"],
+                    pack_id=version["pack_id"],
+                    version=version["version"],
+                    snapshot_path=version["snapshot_path"],
+                    manifest=version.get("manifest", {}),
+                    validation=version.get("validation", {}),
+                    publish_note=version.get("publish_note", ""),
+                ))
+            parent = db.get(SkillPackRow, version["pack_id"])
+            if parent is not None:
+                parent.latest_version_id = version["id"]
+                parent.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def get_skill_pack_version(self, version_id: str | None) -> dict[str, Any] | None:
+        if version_id is None:
+            return None
+        with self._Session() as db:
+            row = db.get(SkillPackVersionRow, version_id)
+            return _skill_pack_version_row_to_dict(row) if row is not None else None
+
+    def list_skill_pack_versions(self, pack_id: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = (
+                db.query(SkillPackVersionRow)
+                .filter(SkillPackVersionRow.pack_id == pack_id)
+                .order_by(SkillPackVersionRow.created_at, SkillPackVersionRow.version)
+                .all()
+            )
+            return [_skill_pack_version_row_to_dict(row) for row in rows]
+
+    def get_latest_skill_pack_version(self, pack_id: str) -> dict[str, Any] | None:
+        with self._Session() as db:
+            pack = db.get(SkillPackRow, pack_id)
+            if pack is None or pack.latest_version_id is None:
+                return None
+            row = db.get(SkillPackVersionRow, pack.latest_version_id)
+            return _skill_pack_version_row_to_dict(row) if row is not None else None
+
+    def save_skill_pack_artifact_revision(self, revision: dict[str, Any]) -> None:
+        with self._Session() as db:
+            db.add(SkillPackArtifactRevisionRow(
+                id=revision["id"],
+                pack_id=revision["pack_id"],
+                artifact_path=revision["artifact_path"],
+                content_sha256=revision["content_sha256"],
+                source=revision["source"],
+                summary=revision.get("summary", ""),
+            ))
+            db.commit()
+
+    def save_skill_creator_session(self, session: dict[str, Any]) -> None:
+        with self._Session() as db:
+            existing = db.get(SkillCreatorSessionRow, session["id"])
+            if existing is None:
+                db.add(SkillCreatorSessionRow(
+                    id=session["id"],
+                    pack_id=session["pack_id"],
+                    session_scope=session.get("session_scope", "pack-management"),
+                    status=session["status"],
+                    runtime=session.get("runtime"),
+                    runtime_session_id=session.get("runtime_session_id"),
+                ))
+            else:
+                existing.status = session["status"]
+                existing.session_scope = session.get("session_scope", existing.session_scope)
+                if "runtime" in session:
+                    existing.runtime = session.get("runtime")
+                if "runtime_session_id" in session:
+                    existing.runtime_session_id = session.get("runtime_session_id")
+                existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+
+    def get_skill_creator_session(self, session_id: str) -> dict[str, Any] | None:
+        with self._Session() as db:
+            row = db.get(SkillCreatorSessionRow, session_id)
+            return _skill_creator_session_row_to_dict(row) if row is not None else None
+
+    def append_skill_creator_event(
+        self,
+        session_id: str,
+        payload: dict[str, Any],
+        projection: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        with self._Session() as db:
+            row = SkillCreatorEventRow(
+                session_id=session_id,
+                event_type=_acp_event_type(payload),
+                payload=payload,
+                projection=projection or {},
+            )
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return _skill_creator_event_row_to_dict(row)
+
+    def list_skill_creator_events(self, session_id: str) -> list[dict[str, Any]]:
+        with self._Session() as db:
+            rows = (
+                db.query(SkillCreatorEventRow)
+                .filter(SkillCreatorEventRow.session_id == session_id)
+                .order_by(SkillCreatorEventRow.id)
+                .all()
+            )
+            return [_skill_creator_event_row_to_dict(row) for row in rows]
+
+    def skill_pack_root(self, pack_id: str) -> Path:
+        return self.root / "skill-packs" / pack_id
+
     # ── workspace ─────────────────────────────────────────────────────────────
 
     def workspace_root(self, task_id: str) -> Path:
@@ -291,6 +477,7 @@ def _task_row_to_dict(row: TaskRow) -> dict[str, Any]:
     return {
         "id": row.id,
         "doc_type_id": row.doc_type_id,
+        "pack_version_id": row.pack_version_id,
         "brief": row.brief,
         "title": row.title,
         "description": row.description,
@@ -314,6 +501,63 @@ def _session_row_to_dict(row: SessionRow) -> dict[str, Any]:
         result["runtime_session_id"] = row.runtime_session_id
     if row.celery_task_id is not None:
         result["celery_task_id"] = row.celery_task_id
+    return result
+
+
+def _skill_pack_row_to_dict(row: SkillPackRow) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "title": row.title,
+        "description": row.description,
+        "draft_status": row.draft_status,
+        "latest_version_id": row.latest_version_id,
+        "created_at": _format_iso(row.created_at),
+        "updated_at": _format_iso(row.updated_at),
+    }
+
+
+def _skill_pack_resource_row_to_dict(row: SkillPackResourceRow) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "pack_id": row.pack_id,
+        "group": row.group,
+        "original_filename": row.original_filename,
+        "source_path": row.source_path,
+        "markdown_path": row.markdown_path,
+        "conversion_report_path": row.conversion_report_path,
+        "status": row.status,
+        "summary": row.summary,
+        "created_at": _format_iso(row.created_at),
+        "updated_at": _format_iso(row.updated_at),
+    }
+
+
+def _skill_pack_version_row_to_dict(row: SkillPackVersionRow) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "pack_id": row.pack_id,
+        "version": row.version,
+        "snapshot_path": row.snapshot_path,
+        "manifest": row.manifest or {},
+        "validation": row.validation or {},
+        "publish_note": row.publish_note,
+        "created_at": _format_iso(row.created_at),
+    }
+
+
+def _skill_creator_session_row_to_dict(row: SkillCreatorSessionRow) -> dict[str, Any]:
+    result = {
+        "id": row.id,
+        "pack_id": row.pack_id,
+        "session_scope": row.session_scope,
+        "status": row.status,
+        "created_at": _format_iso(row.created_at),
+        "updated_at": _format_iso(row.updated_at),
+    }
+    if row.runtime is not None:
+        result["runtime"] = row.runtime
+    if row.runtime_session_id is not None:
+        result["runtime_session_id"] = row.runtime_session_id
     return result
 
 
@@ -354,6 +598,17 @@ def _acp_event_row_to_dict(row: AcpEventRow) -> dict[str, Any]:
         "id": f"acp-{row.id}",
         "session_id": row.session_id,
         "sequence": row.id,
+        "event_type": row.event_type,
+        "payload": row.payload,
+        "projection": row.projection or {},
+        "created_at": _format_iso(row.created_at),
+    }
+
+
+def _skill_creator_event_row_to_dict(row: SkillCreatorEventRow) -> dict[str, Any]:
+    return {
+        "id": row.id,
+        "session_id": row.session_id,
         "event_type": row.event_type,
         "payload": row.payload,
         "projection": row.projection or {},

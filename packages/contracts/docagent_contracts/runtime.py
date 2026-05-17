@@ -27,6 +27,11 @@ class RuntimeSessionState(str, Enum):
     COMPLETED = "completed"
 
 
+class RuntimeSessionScope(str, Enum):
+    AUTHORING = "authoring"
+    PACK_MANAGEMENT = "pack-management"
+
+
 @dataclass(frozen=True)
 class PromptBundle:
     system_prompt: str
@@ -34,6 +39,7 @@ class PromptBundle:
     workspace_root: Path
     doc_type_id: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    pack_id: str | None = None
 
 
 @dataclass(frozen=True)

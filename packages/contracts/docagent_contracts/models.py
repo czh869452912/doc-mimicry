@@ -22,6 +22,20 @@ class ResourceStatus(str, Enum):
     REJECTED = "rejected"
 
 
+class PackResourceGroup(str, Enum):
+    EXAMPLES = "examples"
+    SPECS = "specs"
+    CHECKLISTS = "checklists"
+    EXPORT_REFERENCES = "export-references"
+
+
+class SkillPackResourceStatus(str, Enum):
+    READY = "ready"
+    WARNING = "warning"
+    FAILED = "failed"
+    UNSUPPORTED = "unsupported"
+
+
 class ConversionEngine(str, Enum):
     DOCLING = "docling"
     MARKITDOWN = "markitdown"

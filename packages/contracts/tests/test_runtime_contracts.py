@@ -24,6 +24,20 @@ def test_prompt_bundle_defaults_metadata() -> None:
     assert bundle.metadata == {}
 
 
+def test_prompt_bundle_can_identify_pack_management_owner(tmp_path: Path) -> None:
+    bundle = PromptBundle(
+        system_prompt="system",
+        task_instruction="task",
+        workspace_root=tmp_path,
+        doc_type_id="",
+        pack_id="memo",
+        metadata={"session_scope": "pack-management"},
+    )
+
+    assert bundle.pack_id == "memo"
+    assert bundle.doc_type_id == ""
+
+
 def test_runtime_operation_result_defaults() -> None:
     result = RuntimeOperationResult(
         session_id="session-1",

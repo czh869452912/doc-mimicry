@@ -7,13 +7,16 @@ from docagent_contracts import (
     ConversionStatus,
     DraftVersion,
     ImportedResource,
+    PackResourceGroup,
     ResourceScope,
     ResourceStatus,
     SemanticEventKind,
     SemanticTimelineEvent,
+    SkillPackResourceStatus,
     TimelineActor,
     TimelineStatus,
     WorkspaceLayout,
+    RuntimeSessionScope,
 )
 
 
@@ -143,3 +146,21 @@ def test_acp_event_envelope_defaults_projection_metadata() -> None:
     )
 
     assert event.projection == {}
+
+
+def test_pack_resource_group_values_match_product_groups() -> None:
+    assert [group.value for group in PackResourceGroup] == [
+        "examples",
+        "specs",
+        "checklists",
+        "export-references",
+    ]
+
+
+def test_runtime_session_scope_distinguishes_management_from_authoring() -> None:
+    assert RuntimeSessionScope.AUTHORING.value == "authoring"
+    assert RuntimeSessionScope.PACK_MANAGEMENT.value == "pack-management"
+
+
+def test_skill_pack_resource_status_values_match_api_contract() -> None:
+    assert [status.value for status in SkillPackResourceStatus] == ["ready", "warning", "failed", "unsupported"]
