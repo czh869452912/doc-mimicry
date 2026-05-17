@@ -29,6 +29,7 @@ This directory is the current project truth. The `reference/` directory contains
 - `superpowers/plans/`: active task-sized implementation plans, if any.
 - `superpowers/completed/`: archived task-sized implementation plans.
 - `superpowers/specs/`: design references that inform plans but are not active checklists.
+  - `superpowers/specs/2026-05-17-skill-creator-versioned-packs-design.md`: material-driven Skill Creator and versioned skill-pack design.
 
 ## Quality
 

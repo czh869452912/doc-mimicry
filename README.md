@@ -115,6 +115,7 @@ implementation gaps:
 - `reference/spec_review_rapid_prototype_v3.md`: rapid prototype direction that shaped Phase 0–2.
 - `docs/product/vision.md`: curated current product intent.
 - `docs/product/ui-surfaces.md`: management and authoring UI design.
+- `docs/superpowers/specs/2026-05-17-skill-creator-versioned-packs-design.md`: material-driven Skill Creator and versioned skill-pack design.
 - `docs/decisions/2026-05-14-acp-interaction-plane-and-litellm-gateway.md`: canonical ACP interaction plane and LiteLLM gateway decision.
 - `docs/architecture/event-model.md`: ACP event log and semantic projection contract.
 - `docs/architecture/agent-runtime.md`: ACP runtime boundary and LiteLLM model gateway.
