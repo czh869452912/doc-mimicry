@@ -57,6 +57,18 @@ export async function executeSlashCommand(input: string, context: SlashCommandCo
     await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
     return { handled: true, message: "Export started. Open the artifact from the workspace tree when it appears." };
   }
+  if (command === "/export-docx") {
+    const result = await api.exportDocx(session.id);
+    await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
+    const path = result.artifact_path ?? "workspace artifacts";
+    return { handled: true, message: `Exported DOCX artifact: ${path}` };
+  }
+  if (command === "/export-pdf") {
+    const result = await api.exportPdf(session.id);
+    await Promise.all([context.refreshTimeline(), context.refreshWorkspace(), context.refreshSessions?.()]);
+    const path = result.artifact_path ?? "workspace artifacts";
+    return { handled: true, message: `Exported PDF artifact: ${path}` };
+  }
 
   return { handled: false };
 }
@@ -65,6 +77,8 @@ export const SLASH_COMMANDS = [
   { command: "/start", description: "Start outline loop" },
   { command: "/check", description: "Run checklist" },
   { command: "/export", description: "Export Markdown artifact" },
+  { command: "/export-docx", description: "Export DOCX artifact" },
+  { command: "/export-pdf", description: "Export PDF artifact" },
   { command: "/checkpoint", description: "Show checkpoint endpoint status" },
   { command: "/files", description: "Use the workspace tree to open files" },
   { command: "/versions", description: "Use the workspace tree to open versions" },

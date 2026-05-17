@@ -10,6 +10,8 @@ vi.mock("../../../api", () => ({
   api: {
     answerPermission: vi.fn(),
     cancelSession: vi.fn(),
+    exportDocx: vi.fn(),
+    exportPdf: vi.fn(),
     importFileInput: vi.fn(),
     sendMessage: vi.fn(),
     startLoop: vi.fn(),

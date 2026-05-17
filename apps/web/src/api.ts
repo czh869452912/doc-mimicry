@@ -93,6 +93,10 @@ export const api = {
     request<LoopActionResult>(`/sessions/${sessionId}/checklist/run?background=true`, { method: "POST" }),
   exportMarkdown: (sessionId: string) =>
     request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-markdown?background=true`, { method: "POST" }),
+  exportDocx: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-docx`, { method: "POST" }),
+  exportPdf: (sessionId: string) =>
+    request<LoopActionResult>(`/sessions/${sessionId}/artifacts/export-pdf`, { method: "POST" }),
   sendMessage: (sessionId: string, message: string, attachments: MessageAttachment[] = []) =>
     request<LoopActionResult>(
       `/sessions/${sessionId}/messages?background=true`,
