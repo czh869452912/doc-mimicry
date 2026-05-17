@@ -53,9 +53,10 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
         )
         if bind_result is not False:
             return
-        session.pop("runtime_session_id", None)
-        _create_runtime_session(state, adapter, session)
-        return
+        raise RuntimeError(
+            f"Persisted runtime session {runtime_session_id} for {session['id']} could not be rebound. "
+            "OpenHands cross-process resume is unavailable; create a new product session."
+        )
 
     try:
         adapter.get_state(session["id"])

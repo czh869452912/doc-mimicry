@@ -9,10 +9,18 @@ import { api } from "../../../api";
 vi.mock("../../../api", () => ({
   api: {
     addSkillPackFileResource: vi.fn(),
+    addSkillPackTextResource: vi.fn(),
+    createSkillCreatorSession: vi.fn(),
+    createSkillPack: vi.fn(),
+    generateSkillPack: vi.fn(),
     getSkillPackArtifact: vi.fn(),
     getSkillPackResource: vi.fn(),
     listSkillPacks: vi.fn(),
     listSkillPackResources: vi.fn(),
+    publishSkillPack: vi.fn(),
+    sendSkillCreatorMessage: vi.fn(),
+    updateSkillPackArtifact: vi.fn(),
+    validateSkillPack: vi.fn(),
   },
 }));
 
@@ -34,6 +42,7 @@ describe("ManagementPage", () => {
     vi.mocked(api.getSkillPackArtifact).mockRejectedValue(new Error("404"));
     vi.mocked(api.listSkillPackResources).mockResolvedValue([]);
     vi.mocked(api.getSkillPackResource).mockRejectedValue(new Error("404"));
+    vi.mocked(api.validateSkillPack).mockResolvedValue({ status: "failed", errors: [], warnings: [] });
   });
 
   it("renders the dedicated skill pack management route", async () => {
@@ -128,5 +137,32 @@ describe("ManagementPage", () => {
     await user.click(screen.getByRole("button", { name: /view converted memo.docx/i }));
 
     expect(await screen.findByText("# Converted memo")).toBeTruthy();
+  });
+
+  it("refreshes the SKILL.md editor after Skill Creator writes artifacts", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listSkillPacks).mockResolvedValue([
+      { id: "memo", title: "Memo", description: "", draft_status: "draft", latest_version_id: null },
+    ]);
+    vi.mocked(api.getSkillPackArtifact)
+      .mockResolvedValueOnce({ pack_id: "memo", path: "SKILL.md", content: "# Old skill\n" })
+      .mockResolvedValueOnce({ pack_id: "memo", path: "SKILL.md", content: "# Generated skill\n" });
+    vi.mocked(api.createSkillCreatorSession).mockResolvedValue({
+      id: "creator-1",
+      pack_id: "memo",
+      session_scope: "pack-management",
+      status: "idle",
+      runtime: null,
+      runtime_session_id: null,
+    });
+    vi.mocked(api.generateSkillPack).mockResolvedValue({ paths: ["SKILL.md"] });
+
+    renderManagementPage();
+    expect(await screen.findByDisplayValue(/# Old skill/)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /generate skill/i }));
+
+    await waitFor(() => expect(api.getSkillPackArtifact).toHaveBeenCalledTimes(2));
+    expect(await screen.findByDisplayValue(/# Generated skill/)).toBeTruthy();
   });
 });

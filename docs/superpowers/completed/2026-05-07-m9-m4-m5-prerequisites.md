@@ -1,5 +1,9 @@
 # Pre-Assistant-UI Prerequisites: M9 + M4 + M5 Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add E2E core-loop regression tests, replace 1.5s timeline polling with SSE, and add URL-based deep-linking — enabling safe refactoring during the upcoming assistant-ui integration sprint.

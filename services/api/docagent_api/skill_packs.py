@@ -91,6 +91,7 @@ def add_text_resource(
         "conversion_report_path": result["conversion_report_path"],
         "status": _resource_status(result),
         "summary": "",
+        "warnings": result.get("warnings") or [],
     }
 
 
@@ -128,6 +129,7 @@ def add_file_resource(
         "conversion_report_path": result["conversion_report_path"],
         "status": _resource_status(result),
         "summary": "",
+        "warnings": result.get("warnings") or [],
     }
 
 

@@ -1,5 +1,9 @@
 # Assistant-UI Attachments Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Wire assistant-ui composer attachment primitives to real DocAgent workspace input imports.

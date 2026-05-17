@@ -1,5 +1,9 @@
 # Review Follow-up: Assistant UI And Background Runner Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Resolve the actionable review follow-ups that remain after excluding DOCX export and PRD seed resources: restore frontend dependency/build baseline, complete task/session deep-linking, add an assistant-ui message-model preparation boundary, and replace ad hoc daemon-thread usage with a managed background runner abstraction.

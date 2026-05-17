@@ -112,6 +112,7 @@ def test_upload_skill_pack_resource_file_converts_docx(tmp_path: Path) -> None:
     assert body["status"] in {"ready", "warning"}
     assert body["source_path"] == "resources/original/examples/memo.docx"
     assert body["markdown_path"] == "resources/markdown/examples/memo.md"
+    assert body["warnings"][0]["type"] == "docx_format_loss"
 
 
 def test_skill_pack_resource_detail_exposes_markdown_and_warnings(tmp_path: Path) -> None:

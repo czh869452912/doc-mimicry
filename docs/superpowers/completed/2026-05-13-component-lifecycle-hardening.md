@@ -1,5 +1,9 @@
 # Component Lifecycle Hardening Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix the confirmed plugin/component lifecycle issues from `docs/reviews/active/2026-05-13-plugin-component-lifecycle-audit.md` and add guardrails that make future integrations check runtime callbacks, scoped async state, a11y semantics, query placeholder behavior, and persisted layout data.

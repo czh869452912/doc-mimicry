@@ -81,6 +81,7 @@ export function useUpdateSkillPackArtifact(packId: string | null) {
 }
 
 export function useSkillCreatorGeneration(packId: string | null) {
+  const queryClient = useQueryClient();
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,6 +97,12 @@ export function useSkillCreatorGeneration(packId: string | null) {
       const session = await api.createSkillCreatorSession(packId, message);
       setSessionId(session.id);
       return api.generateSkillPack(packId, session.id, message);
+    },
+    onSuccess: (result) => {
+      if (!packId) return;
+      for (const path of result.paths) {
+        void queryClient.invalidateQueries({ queryKey: ["skillPackArtifact", packId, path] });
+      }
     },
   });
 }

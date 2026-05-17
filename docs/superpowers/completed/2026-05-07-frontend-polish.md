@@ -1,5 +1,9 @@
 # Frontend Polish Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix four frontend issues from the 2026-05-07 review: remove spurious `Content-Type` headers from GET requests, add React Error Boundaries around each pane, replace the primitive diff viewer with `react-diff-viewer-continued`, and add `react-hook-form` + `zod` validation to the workspace creation form.

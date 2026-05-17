@@ -1,5 +1,9 @@
 # Workbench Shell Redesign Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the current two-page React UI with one Codex-style three-column workbench shell using mature React primitives while preserving the existing FastAPI REST API, workspace contract, and semantic timeline contract.
@@ -857,4 +861,3 @@ Then test `http://127.0.0.1:5173` with the seven-step smoke path from the design
 - The exact assistant-ui extension point must be confirmed in implementation. The fallback is explicitly allowed: assistant-ui composer + DocAgent-rendered stream.
 - The current `TimelineEvent` frontend type lacks `created_at`; this plan preserves backend list order and does not add a contract field.
 - The old `ManagementPage` has read-only doc type details only. Skill Creator remains a placeholder in the settings drawer.
-

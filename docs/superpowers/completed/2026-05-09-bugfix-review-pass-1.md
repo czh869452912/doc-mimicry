@@ -1,5 +1,9 @@
 # Bug Fix Pass 1: Review-Identified Issues
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix all Critical and High issues (plus key Medium issues) discovered in the May 2026 code review, restoring correct Docker deployment, draft editing, conversation reload, SSE stability, and session state behavior.

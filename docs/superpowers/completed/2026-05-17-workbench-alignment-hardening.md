@@ -1064,7 +1064,7 @@ npm run test:unit -- --run
 npm run test
 npm run build
 cd ..\..
-docker compose config
+$env:LLM_API_KEY = "dummy-key"; $env:LITELLM_MASTER_KEY = "dummy-master"; docker compose config | Out-Null
 Get-ChildItem -Recurse -File | Select-Object FullName | Out-Null
 git diff --check -- . ':!.claude/settings.local.json'
 git status --short --branch
@@ -1074,7 +1074,8 @@ Expected:
 
 - All Python tests pass.
 - Frontend unit tests, TypeScript check, and Vite build pass.
-- `docker compose config` exits 0.
+- `docker compose config` exits 0 with dummy secret values so rendered config
+  output does not expose local provider keys.
 - Documentation structure check exits 0.
 - `git diff --check` reports no whitespace errors.
 - Worktree contains only intentional changes plus any pre-existing local files such as `.claude/settings.local.json`.

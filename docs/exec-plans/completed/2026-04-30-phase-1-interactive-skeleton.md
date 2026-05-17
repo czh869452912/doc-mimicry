@@ -1,5 +1,9 @@
 # Phase 1 Interactive Skeleton Implementation Plan
 
+> **Archive note (2026-05-17):** This completed plan preserves its original
+> execution checklist for historical traceability. Any unchecked boxes below are
+> not active work; use active plan/review directories for current tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the first interactive product skeleton: FastAPI endpoints, file-backed state, a mock runtime adapter, semantic timeline persistence, and a thin React workbench UI.

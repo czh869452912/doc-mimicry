@@ -107,10 +107,14 @@ python tools/runtime/compose_smoke.py --runtime mock-acp
 The compose smoke checks the ACP event endpoint, which is the supported
 authoring timeline contract.
 
-Check Docker Compose wiring, including LiteLLM, with:
+Check Docker Compose wiring, including LiteLLM, with the smoke script first. If
+you need to inspect rendered Compose config, run it with dummy LLM values or
+avoid pasting the output because `docker compose config` expands environment
+secrets such as `LLM_API_KEY`.
 
 ```powershell
-docker compose config
+python tools/runtime/compose_smoke.py --runtime mock-acp
+$env:LLM_API_KEY = "dummy-key"; $env:LITELLM_MASTER_KEY = "dummy-master"; docker compose config | Out-Null
 python -m pytest tests/test_litellm_compose.py -q
 ```
 
