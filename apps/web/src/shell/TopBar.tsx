@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Settings } from "lucide-react";
 
 interface TopBarProps {
@@ -25,6 +26,9 @@ export function TopBar({
       <button className="command-chip" type="button" onClick={onOpenCommandPalette}>
         Ctrl+Shift+P
       </button>
+      <Link className="command-chip" to="/management/skill-packs">
+        Skill Packs
+      </Link>
       <button className="icon-button" type="button" aria-label="Open settings" onClick={onOpenSettings}>
         <Settings size={15} />
       </button>

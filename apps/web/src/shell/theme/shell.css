@@ -7,6 +7,37 @@
   background: var(--color-canvas);
 }
 
+.management-page {
+  display: grid;
+  grid-template-rows: 36px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+.management-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+.management-page__body {
+  display: grid;
+  gap: 14px;
+  width: min(920px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 20px 0 40px;
+}
+
+.management-page__header h1 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
 .topbar {
   display: flex;
   align-items: center;

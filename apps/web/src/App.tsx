@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 import { AppShell } from "./shell/AppShell";
+import { ManagementPage } from "./shell/management/ManagementPage";
 
 export type AppSearch = {
   task?: string;
@@ -21,7 +22,13 @@ export const indexRoute = createRoute({
   component: AppShell,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute]);
+export const managementRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/management/skill-packs",
+  component: ManagementPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, managementRoute]);
 
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, history });
