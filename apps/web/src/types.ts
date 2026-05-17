@@ -9,6 +9,7 @@ export interface DocTypeSummary {
 export interface TaskRecord {
   id: string;
   doc_type_id: string;
+  pack_version_id?: string | null;
   brief: string;
   title?: string;
   description?: string;

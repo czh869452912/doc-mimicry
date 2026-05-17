@@ -22,13 +22,15 @@ def build_prompt_bundle(
     task_id: str,
     session_id: str,
     doc_type_id: str,
+    pack_version_id: str | None = None,
+    skill_path: Path | None = None,
 ) -> PromptBundle:
     if not is_valid_doc_type_id(doc_type_id):
         raise ValueError("Invalid document type id")
     system_prompt_path = repo_root / "agent" / "system-prompts" / "docagent-core.md"
-    skill_path = repo_root / "doc-types" / doc_type_id / "SKILL.md"
+    resolved_skill_path = skill_path or repo_root / "doc-types" / doc_type_id / "SKILL.md"
     system_prompt = system_prompt_path.read_text(encoding="utf-8")
-    skill_markdown = skill_path.read_text(encoding="utf-8")
+    skill_markdown = resolved_skill_path.read_text(encoding="utf-8")
     task_instruction = (
         f"Task ID: {task_id}\n"
         f"Session ID: {session_id}\n"
@@ -46,7 +48,9 @@ def build_prompt_bundle(
             "task_id": task_id,
             "session_id": session_id,
             "system_prompt_path": str(system_prompt_path),
-            "skill_path": str(skill_path),
+            "skill_path": str(resolved_skill_path),
+            "pack_version_id": pack_version_id,
+            "session_scope": "authoring",
         },
     )
 

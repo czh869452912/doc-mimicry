@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class CreateTaskRequest(BaseModel):
     doc_type_id: str
+    pack_version_id: str | None = None
     brief: str | None = None
     title: str | None = None
     description: str | None = None

@@ -67,16 +67,22 @@ def _ensure_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -
 
 
 def _create_runtime_session(state: Any, adapter: Any, session: dict[str, Any]) -> None:
+    if session.get("session_scope") == "pack-management":
+        raise RuntimeError("Pack-management sessions are not handled by authoring worker")
     repo_root = Path(os.environ.get("DOCAGENT_REPO_ROOT", "."))
     task = state.get_task(session["task_id"])
     if task is None:
         raise RuntimeError(f"Task not found for session {session['id']}")
+    pack_version = state.get_skill_pack_version(task.get("pack_version_id")) if task.get("pack_version_id") else None
+    skill_path = Path(pack_version["snapshot_path"]) / "SKILL.md" if pack_version else None
     prompt_bundle = build_prompt_bundle(
         repo_root,
         Path(task["workspace_root"]),
         task["id"],
         session["id"],
         task["doc_type_id"],
+        task.get("pack_version_id"),
+        skill_path,
     )
     result = adapter.create_session(session["id"], prompt_bundle)
     for raw_event in result.raw_events:

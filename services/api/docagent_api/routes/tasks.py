@@ -47,8 +47,16 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
 
     @router.post("/tasks", response_model=TaskResponse)
     def create_task(request: CreateTaskRequest) -> dict[str, Any]:
-        if get_doc_type(root / "doc-types", request.doc_type_id) is None:
-            raise HTTPException(status_code=404, detail="Document type not found")
+        pack_version = (
+            state.get_skill_pack_version(request.pack_version_id)
+            if request.pack_version_id
+            else state.get_latest_skill_pack_version(request.doc_type_id)
+        )
+        if request.pack_version_id and pack_version is None:
+            raise HTTPException(status_code=404, detail="Published skill pack version not found")
+        legacy_doc_type = get_doc_type(root / "doc-types", request.doc_type_id) if pack_version is None else None
+        if pack_version is None and legacy_doc_type is None:
+            raise HTTPException(status_code=404, detail="Published skill pack version not found")
         description = (request.description or request.brief or "").strip()
         if not description:
             raise HTTPException(status_code=422, detail="Description is required")
@@ -60,6 +68,7 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
         record = {
             "id": task_id,
             "doc_type_id": request.doc_type_id,
+            "pack_version_id": pack_version["id"] if pack_version else None,
             "brief": description,
             "title": title,
             "description": description,
@@ -126,12 +135,16 @@ def create_tasks_router(state: DocAgentState, adapter: Any, root: Path) -> APIRo
         }
         state.save_session(record)
         try:
+            pack_version = state.get_skill_pack_version(task.get("pack_version_id"))
+            skill_path = Path(pack_version["snapshot_path"]) / "SKILL.md" if pack_version else None
             prompt_bundle = build_prompt_bundle(
                 root,
                 Path(task["workspace_root"]),
                 task["id"],
                 session_id,
                 task["doc_type_id"],
+                task.get("pack_version_id"),
+                skill_path,
             )
         except FileNotFoundError as exc:
             state.delete_session(session_id)

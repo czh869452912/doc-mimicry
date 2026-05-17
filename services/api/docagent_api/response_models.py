@@ -21,6 +21,7 @@ class DocTypeSummaryResponse(BaseModel):
 class TaskResponse(BaseModel):
     id: str
     doc_type_id: str
+    pack_version_id: str | None = None
     brief: str
     title: str
     description: str
