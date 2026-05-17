@@ -61,6 +61,8 @@ invisible.
 - Do not edit DOCX or PDF directly inside the workspace.
 - Do not make high-fidelity Word layout reproduction a requirement for MVP.
 - Do not make PDF import depend on OCR-heavy engines in the first pass.
+- Do not make HTML heading/style preservation a requirement for MVP; HTML
+  conversion may reduce content to readable Markdown text.
 - Do not introduce semantic RAG as the default way to use converted resources.
 - Do not let agents read original binary files as normal context.
 - Do not require a perfect production converter before the product boundary is
@@ -135,7 +137,7 @@ as the stable contract:
 source_path: string
 markdown_path: string | null
 asset_dir: string | null
-engine: docling | markitdown | pandoc | mineru | marker | manual | unknown
+engine: docling | markitdown | pandoc | mineru | marker | pypdf | manual | unknown
 status: succeeded | succeeded_with_warnings | failed
 warnings:
   - type: string

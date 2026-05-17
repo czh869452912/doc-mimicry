@@ -26,7 +26,11 @@
 - Create `packages/conversion/docagent_conversion/exporters.py`: Markdown-to-DOCX and Markdown-to-PDF artifact writers.
 - Create `packages/conversion/tests/test_importers.py`: conversion package import tests.
 - Create `packages/conversion/tests/test_exporters.py`: export package tests.
+- Modify `packages/contracts/docagent_contracts/models.py`: add `pypdf` to the conversion engine enum.
+- Modify `packages/contracts/schemas.md`: document the `pypdf` conversion engine.
+- Modify `packages/contracts/tests/test_models.py`: assert `ConversionEngine.PYPDF`.
 - Modify `pyproject.toml`: add `packages/conversion` to pytest pythonpath and add `pypdf`.
+- Modify `services/api/Dockerfile`: add `/app/packages/conversion` to runtime `PYTHONPATH`.
 - Modify `tools/import/convert_to_markdown.py`: delegate to `docagent_conversion.importers`.
 - Modify `tools/import/tests/test_convert_to_markdown.py`: align CLI report expectations.
 - Create `tools/export/export_docx.py` and `tools/export/export_pdf.py`: CLI wrappers.
@@ -52,7 +56,11 @@
 - Create: `packages/conversion/docagent_conversion/__init__.py`
 - Create: `packages/conversion/docagent_conversion/importers.py`
 - Create: `packages/conversion/tests/test_importers.py`
+- Modify: `packages/contracts/docagent_contracts/models.py`
+- Modify: `packages/contracts/schemas.md`
+- Modify: `packages/contracts/tests/test_models.py`
 - Modify: `pyproject.toml`
+- Modify: `services/api/Dockerfile`
 
 - [ ] **Step 1: Add failing conversion package tests**
 
@@ -182,12 +190,41 @@ def test_unsupported_binary_keeps_original_and_failed_report(tmp_path: Path) -> 
 Run:
 
 ```powershell
-python -m pytest packages/conversion/tests/test_importers.py -q
+python -m pytest packages/contracts/tests packages/conversion/tests/test_importers.py -q
 ```
 
 Expected: FAIL because `docagent_conversion` does not exist.
 
 - [ ] **Step 3: Add conversion package to pytest path and dependency**
+
+In `packages/contracts/docagent_contracts/models.py`, add the PDF text
+extractor engine:
+
+```python
+class ConversionEngine(str, Enum):
+    DOCLING = "docling"
+    MARKITDOWN = "markitdown"
+    PANDOC = "pandoc"
+    MINERU = "mineru"
+    MARKER = "marker"
+    PYPDF = "pypdf"
+    MANUAL = "manual"
+    UNKNOWN = "unknown"
+```
+
+In `packages/contracts/schemas.md`, update the `ConversionReport.engine`
+line:
+
+```markdown
+engine: docling | markitdown | pandoc | mineru | marker | pypdf | manual | unknown
+```
+
+In `packages/contracts/tests/test_models.py`, add an assertion beside the
+existing conversion report assertions:
+
+```python
+assert ConversionEngine.PYPDF.value == "pypdf"
+```
 
 Modify `pyproject.toml`:
 
@@ -215,6 +252,13 @@ pythonpath = [
   "agent/runtime-adapters/mock",
   "agent/runtime-adapters/openhands"
 ]
+```
+
+Modify `services/api/Dockerfile` so the running API container can import the
+new package. Replace the existing `PYTHONPATH=` line with:
+
+```dockerfile
+    PYTHONPATH=/app/services/api:/app/packages/contracts:/app/packages/conversion:/app/packages/workspace:/app/packages/timeline:/app/tools/import:/app/agent/runtime-adapters/mock:/app/agent/runtime-adapters/openhands
 ```
 
 - [ ] **Step 4: Implement shared importer**
@@ -308,7 +352,7 @@ def convert_resource_bytes(
     markdown_path = layout.root / layout.markdown_dir / f"{stem}.md"
     report_path = layout.root / layout.reports_dir / f"{stem}.conversion.json"
     asset_dir = layout.root / layout.assets_dir / stem
-    for path in [source_path.parent, markdown_path.parent, report_path.parent, asset_dir]:
+    for path in [source_path.parent, markdown_path.parent, report_path.parent]:
         path.mkdir(parents=True, exist_ok=True)
     source_path.write_bytes(content)
 
@@ -329,6 +373,7 @@ def convert_resource_bytes(
             markdown = _docx_to_markdown(content)
             warnings.append({"type": "docx_format_loss", "message": "DOCX layout and styling were reduced to Markdown text.", "location": None})
         elif suffix == ".pdf":
+            engine = "pypdf"
             markdown, page_count = _pdf_to_markdown(content)
             features["pages"] = page_count
             warnings.append({"type": "pdf_format_loss", "message": "PDF layout was reduced to extracted text.", "location": None})
@@ -338,6 +383,7 @@ def convert_resource_bytes(
         warnings.append({"type": "conversion_failed", "message": str(exc), "location": None})
 
     if markdown is not None and markdown.strip():
+        asset_dir.mkdir(parents=True, exist_ok=True)
         text = markdown if markdown.endswith("\n") else f"{markdown}\n"
         markdown_path.write_text(text, encoding="utf-8")
         report_status = "succeeded_with_warnings" if warnings else "succeeded"
@@ -397,7 +443,10 @@ def _unique_stem(layout: ConversionLayout, base_stem: str, source_suffix: str) -
 
 
 def _decode_text(content: bytes) -> str:
-    return content.decode("utf-8")
+    try:
+        return content.decode("utf-8")
+    except UnicodeDecodeError:
+        return content.decode("latin-1")
 
 
 class _TextExtractor(html.parser.HTMLParser):
@@ -419,6 +468,7 @@ class _TextExtractor(html.parser.HTMLParser):
 
 
 def _html_to_markdown(text: str) -> str:
+    # MVP keeps HTML text readable but does not preserve heading levels or rich layout.
     parser = _TextExtractor()
     parser.feed(text)
     lines = [" ".join(line.split()) for line in "".join(parser.parts).splitlines()]
@@ -464,7 +514,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit Task 1**
 
 ```powershell
-git add pyproject.toml packages/conversion/docagent_conversion packages/conversion/tests/test_importers.py
+git add pyproject.toml services/api/Dockerfile packages/contracts/docagent_contracts/models.py packages/contracts/schemas.md packages/contracts/tests/test_models.py packages/conversion/docagent_conversion packages/conversion/tests/test_importers.py
 git commit -m "feat: add shared conversion importer"
 ```
 
@@ -668,8 +718,30 @@ git commit -m "refactor: share conversion for text resources"
 Append to `services/api/tests/test_imports.py`:
 
 ```python
+import zipfile
+from io import BytesIO
+
 from fastapi.testclient import TestClient
 from docagent_api.app import create_app
+
+
+def _docx_bytes(text: str) -> bytes:
+    document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>{text}</w:t></w:r></w:p>
+  </w:body>
+</w:document>"""
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("word/document.xml", document_xml)
+    return buffer.getvalue()
 
 
 def test_upload_docx_input_converts_to_markdown_and_records_event(tmp_path: Path) -> None:
@@ -708,13 +780,34 @@ def test_upload_unsupported_input_returns_report_without_markdown_attachment(tmp
     assert body["warnings"][0]["type"] == "unsupported_format"
 ```
 
-Reuse the `_docx_bytes` helper from Task 1 in this test file, or move it into a local helper in the same file.
-
 - [ ] **Step 2: Add failing Skill Pack upload route test**
 
 Append to `services/api/tests/test_skill_pack_routes.py`:
 
 ```python
+import zipfile
+from io import BytesIO
+
+
+def _docx_bytes(text: str) -> bytes:
+    document_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:r><w:t>{text}</w:t></w:r></w:p>
+  </w:body>
+</w:document>"""
+    content_types = """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>"""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("word/document.xml", document_xml)
+    return buffer.getvalue()
+
+
 def test_upload_skill_pack_resource_file_converts_docx(tmp_path: Path) -> None:
     client = TestClient(create_app(state_root=tmp_path / "state", repo_root=Path(".")))
     client.post("/skill-packs", json={"id": "memo", "title": "Memo", "description": ""})
@@ -855,7 +948,6 @@ git commit -m "feat: add file upload conversion routes"
 - Modify: `apps/web/src/shell/acp/__tests__/AcpComposer.test.tsx`
 - Modify: `apps/web/src/shell/acp/__tests__/AcpInteractionSurface.test.tsx`
 - Modify: `apps/web/src/shell/__tests__/AppShell.test.tsx`
-- Modify: `apps/web/tests/workbench-shell.spec.ts`
 
 - [ ] **Step 1: Update failing frontend attachment tests**
 
@@ -1020,10 +1112,23 @@ npm run test:unit -- --run src/shell/acp/__tests__/AcpComposer.test.tsx src/shel
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 4**
+- [ ] **Step 6: Run browser regression for attachment flow**
+
+Run:
 
 ```powershell
-git add apps/web/src/api.ts apps/web/src/types.ts apps/web/src/shell/acp/AcpComposer.tsx apps/web/src/shell/acp/__tests__/AcpComposer.test.tsx apps/web/src/shell/acp/__tests__/AcpInteractionSurface.test.tsx apps/web/src/shell/__tests__/AppShell.test.tsx apps/web/tests/workbench-shell.spec.ts
+cd apps/web
+npm run test -- --grep "ACP composer imports text attachments before sending"
+```
+
+Expected: PASS. The existing test name can stay as-is for this task because
+Markdown upload still uses the file-upload path and should render the same
+attached workspace input message.
+
+- [ ] **Step 7: Commit Task 4**
+
+```powershell
+git add apps/web/src/api.ts apps/web/src/types.ts apps/web/src/shell/acp/AcpComposer.tsx apps/web/src/shell/acp/__tests__/AcpComposer.test.tsx apps/web/src/shell/acp/__tests__/AcpInteractionSurface.test.tsx apps/web/src/shell/__tests__/AppShell.test.tsx
 git commit -m "feat: upload attachments through conversion boundary"
 ```
 
@@ -1110,7 +1215,27 @@ In `SkillPackManager.tsx`, add a file input inside the Materials panel:
 />
 ```
 
-Create `addFileResource` using a hook or direct mutation pattern matching `useAddSkillPackTextResource`. If using hooks, add `useAddSkillPackFileResource` to `apps/web/src/shell/state/useSkillPacks.ts`.
+In `apps/web/src/shell/state/useSkillPacks.ts`, add a hook matching the text
+resource mutation pattern:
+
+```ts
+export function useAddSkillPackFileResource(packId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ group, file }: { group: SkillPackResource["group"]; file: File }) => {
+      if (!packId) throw new Error("Pack id is required");
+      return api.addSkillPackFileResource(packId, group, file);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["skillPacks"] }),
+  });
+}
+```
+
+In `SkillPackManager.tsx`, create `addFileResource` with the hook:
+
+```ts
+const addFileResource = useAddSkillPackFileResource(packId);
+```
 
 - [ ] **Step 5: Run management tests**
 
@@ -1645,13 +1770,32 @@ In `docs/architecture/event-model.md`, add export rows:
 | backend export route writes `artifacts/*.pdf` | Export PDF |
 ```
 
+Insert the rows in the `## Semantic Projections` examples table immediately
+after:
+
+```markdown
+| run `export_docx.py` | Export DOCX |
+```
+
 In `docs/index.md`, add the new spec:
 
 ```markdown
 - `superpowers/specs/2026-05-17-markdown-import-export-pipeline-design.md`: import/export boundary design for Word/PDF while keeping Markdown internal.
 ```
 
-In `README.md`, update current implementation focus to say first Word/PDF boundary import/export is implemented after this plan.
+In `README.md`, under `Current active work should preserve the original product
+boundary while closing implementation gaps:`, replace:
+
+```markdown
+- make import, conversion reports, export, and skill-pack versioning durable;
+```
+
+with:
+
+```markdown
+- keep Markdown as the only internal format while supporting Word/PDF at import and export boundaries;
+- make conversion reports, export artifacts, and skill-pack versioning durable;
+```
 
 - [ ] **Step 2: Run final backend verification**
 
@@ -1676,15 +1820,25 @@ npm run build
 
 Expected: PASS. Existing Vite large-chunk warning is acceptable.
 
-- [ ] **Step 4: Run documentation structure check**
+- [ ] **Step 4: Run concrete documentation/file structure checks**
 
 Run:
 
 ```powershell
-Get-ChildItem -Recurse -File | Select-Object FullName | Out-Null
+$required = @(
+  "packages/conversion/docagent_conversion/importers.py",
+  "packages/conversion/docagent_conversion/exporters.py",
+  "tools/export/export_docx.py",
+  "tools/export/export_pdf.py",
+  "docs/superpowers/specs/2026-05-17-markdown-import-export-pipeline-design.md",
+  "docs/superpowers/plans/2026-05-17-markdown-import-export-pipeline.md"
+)
+$missing = $required | Where-Object { -not (Test-Path $_) }
+if ($missing) { throw "Missing required files: $($missing -join ', ')" }
+Get-ChildItem -Recurse -File | Select-Object FullName | Measure-Object | Out-Null
 ```
 
-Expected: exit code 0.
+Expected: exit code 0 and no missing-file exception.
 
 - [ ] **Step 5: Commit docs**
 
@@ -1704,7 +1858,14 @@ npm run test:unit -- --run
 npm run test
 npm run build
 cd ..\..
-Get-ChildItem -Recurse -File | Select-Object FullName | Out-Null
+$required = @(
+  "packages/conversion/docagent_conversion/importers.py",
+  "packages/conversion/docagent_conversion/exporters.py",
+  "tools/export/export_docx.py",
+  "tools/export/export_pdf.py"
+)
+$missing = $required | Where-Object { -not (Test-Path $_) }
+if ($missing) { throw "Missing required files: $($missing -join ', ')" }
 git status --short --branch
 ```
 
