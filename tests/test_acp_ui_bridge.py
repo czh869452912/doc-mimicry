@@ -17,7 +17,10 @@ def test_prepare_script_clones_upstream_and_applies_docagent_patch() -> None:
     assert "https://github.com/formulahendry/acp-ui.git" in script
     assert "docagent-query-bootstrap.patch" in script
     assert "Invoke-CheckedNative" in script
+    assert "Test-NativeCommand" in script
     assert "git -C $AcpUiDir apply --check --unidiff-zero $patchPath" in script
+    assert "Test-NativeCommand git -C $AcpUiDir apply --reverse --check --unidiff-zero $patchPath" in script
+    assert "2>$null" not in script
     assert "Push-Location $AcpUiDir" in script
     assert "npm install" in script
     assert "npm run dev:web -- --host 127.0.0.1 --port 4173" in script

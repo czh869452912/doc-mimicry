@@ -81,6 +81,12 @@ runtime URLs from the shell, `.env`, or `.env.local`. If
 exposed on `http://127.0.0.1:18001` for host checks. Set `OPENHANDS_HOST_PORT`
 or pass `-OpenHandsPort` if that host port is unavailable.
 
+OpenHands should prefer the local LiteLLM aliases when a provider has
+non-standard tool-loop requirements. For DeepSeek V4 style APIs, use
+`LLM_MODEL=openai/docagent/deepseek`; that alias sends
+`extra_body.thinking.type=disabled`, which avoids thinking-mode requests that
+require replaying `reasoning_content` on later tool-call turns.
+
 When `LLM_BASE_URL` points directly at an OpenAI-compatible provider rather
 than the local LiteLLM gateway, `LLM_MODEL` must include a LiteLLM provider
 prefix. For Moonshot/Kimi, use:

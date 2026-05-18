@@ -27,6 +27,25 @@ function Invoke-CheckedNative {
     }
 }
 
+function Test-NativeCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $FilePath @Arguments *> $null
+        return $LASTEXITCODE -eq 0
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+}
+
 if (-not (Test-Path $patchPath)) {
     throw "Patch file not found: $patchPath"
 }
@@ -41,8 +60,7 @@ if (-not (Test-Path (Join-Path $AcpUiDir ".git"))) {
     throw "ACP UI directory is not a git checkout: $AcpUiDir"
 }
 
-git -C $AcpUiDir apply --reverse --check --unidiff-zero $patchPath 2>$null
-if ($LASTEXITCODE -eq 0) {
+if (Test-NativeCommand git -C $AcpUiDir apply --reverse --check --unidiff-zero $patchPath) {
     Write-Host "DocAgent acp-ui bootstrap patch is already applied."
 } else {
     Invoke-CheckedNative git -C $AcpUiDir apply --check --unidiff-zero $patchPath

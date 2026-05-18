@@ -35,9 +35,11 @@ services:
       DOCAGENT_LITELLM_DEFAULT_MODEL: ${DOCAGENT_LITELLM_DEFAULT_MODEL:-openai/kimi-k2-0905-preview}
       DOCAGENT_LITELLM_FAST_MODEL: ${DOCAGENT_LITELLM_FAST_MODEL:-openai/kimi-k2-0905-preview}
       DOCAGENT_LITELLM_REASONING_MODEL: ${DOCAGENT_LITELLM_REASONING_MODEL:-openai/kimi-k2-0905-preview}
+      DOCAGENT_LITELLM_DEEPSEEK_MODEL: ${DOCAGENT_LITELLM_DEEPSEEK_MODEL:-openai/deepseek-v4-flash}
       DOCAGENT_LITELLM_DEFAULT_API_BASE: ${DOCAGENT_LITELLM_DEFAULT_API_BASE:-https://api.moonshot.cn/v1}
       DOCAGENT_LITELLM_FAST_API_BASE: ${DOCAGENT_LITELLM_FAST_API_BASE:-https://api.moonshot.cn/v1}
       DOCAGENT_LITELLM_REASONING_API_BASE: ${DOCAGENT_LITELLM_REASONING_API_BASE:-https://api.moonshot.cn/v1}
+      DOCAGENT_LITELLM_DEEPSEEK_API_BASE: ${DOCAGENT_LITELLM_DEEPSEEK_API_BASE:-https://api.deepseek.com/v1}
       DOCAGENT_LITELLM_REASONING_API_KEY: ${DOCAGENT_LITELLM_REASONING_API_KEY:-${OPENAI_API_KEY:-}}
     volumes:
       - type: bind
@@ -55,7 +57,7 @@ services:
     environment:
       OPENHANDS_SUPPRESS_BANNER: "1"
       LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
-      LLM_MODEL: ${LLM_MODEL:-docagent/default}
+      LLM_MODEL: ${LLM_MODEL:-openai/docagent/default}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
     volumes:
       - type: volume

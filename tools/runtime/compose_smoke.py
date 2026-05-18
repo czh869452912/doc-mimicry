@@ -28,7 +28,7 @@ def main() -> int:
     else:
         env.setdefault("DOCAGENT_ACP_CONTAINER_RUNTIME_URL", "http://openhands:8001")
         env.setdefault("LLM_API_KEY", "sk-docagent-local")
-        env.setdefault("LLM_MODEL", "docagent/default")
+        env.setdefault("LLM_MODEL", "openai/docagent/default")
         env.setdefault("LLM_BASE_URL", "http://litellm:4000")
 
     if not args.skip_up:

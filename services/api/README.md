@@ -76,7 +76,7 @@ OpenHands runs through LiteLLM Proxy by default in Docker Compose:
 
 ```powershell
 $env:LLM_BASE_URL = "http://litellm:4000"
-$env:LLM_MODEL = "docagent/default"
+$env:LLM_MODEL = "openai/docagent/default"
 $env:LLM_API_KEY = "sk-docagent-local"
 ```
 
@@ -85,6 +85,10 @@ Configure provider-backed LiteLLM aliases in `config/litellm.yaml` using `OPENAI
 `DOCAGENT_LITELLM_*_API_KEY` variables. Runtime
 configuration should target LiteLLM aliases; direct provider endpoints are not
 the supported product contract.
+For DeepSeek V4 style APIs, use `LLM_MODEL=openai/docagent/deepseek`; that
+alias disables provider-side thinking mode so OpenHands does not need to
+persist and replay provider-specific `reasoning_content` fields across tool
+calls.
 
 ## Smoke Tests
 

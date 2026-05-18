@@ -44,7 +44,10 @@ Provider-backed model traffic goes through LiteLLM at `http://litellm:4000`
 with model aliases such as `docagent/default`, `docagent/fast`, and
 `docagent/reasoning`. Set provider keys such as `OPENAI_API_KEY` or a
 provider-specific `DOCAGENT_LITELLM_REASONING_API_KEY` only for live runtime
-runs; mock runtime development does not need them.
+runs; mock runtime development does not need them. For DeepSeek V4 style APIs,
+use `LLM_MODEL=openai/docagent/deepseek`; that alias disables provider-side
+thinking mode because OpenHands tool loops do not round-trip DeepSeek's
+provider-specific `reasoning_content` field.
 
 To point OpenHands directly at an OpenAI-compatible provider instead of the
 local LiteLLM gateway, include the LiteLLM provider prefix in `LLM_MODEL`:

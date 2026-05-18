@@ -9,7 +9,7 @@ services:
       # Temporary OpenHands SDK compatibility alias; public runtime contract is DOCAGENT_ACP_RUNTIME_URL.
       OPENHANDS_BASE_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
-      LLM_MODEL: ${LLM_MODEL:-docagent/default}
+      LLM_MODEL: ${LLM_MODEL:-openai/docagent/default}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
     volumes:
       - ./services/api:/app/services/api
@@ -28,7 +28,7 @@ services:
       # Temporary OpenHands SDK compatibility alias; public runtime contract is DOCAGENT_ACP_RUNTIME_URL.
       OPENHANDS_BASE_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-sk-docagent-local}
-      LLM_MODEL: ${LLM_MODEL:-docagent/default}
+      LLM_MODEL: ${LLM_MODEL:-openai/docagent/default}
       LLM_BASE_URL: ${LLM_BASE_URL:-http://litellm:4000}
     volumes:
       - ./services/api:/app/services/api
