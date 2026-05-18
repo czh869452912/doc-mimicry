@@ -4,7 +4,8 @@ param(
     [string]$AcpRuntimeUrl,
     [string]$AcpContainerRuntimeUrl,
     [string]$AcpUiUrl,
-    [int]$OpenHandsPort = 8001,
+    [int]$ApiPort = 18000,
+    [int]$OpenHandsPort = 18001,
     [int]$AcpUiPort = 4173,
     [switch]$ExternalAcpUi,
     [switch]$NoBrowser
@@ -14,6 +15,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $logRoot = Join-Path $repoRoot ".local\dev"
+$openHandsContainerPort = 8001
 
 function Test-Command {
     param([Parameter(Mandatory = $true)][string]$Name)
@@ -142,13 +144,46 @@ New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 Import-LocalEnv (Join-Path $repoRoot ".env")
 Import-LocalEnv (Join-Path $repoRoot ".env.local")
 
+$openHandsPortWasProvided = $PSBoundParameters.ContainsKey("OpenHandsPort")
+$openHandsHostPortFromEnv = $false
+$apiPortWasProvided = $PSBoundParameters.ContainsKey("ApiPort")
+if (-not $apiPortWasProvided) {
+    $envApiHostPort = $env:API_HOST_PORT
+    if (-not [string]::IsNullOrWhiteSpace($envApiHostPort)) {
+        $parsedApiHostPort = 0
+        if (-not [int]::TryParse($envApiHostPort, [ref]$parsedApiHostPort)) {
+            throw "API_HOST_PORT must be an integer TCP port."
+        }
+        if ($parsedApiHostPort -lt 1 -or $parsedApiHostPort -gt 65535) {
+            throw "API_HOST_PORT must be between 1 and 65535."
+        }
+        $ApiPort = $parsedApiHostPort
+    }
+}
+if (-not $openHandsPortWasProvided) {
+    $envOpenHandsHostPort = $env:OPENHANDS_HOST_PORT
+    if (-not [string]::IsNullOrWhiteSpace($envOpenHandsHostPort)) {
+        $parsedOpenHandsHostPort = 0
+        if (-not [int]::TryParse($envOpenHandsHostPort, [ref]$parsedOpenHandsHostPort)) {
+            throw "OPENHANDS_HOST_PORT must be an integer TCP port."
+        }
+        if ($parsedOpenHandsHostPort -lt 1 -or $parsedOpenHandsHostPort -gt 65535) {
+            throw "OPENHANDS_HOST_PORT must be between 1 and 65535."
+        }
+        $OpenHandsPort = $parsedOpenHandsHostPort
+        $openHandsHostPortFromEnv = $true
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($Runtime)) {
     $Runtime = $env:DOCAGENT_RUNTIME
 }
 if ([string]::IsNullOrWhiteSpace($AcpRuntimeUrl)) {
-    $AcpRuntimeUrl = $env:DOCAGENT_ACP_RUNTIME_URL
-    if ([string]::IsNullOrWhiteSpace($AcpRuntimeUrl)) {
-        $AcpRuntimeUrl = $env:OPENHANDS_BASE_URL
+    if (-not $openHandsPortWasProvided -and -not $openHandsHostPortFromEnv) {
+        $AcpRuntimeUrl = $env:DOCAGENT_ACP_RUNTIME_URL
+        if ([string]::IsNullOrWhiteSpace($AcpRuntimeUrl)) {
+            $AcpRuntimeUrl = $env:OPENHANDS_BASE_URL
+        }
     }
 }
 if ([string]::IsNullOrWhiteSpace($AcpContainerRuntimeUrl)) {
@@ -165,7 +200,7 @@ if ($Runtime -eq "openhands") {
     $Runtime = "openhands-acp"
 }
 if ($Runtime -eq "openhands-acp" -and [string]::IsNullOrWhiteSpace($AcpContainerRuntimeUrl)) {
-    $AcpContainerRuntimeUrl = "http://openhands:$OpenHandsPort"
+    $AcpContainerRuntimeUrl = "http://openhands:$openHandsContainerPort"
 }
 if ($Runtime -ne "openhands-acp") {
     $AcpContainerRuntimeUrl = ""
@@ -182,6 +217,8 @@ try {
     $env:DOCAGENT_RUNTIME = $Runtime
     $env:DOCAGENT_QUEUE = "celery"
     $env:DOCAGENT_REPO_ROOT = "/app"
+    $env:API_HOST_PORT = "$ApiPort"
+    $env:OPENHANDS_HOST_PORT = "$OpenHandsPort"
     if ($Runtime -eq "openhands-acp" -and -not [string]::IsNullOrWhiteSpace($AcpRuntimeUrl)) {
         $env:DOCAGENT_ACP_RUNTIME_URL = $AcpRuntimeUrl
         $env:OPENHANDS_BASE_URL = $AcpRuntimeUrl
@@ -219,9 +256,9 @@ try {
         docker compose logs openhands --tail 80
         throw "OpenHands Agent Server did not become ready at $AcpRuntimeUrl. Check docker compose logs openhands."
     }
-    if (-not (Test-HttpReady "http://127.0.0.1:8000/health" 90)) {
+    if (-not (Test-HttpReady "http://127.0.0.1:$ApiPort/health" 90)) {
         docker compose logs api --tail 80
-        throw "API did not become ready at http://127.0.0.1:8000. Check docker compose logs api."
+        throw "API did not become ready at http://127.0.0.1:$ApiPort. Check docker compose logs api."
     }
     if (-not (Test-HttpReady "http://127.0.0.1:5173" 90)) {
         docker compose logs web --tail 80
@@ -236,7 +273,7 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($AcpUiUrl)) {
         Write-Host "External ACP UI: $AcpUiUrl"
     }
-    Write-Host "API: http://127.0.0.1:8000"
+    Write-Host "API: http://127.0.0.1:$ApiPort"
     Write-Host "Web: http://127.0.0.1:5173"
     Write-Host "Logs: docker compose logs -f api worker web"
     Write-Host "Stop: docker compose down"

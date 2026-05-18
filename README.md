@@ -29,7 +29,7 @@ On Windows, start the Phase 1 API and web app together with:
 .\start-dev.cmd
 ```
 
-The script uses Docker Compose to start Postgres, Redis, FastAPI, the Celery worker, and Vite. FastAPI is available on `http://127.0.0.1:8000`, and the web app is available on `http://127.0.0.1:5173`.
+The script uses Docker Compose to start Postgres, Redis, FastAPI, the Celery worker, and Vite. FastAPI is available on `http://127.0.0.1:18000`, and the web app is available on `http://127.0.0.1:5173`.
 
 To start the same stack with the OpenHands runtime adapter selected:
 
@@ -38,7 +38,7 @@ To start the same stack with the OpenHands runtime adapter selected:
 ```
 
 The script starts the OpenHands Agent Server as a Docker Compose service,
-exposes it on `http://127.0.0.1:8001`, and connects API/worker containers to it
+exposes it on `http://127.0.0.1:18001`, and connects API/worker containers to it
 through the ACP runtime adapter with the shared workspace volume mounted.
 Provider-backed model traffic goes through LiteLLM at `http://litellm:4000`
 with model aliases such as `docagent/default`, `docagent/fast`, and
@@ -76,7 +76,7 @@ The OpenHands end-to-end smoke is opt-in and requires a reachable Agent Server p
 
 ```powershell
 $env:DOCAGENT_RUNTIME = "openhands-acp"
-$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:18001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 python tools/runtime/openhands_smoke.py
 ```

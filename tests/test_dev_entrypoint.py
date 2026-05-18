@@ -40,7 +40,7 @@ def test_dev_entrypoint_supports_openhands_runtime() -> None:
     assert 'Import-LocalEnv (Join-Path $repoRoot ".env.local")' in dev_script
     assert "AcpContainerRuntimeUrl" in dev_script
     assert "docker compose --profile openhands up -d --build postgres redis openhands api worker web" in dev_script
-    assert "http://openhands:$OpenHandsPort" in dev_script
+    assert "http://openhands:$openHandsContainerPort" in dev_script
     assert "openhands.agent_server" in compose
     assert "VITE_ACP_UI_URL: ${VITE_ACP_UI_URL:-}" in compose
     assert 'DOCAGENT_RUN_MIGRATIONS: "1"' in compose
@@ -112,6 +112,33 @@ def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     assert "DOCAGENT_ACP_RUNTIME_URL: ${DOCAGENT_ACP_CONTAINER_RUNTIME_URL:-}" in override
 
 
+def test_openhands_host_port_can_avoid_windows_excluded_ranges() -> None:
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "[int]$OpenHandsPort = 18001" in dev_script
+    assert '$env:OPENHANDS_HOST_PORT = "$OpenHandsPort"' in dev_script
+    assert "http://openhands:$openHandsContainerPort" in dev_script
+    assert '"${OPENHANDS_HOST_PORT:-18001}:8001"' in compose
+    assert "OPENHANDS_HOST_PORT=18001" in env_example
+    assert "DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:18001" in env_example
+    assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001" in env_example
+
+
+def test_api_host_port_can_avoid_windows_excluded_ranges() -> None:
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+    compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "[int]$ApiPort = 18000" in dev_script
+    assert '$env:API_HOST_PORT = "$ApiPort"' in dev_script
+    assert '"${API_HOST_PORT:-18000}:8000"' in compose
+    assert "API_HOST_PORT=18000" in env_example
+    assert "VITE_API_BASE=http://localhost:18000" in env_example
+    assert "http://127.0.0.1:$ApiPort/health" in dev_script
+
+
 def test_compose_worker_uses_single_process_for_nonresumable_openhands_client() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
@@ -169,7 +196,7 @@ def test_runtime_env_contract_uses_acp_runtime_names() -> None:
     override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")
 
     assert "DOCAGENT_RUNTIME=mock-acp" in env_example
-    assert "DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001" in env_example
+    assert "DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:18001" in env_example
     assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001" in env_example
     assert "OPENHANDS_CONTAINER_BASE_URL" not in env_example
     assert "DOCAGENT_ACP_RUNTIME_URL" in override
@@ -225,6 +252,7 @@ def test_compose_smoke_uses_openhands_profile_for_openhands_runtime() -> None:
     assert '"--profile", "openhands"' in smoke
     assert '"openhands-acp"' in smoke
     assert "DOCAGENT_ACP_CONTAINER_RUNTIME_URL" in smoke
+    assert '"http://127.0.0.1:18000"' in smoke
 
 
 def test_compose_smoke_checks_acp_events_not_legacy_timeline() -> None:

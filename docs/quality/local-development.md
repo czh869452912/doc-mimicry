@@ -26,7 +26,7 @@ The startup script must:
 - build the API and web Docker images when needed;
 - set runtime environment variables for the API and worker containers;
 - use Postgres for product state and Redis/Celery for background jobs;
-- use `http://127.0.0.1:8000` for the API and `http://127.0.0.1:5173` for the web app;
+- use `http://127.0.0.1:18000` for the API and `http://127.0.0.1:5173` for the web app;
 - keep existing package-level run commands usable for CI and debugging.
 
 The script must not:
@@ -60,7 +60,7 @@ build args. `-ExternalAcpUi` sets `VITE_ACP_UI_URL=http://127.0.0.1:4173/`,
 prepares `.local/reference/acp-ui`, and starts the upstream ACP client before
 building the web service.
 
-Use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:8001` for host-side smoke tests.
+Use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:18001` for host-side smoke tests.
 Use `DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001` for Compose
 services. When `DOCAGENT_RUNTIME=mock-acp`, the startup script clears host and
 container ACP runtime URLs from the process environment before invoking Compose.
@@ -78,7 +78,8 @@ To start with the OpenHands adapter selected:
 The script reads `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, and optional ACP
 runtime URLs from the shell, `.env`, or `.env.local`. If
 `DOCAGENT_ACP_RUNTIME_URL` is omitted, the Compose OpenHands service is still
-exposed on `http://127.0.0.1:8001` for host checks.
+exposed on `http://127.0.0.1:18001` for host checks. Set `OPENHANDS_HOST_PORT`
+or pass `-OpenHandsPort` if that host port is unavailable.
 
 When `LLM_BASE_URL` points directly at an OpenAI-compatible provider rather
 than the local LiteLLM gateway, `LLM_MODEL` must include a LiteLLM provider
@@ -134,7 +135,7 @@ credentials:
 
 ```powershell
 $env:DOCAGENT_RUNTIME = "openhands-acp"
-$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:8001"
+$env:DOCAGENT_ACP_RUNTIME_URL = "http://127.0.0.1:18001"
 $env:DATABASE_URL = "postgresql+psycopg2://docagent:docagent@localhost:5432/docagent"
 python tools/runtime/openhands_smoke.py
 ```

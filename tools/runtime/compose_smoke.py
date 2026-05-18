@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke test the Docker Compose API/web stack.")
     parser.add_argument("--runtime", default="mock-acp", choices=["mock", "mock-acp", "openhands", "openhands-acp"])
-    parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--api-url", default="http://127.0.0.1:18000")
     parser.add_argument("--web-url", default="http://127.0.0.1:5173")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--skip-up", action="store_true", help="Use already-running compose services.")
