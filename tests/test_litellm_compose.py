@@ -35,3 +35,24 @@ def test_litellm_reasoning_alias_has_provider_specific_api_key() -> None:
     assert aliases["docagent/default"]["api_key"] == "${OPENAI_API_KEY}"
     assert aliases["docagent/fast"]["api_key"] == "${OPENAI_API_KEY}"
     assert aliases["docagent/reasoning"]["api_key"] == "${DOCAGENT_LITELLM_REASONING_API_KEY}"
+
+
+def test_litellm_aliases_can_target_openai_compatible_api_base() -> None:
+    config = yaml.safe_load((ROOT / "config" / "litellm.yaml").read_text(encoding="utf-8"))
+    aliases = {entry["model_name"]: entry["litellm_params"] for entry in config["model_list"]}
+
+    assert aliases["docagent/default"]["api_base"] == "${DOCAGENT_LITELLM_DEFAULT_API_BASE}"
+    assert aliases["docagent/fast"]["api_base"] == "${DOCAGENT_LITELLM_FAST_API_BASE}"
+    assert aliases["docagent/reasoning"]["api_base"] == "${DOCAGENT_LITELLM_REASONING_API_BASE}"
+
+
+def test_env_example_defaults_litellm_aliases_to_kimi() -> None:
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+
+    assert "OPENAI_API_KEY=PASTE_KIMI_API_KEY_HERE" in env_example
+    assert "DOCAGENT_LITELLM_DEFAULT_MODEL=openai/kimi-k2-0905-preview" in env_example
+    assert "DOCAGENT_LITELLM_FAST_MODEL=openai/kimi-k2-0905-preview" in env_example
+    assert "DOCAGENT_LITELLM_REASONING_MODEL=openai/kimi-k2-0905-preview" in env_example
+    assert "DOCAGENT_LITELLM_DEFAULT_API_BASE=https://api.moonshot.cn/v1" in env_example
+    assert "DOCAGENT_LITELLM_FAST_API_BASE=https://api.moonshot.cn/v1" in env_example
+    assert "DOCAGENT_LITELLM_REASONING_API_BASE=https://api.moonshot.cn/v1" in env_example

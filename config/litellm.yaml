@@ -1,16 +1,19 @@
 model_list:
   - model_name: docagent/default
     litellm_params:
-      model: ${DOCAGENT_LITELLM_DEFAULT_MODEL:-openai/gpt-4o-mini}
+      model: ${DOCAGENT_LITELLM_DEFAULT_MODEL:-openai/kimi-k2-0905-preview}
       api_key: ${OPENAI_API_KEY}
+      api_base: ${DOCAGENT_LITELLM_DEFAULT_API_BASE}
   - model_name: docagent/fast
     litellm_params:
-      model: ${DOCAGENT_LITELLM_FAST_MODEL:-openai/gpt-4o-mini}
+      model: ${DOCAGENT_LITELLM_FAST_MODEL:-openai/kimi-k2-0905-preview}
       api_key: ${OPENAI_API_KEY}
+      api_base: ${DOCAGENT_LITELLM_FAST_API_BASE}
   - model_name: docagent/reasoning
     litellm_params:
-      model: ${DOCAGENT_LITELLM_REASONING_MODEL:-openai/gpt-4o}
+      model: ${DOCAGENT_LITELLM_REASONING_MODEL:-openai/kimi-k2-0905-preview}
       api_key: ${DOCAGENT_LITELLM_REASONING_API_KEY}
+      api_base: ${DOCAGENT_LITELLM_REASONING_API_BASE}
 
 general_settings:
   master_key: ${LITELLM_MASTER_KEY}
