@@ -101,6 +101,20 @@ def test_dev_entrypoint_can_prepare_external_acp_ui_for_compose_web() -> None:
     assert "-ExternalAcpUi" in dev_docs
 
 
+def test_external_acp_ui_can_be_enabled_from_env_file() -> None:
+    dev_script = (ROOT / "scripts" / "dev.ps1").read_text(encoding="utf-8")
+    env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "EXTERNAL_ACP_UI=false" in env_example
+    assert "ACP_UI_PORT=4173" in env_example
+    assert "$envExternalAcpUi = $env:EXTERNAL_ACP_UI" in dev_script
+    assert "$envAcpUiPort = $env:ACP_UI_PORT" in dev_script
+    assert "EXTERNAL_ACP_UI must be one of" in dev_script
+    assert "$ExternalAcpUi = $true" in dev_script
+    assert "EXTERNAL_ACP_UI=true" in readme
+
+
 def test_compose_defines_openhands_service_with_shared_workspace() -> None:
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
     override = (ROOT / "docker-compose.override.yml").read_text(encoding="utf-8")

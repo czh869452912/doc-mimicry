@@ -147,6 +147,8 @@ Import-LocalEnv (Join-Path $repoRoot ".env.local")
 $openHandsPortWasProvided = $PSBoundParameters.ContainsKey("OpenHandsPort")
 $openHandsHostPortFromEnv = $false
 $apiPortWasProvided = $PSBoundParameters.ContainsKey("ApiPort")
+$acpUiPortWasProvided = $PSBoundParameters.ContainsKey("AcpUiPort")
+$externalAcpUiWasProvided = $PSBoundParameters.ContainsKey("ExternalAcpUi")
 if (-not $apiPortWasProvided) {
     $envApiHostPort = $env:API_HOST_PORT
     if (-not [string]::IsNullOrWhiteSpace($envApiHostPort)) {
@@ -158,6 +160,32 @@ if (-not $apiPortWasProvided) {
             throw "API_HOST_PORT must be between 1 and 65535."
         }
         $ApiPort = $parsedApiHostPort
+    }
+}
+if (-not $acpUiPortWasProvided) {
+    $envAcpUiPort = $env:ACP_UI_PORT
+    if (-not [string]::IsNullOrWhiteSpace($envAcpUiPort)) {
+        $parsedAcpUiPort = 0
+        if (-not [int]::TryParse($envAcpUiPort, [ref]$parsedAcpUiPort)) {
+            throw "ACP_UI_PORT must be an integer TCP port."
+        }
+        if ($parsedAcpUiPort -lt 1 -or $parsedAcpUiPort -gt 65535) {
+            throw "ACP_UI_PORT must be between 1 and 65535."
+        }
+        $AcpUiPort = $parsedAcpUiPort
+    }
+}
+if (-not $externalAcpUiWasProvided) {
+    $envExternalAcpUi = $env:EXTERNAL_ACP_UI
+    if (-not [string]::IsNullOrWhiteSpace($envExternalAcpUi)) {
+        $normalizedExternalAcpUi = $envExternalAcpUi.Trim().ToLowerInvariant()
+        if (@("1", "true", "yes", "on") -contains $normalizedExternalAcpUi) {
+            $ExternalAcpUi = $true
+        } elseif (@("0", "false", "no", "off") -contains $normalizedExternalAcpUi) {
+            $ExternalAcpUi = $false
+        } else {
+            throw "EXTERNAL_ACP_UI must be one of true, false, 1, 0, yes, no, on, or off."
+        }
     }
 }
 if (-not $openHandsPortWasProvided) {

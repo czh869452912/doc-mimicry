@@ -63,6 +63,14 @@ agent pane, add `-ExternalAcpUi`:
 .\start-dev.cmd -Runtime openhands-acp -ExternalAcpUi
 ```
 
+Or set the same behavior in `.env`:
+
+```dotenv
+EXTERNAL_ACP_UI=true
+ACP_UI_PORT=4173
+VITE_ACP_UI_URL=
+```
+
 The script prepares the ignored `.local/reference/acp-ui` checkout, starts it
 on `http://127.0.0.1:4173`, and builds the web app with that iframe URL.
 

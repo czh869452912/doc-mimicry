@@ -56,9 +56,9 @@ win over both files, and `.env.local` only fills values that were not already
 set by the shell or `.env`.
 
 The web Docker image receives `VITE_API_BASE` and optional `VITE_ACP_UI_URL` as
-build args. `-ExternalAcpUi` sets `VITE_ACP_UI_URL=http://127.0.0.1:4173/`,
-prepares `.local/reference/acp-ui`, and starts the upstream ACP client before
-building the web service.
+build args. `-ExternalAcpUi` or `EXTERNAL_ACP_UI=true` sets
+`VITE_ACP_UI_URL=http://127.0.0.1:4173/`, prepares `.local/reference/acp-ui`,
+and starts the upstream ACP client before building the web service.
 
 Use `DOCAGENT_ACP_RUNTIME_URL=http://127.0.0.1:18001` for host-side smoke tests.
 Use `DOCAGENT_ACP_CONTAINER_RUNTIME_URL=http://openhands:8001` for Compose
