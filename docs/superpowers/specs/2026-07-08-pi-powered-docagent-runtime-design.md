@@ -99,12 +99,20 @@ DocAgent Web UI
       -> DocAgent Pi Extension
       -> Task Workspace
       -> Skill Pack Context
+      -> LiteLLM Model Gateway
 ```
 
 The runtime host can initially be a Node service colocated with the product
 backend. A subprocess RPC adapter remains a fallback for process isolation or a
 Python-only deployment, but the preferred implementation is the Pi SDK because
 it gives direct typed access to session events and lifecycle controls.
+
+Pi model traffic should continue to route through the product-managed LiteLLM
+gateway. The Pi runtime host configures Pi model definitions to target LiteLLM
+base URLs and DocAgent model aliases such as `docagent/default`,
+`docagent/fast`, and `docagent/reasoning`. This preserves centralized provider
+credential handling, model routing, cost tracking, and provider-specific
+behavior such as disabling unsupported thinking modes for tool loops.
 
 ## Component Boundaries
 
@@ -146,10 +154,14 @@ Responsibilities:
 
 - create or resume a Pi session for a task workspace;
 - configure Pi `cwd` to the task workspace;
+- configure Pi model definitions to use the LiteLLM gateway and DocAgent model
+  aliases;
 - inject DocAgent system prompt, current skill pack, and workspace contract;
 - register DocAgent tools and extension commands;
-- stream Pi events to the shell API or directly to the web UI through an
-  authenticated channel;
+- normalize Pi events into a versioned DocAgent UI event stream before exposing
+  them to the browser;
+- stream normalized events to the shell API or directly to the web UI through
+  an authenticated channel;
 - expose prompt, steer, follow-up, abort, compact, and session stats.
 
 ### DocAgent Pi Extension
@@ -165,8 +177,8 @@ Initial tools and commands:
 - create draft checkpoints;
 - request outline approval;
 - run checklist review;
-- request DOCX/PDF export through the shell API or write export requests under
-  workspace artifacts;
+- write export request files such as `artifacts/export_request.json` for the
+  product shell or file watcher to process;
 - report workspace contract violations.
 
 Commands may include:
@@ -207,19 +219,79 @@ history. If enterprise audit requires database-backed retention, the database
 copy should be explicitly documented as an index or archive of Pi session JSONL,
 not the live source of truth.
 
+The first implementation should store the Pi session JSONL inside the task
+workspace under `logs/session.jsonl`. This keeps task workspaces portable and
+consistent with the existing workspace contract. DocAgent records the path in
+task/session metadata for lookup.
+
+For audit and tamper resistance, the runtime host or shell API should append
+session entries to an immutable archive as they are produced. That archive may
+be a database table or secure object storage, but it is read-only from the
+product perspective. The active Pi JSONL remains the live runtime truth; the
+archive is a compliance and recovery record.
+
+## Normalized Event Contract
+
+The browser should not consume raw Pi SDK events directly. Pi events are
+agent-centric and may change as Pi evolves. The Pi runtime host should publish a
+small, versioned DocAgent event contract.
+
+Initial shape:
+
+```yaml
+schema_version: 1
+id: string
+session_id: string
+sequence: number
+kind:
+  user_message
+  assistant_delta
+  assistant_message
+  tool_start
+  tool_update
+  tool_end
+  file_read
+  file_write
+  approval_request
+  approval_response
+  status
+  error
+role: user | assistant | tool | system
+status: pending | running | succeeded | failed | cancelled
+text: string | null
+tool:
+  id: string | null
+  name: string | null
+paths: string[]
+projection:
+  card_kind: outline | checkpoint | checklist | artifact | null
+  summary: string | null
+created_at: IsoDateTime
+raw_ref:
+  pi_session_path: string
+  pi_entry_id: string | null
+```
+
+The UI may render product cards from `projection.card_kind`, but the event list
+itself remains the center-pane source. Raw Pi payloads should stay behind
+debug/audit affordances rather than becoming a frontend dependency.
+
 ## Authoring Flow
 
 1. User creates a DocAgent task.
 2. DocAgent creates a workspace with `brief.md`, input folders, context folders,
    draft folders, versions, reviews, artifacts, and logs.
-3. Runtime host creates a Pi session with `cwd` set to the task workspace.
+3. Runtime host creates a Pi session with `cwd` set to the task workspace and
+   session persistence set to `logs/session.jsonl`.
 4. Runtime host injects the DocAgent core prompt, workspace contract, current
    skill-pack guidance, and converted resource indexes.
 5. User sends a prompt or runs `/start-outline`.
-6. Pi streams assistant, tool, and file activity.
-7. DocAgent UI renders normalized event cards and refreshes draft/workspace
+6. Pi streams assistant, tool, and file activity through the runtime host.
+7. The runtime host publishes normalized DocAgent events and appends audit
+   archive records.
+8. DocAgent UI renders normalized event cards and refreshes draft/workspace
    views from file changes.
-8. User can steer, follow up, abort, approve, revise locally, checkpoint, or
+9. User can steer, follow up, abort, approve, revise locally, checkpoint, or
    export.
 
 ## Migration Strategy
@@ -232,6 +304,9 @@ Scope:
 
 - one task maps to one Pi session;
 - Pi session runs in the task workspace;
+- Pi session JSONL lives at `logs/session.jsonl`;
+- Pi model traffic routes through LiteLLM aliases;
+- Pi events are normalized into the versioned DocAgent event contract;
 - prompt, abort, steer, and event stream are exposed;
 - DocAgent UI can show assistant text, tool calls, and draft file writes;
 - no skill-pack management migration yet.
@@ -241,6 +316,12 @@ Success case:
 ```text
 brief -> context files -> outline -> approval -> draft -> revision -> checkpoint
 ```
+
+Additional validation:
+
+- local test CLI can prompt, steer, abort, and resume the Pi session;
+- normalized event stream is stable without raw Pi SDK event coupling;
+- audit archive receives append-only session records.
 
 ### Phase 2: DocAgent Extension
 
@@ -262,7 +343,8 @@ Retire OpenHands as a supported runtime path once Pi covers the authoring loop.
 Scope:
 
 - remove or archive OpenHands adapter code;
-- remove ACP as the authoring timeline source;
+- archive ACP as an authoring timeline source immediately after the Phase 1 Pi
+  spike is validated;
 - remove Celery runtime worker paths if Pi runtime host owns long-running
   sessions;
 - keep conversion/export workers only where they serve document processing.
@@ -283,10 +365,12 @@ Scope:
 Runtime host tests:
 
 - create Pi session for a workspace;
+- configure Pi models through LiteLLM aliases;
 - stream message and tool events;
 - abort a running prompt;
 - steer while streaming;
 - resume from a Pi session file;
+- append to audit archive while session JSONL remains the live truth;
 - map file writes to workspace invalidation hints.
 
 Extension tests:
@@ -301,6 +385,7 @@ Product integration tests:
 - authoring loop creates required context files before `draft/draft.md`;
 - outline approval continues the same Pi session;
 - local draft edit plus checkpoint remains visible to Pi;
+- export request file triggers product-owned DOCX/PDF export;
 - export creates DOCX/PDF artifacts without asking the agent to format Word
   directly.
 
@@ -308,6 +393,7 @@ Regression tests:
 
 - no new OpenHands dependency in authoring runtime;
 - center pane does not consume ACP events as its primary source;
+- center pane does not consume raw Pi SDK events as its primary source;
 - DocAgent product state can be rebuilt from workspace files plus Pi session
   pointer.
 
@@ -324,27 +410,48 @@ Duplicating Pi sessions into DocAgent event tables would recreate the current
 ACP/projection complexity. The design avoids that by treating DocAgent database
 rows as indexes and product metadata.
 
+The exception is immutable audit archival. Audit records may mirror Pi JSONL
+entries for compliance and tamper resistance, but product code should treat
+that archive as read-only history, not the live session state.
+
 ### Product-Specific UI Needs
 
 Pi events are agent-centric. DocAgent still needs document-centric cards and
 preview invalidation. Use a small normalized event mapper at the runtime host
 boundary rather than a broad protocol layer.
 
+### Model Gateway Drift
+
+Allowing Pi to talk directly to providers would bypass DocAgent's current model
+gateway decision. The runtime host must configure Pi to use LiteLLM aliases by
+default and tests should fail if the authoring runtime requires direct provider
+endpoints.
+
 ### Extension Overreach
 
 Putting all product state in a Pi extension would make management workflows hard
 to reason about. Keep extensions focused on agent-facing document actions.
 
-## Open Questions
+## Resolved Design Defaults
 
-- Should the first runtime host be a Node service using the Pi SDK, or a Python
-  subprocess adapter using `pi --mode rpc`?
-- Should Pi session JSONL live inside each task workspace under `logs/` or in a
-  DocAgent-managed session directory with pointers from tasks?
-- Should export tools call the DocAgent shell API or write export request files
-  that a product worker consumes?
-- Should the old ACP event table be archived immediately after the Pi spike, or
-  kept for a short compatibility window?
+- First runtime host: Node service using the Pi SDK.
+- Model gateway: Pi talks to LiteLLM aliases, not direct provider endpoints.
+- Pi session location: task workspace `logs/session.jsonl`.
+- Browser event source: versioned DocAgent-normalized Pi event stream.
+- Export tool behavior: write workspace export request files for product-owned
+  workers to consume.
+- Audit: append session entries to an immutable archive while keeping Pi JSONL
+  as the live runtime truth.
+- ACP retirement: archive ACP as an authoring timeline source immediately after
+  the Phase 1 Pi runtime spike is validated.
+
+## Remaining Open Questions
+
+- Should the audit archive be a database table, secure object storage, or both?
+- Should the Pi runtime host stream directly to the browser, or stream through
+  the shell API to keep a single web-facing backend?
+- How should the product expose Pi session tree and branch operations in the
+  document workbench UI?
 
 ## Recommendation
 
@@ -355,3 +462,8 @@ agent semantic owner and keep the surrounding app responsible for product
 authority and UI. It also avoids the heaviest current DocAgent problem: a custom
 agent runtime protocol wrapped around a runtime that was not designed to be a
 light document authoring core.
+
+The Phase 1 plan should begin by defining the normalized event schema, building
+the thin Node runtime host against LiteLLM-backed Pi model definitions, and
+validating prompt, steer, abort, and resume through a local test CLI before
+touching broader product workflows.
